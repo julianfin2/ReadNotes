@@ -173,7 +173,7 @@ button {
   display: grid;
   height: 100vh;
   min-height: 0;
-  grid-template-columns: 232px minmax(300px, 380px) minmax(0, 1fr);
+  grid-template-columns: 232px minmax(280px, 340px) minmax(0, 1fr);
   overflow: hidden;
 }
 
@@ -468,6 +468,7 @@ select:focus {
   cursor: pointer;
   font-weight: 700;
   line-height: 1;
+  white-space: nowrap;
 }
 
 .primary-action {
@@ -617,6 +618,8 @@ select:focus {
 .topic-list,
 .node-list {
   display: grid;
+  align-content: start;
+  grid-auto-rows: max-content;
   gap: 8px;
   margin-top: 18px;
 }
@@ -630,6 +633,7 @@ select:focus {
 .topic-selector,
 .node-selector {
   display: flex;
+  align-items: center;
   justify-content: space-between;
   gap: 10px;
   min-height: 40px;
@@ -646,6 +650,10 @@ select:focus {
 .node-editor {
   display: grid;
   gap: 10px;
+}
+
+.topic-selector-block {
+  align-content: start;
 }
 
 .plain-selector {
@@ -679,7 +687,7 @@ select:focus {
 
 .topic-workspace-grid {
   display: grid;
-  grid-template-columns: minmax(260px, 340px) minmax(0, 1fr);
+  grid-template-columns: minmax(240px, 300px) minmax(360px, 1fr);
   gap: 18px;
   align-items: stretch;
   min-height: 0;

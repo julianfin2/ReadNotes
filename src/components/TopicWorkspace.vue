@@ -410,7 +410,7 @@ async function runSaving(task: () => Promise<void>) {
       <button
         v-for="topic in topics"
         :key="topic.id"
-        class="topic-selector topic-selector-block"
+        class="topic-selector"
         :class="{ active: topic.id === selectedTopicId }"
         type="button"
         @click="selectedTopicId = topic.id"
