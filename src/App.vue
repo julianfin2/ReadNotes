@@ -373,6 +373,22 @@ select:focus {
   line-height: 1;
 }
 
+.quiet-action {
+  justify-self: start;
+  min-height: 28px;
+  padding: 0;
+  background: transparent;
+  color: #2e6f62;
+  cursor: pointer;
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+.quiet-action:hover {
+  color: #214f46;
+  text-decoration: underline;
+}
+
 .primary-action {
   background: #2e6f62;
   color: white;

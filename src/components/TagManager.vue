@@ -180,14 +180,6 @@ async function runSaving(task: () => Promise<void>) {
           <small>{{ tag.excerptCount }} 条</small>
         </button>
         <p v-if="tag.parentId" class="reflection">父标签：#{{ parentLabel(tag) }}</p>
-        <div class="action-row">
-          <button class="secondary-action" type="button" @click.stop="startEditing(tag)">
-            编辑
-          </button>
-          <button class="danger-action" type="button" @click.stop="deleteTag(tag.id)">
-            删除
-          </button>
-        </div>
       </div>
     </div>
 
@@ -196,10 +188,24 @@ async function runSaving(task: () => Promise<void>) {
   </section>
 
   <section class="workspace-panel">
-    <div class="section-heading">
-      <p class="eyebrow">Tagged excerpts</p>
-      <h2>{{ selectedTagName ? `#${selectedTagName}` : "标签摘抄" }}</h2>
-    </div>
+    <header class="page-header">
+      <div>
+        <p class="eyebrow">Tagged excerpts</p>
+        <h2>{{ selectedTagName ? `#${selectedTagName}` : "标签摘抄" }}</h2>
+        <p v-if="selectedTag" class="subtle-text">
+          {{ selectedTag.excerptCount }} 条摘抄
+          <span v-if="selectedTag.parentId"> / 父标签 #{{ parentLabel(selectedTag) }}</span>
+        </p>
+      </div>
+      <div v-if="selectedTag" class="toolbar">
+        <button class="secondary-action" type="button" @click="startEditing(selectedTag)">
+          编辑标签
+        </button>
+        <button class="danger-action" type="button" @click="deleteTag(selectedTag.id)">
+          删除标签
+        </button>
+      </div>
+    </header>
 
     <div class="excerpt-list">
       <article v-for="excerpt in excerpts" :key="excerpt.id" class="excerpt-card">
