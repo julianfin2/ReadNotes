@@ -5,6 +5,7 @@ use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 use uuid::Uuid;
 
 use crate::db::AppState;
+use crate::tag::{list_tags_for_excerpt, replace_excerpt_tags, Tag};
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -18,6 +19,7 @@ pub struct Excerpt {
     pub status: String,
     pub created_at: String,
     pub updated_at: String,
+    pub tags: Vec<Tag>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -29,6 +31,7 @@ pub struct CreateExcerptRequest {
     pub location: Option<String>,
     pub importance: Option<i64>,
     pub status: Option<String>,
+    pub tag_names: Option<Vec<String>>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -51,15 +54,20 @@ pub fn create_excerpt(
     let quote = normalize_required_text(input.quote, "quote")?;
     let importance = validate_importance(input.importance.unwrap_or(3))?;
     let status = validate_status(input.status.as_deref().unwrap_or("inbox"))?;
+    let tag_names = input.tag_names.unwrap_or_default();
     let now = now_rfc3339()?;
     let id = Uuid::new_v4().to_string();
 
-    let connection = state
+    let mut connection = state
         .db
         .lock()
         .map_err(|_| "database lock was poisoned".to_string())?;
 
-    connection
+    let transaction = connection
+        .transaction()
+        .map_err(|error| format!("failed to start excerpt transaction: {error}"))?;
+
+    transaction
         .execute(
             "
             INSERT INTO excerpts (
@@ -81,6 +89,12 @@ pub fn create_excerpt(
             ],
         )
         .map_err(|error| format!("failed to create excerpt: {error}"))?;
+
+    replace_excerpt_tags(&transaction, &id, tag_names)?;
+
+    transaction
+        .commit()
+        .map_err(|error| format!("failed to save excerpt: {error}"))?;
 
     get_excerpt_by_id(&connection, &id)
 }
@@ -108,8 +122,15 @@ pub fn list_excerpts(state: State<'_, AppState>) -> Result<Vec<Excerpt>, String>
         .query_map([], map_excerpt_row)
         .map_err(|error| format!("failed to list excerpts: {error}"))?;
 
-    rows.collect::<Result<Vec<_>, _>>()
-        .map_err(|error| format!("failed to read excerpts: {error}"))
+    let mut excerpts = rows
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|error| format!("failed to read excerpts: {error}"))?;
+
+    for excerpt in &mut excerpts {
+        excerpt.tags = list_tags_for_excerpt(&connection, &excerpt.id)?;
+    }
+
+    Ok(excerpts)
 }
 
 #[tauri::command]
@@ -215,7 +236,7 @@ fn set_excerpt_status(
 }
 
 fn get_excerpt_by_id(connection: &Connection, id: &str) -> Result<Excerpt, String> {
-    connection
+    let mut excerpt = connection
         .query_row(
             "
             SELECT
@@ -227,7 +248,10 @@ fn get_excerpt_by_id(connection: &Connection, id: &str) -> Result<Excerpt, Strin
             params![id],
             map_excerpt_row,
         )
-        .map_err(|error| format!("failed to find excerpt: {error}"))
+        .map_err(|error| format!("failed to find excerpt: {error}"))?;
+
+    excerpt.tags = list_tags_for_excerpt(connection, &excerpt.id)?;
+    Ok(excerpt)
 }
 
 fn map_excerpt_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Excerpt> {
@@ -241,6 +265,7 @@ fn map_excerpt_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Excerpt> {
         status: row.get(6)?,
         created_at: row.get(7)?,
         updated_at: row.get(8)?,
+        tags: Vec::new(),
     })
 }
 

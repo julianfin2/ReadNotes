@@ -133,6 +133,8 @@ fn run_migrations(connection: &Connection) -> Result<(), String> {
             CREATE INDEX IF NOT EXISTS idx_excerpts_created_at ON excerpts(created_at);
             CREATE INDEX IF NOT EXISTS idx_excerpts_updated_at ON excerpts(updated_at);
             CREATE INDEX IF NOT EXISTS idx_excerpts_status ON excerpts(status);
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_tags_name_nocase ON tags(name COLLATE NOCASE);
+            CREATE INDEX IF NOT EXISTS idx_tags_parent_id ON tags(parent_id);
             CREATE INDEX IF NOT EXISTS idx_topic_nodes_topic_id ON topic_nodes(topic_id);
             CREATE INDEX IF NOT EXISTS idx_topic_excerpts_topic_id ON topic_excerpts(topic_id);
             CREATE INDEX IF NOT EXISTS idx_topic_excerpts_excerpt_id ON topic_excerpts(excerpt_id);

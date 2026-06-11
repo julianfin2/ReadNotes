@@ -1,5 +1,6 @@
 mod db;
 mod excerpt;
+mod tag;
 
 use tauri::Manager;
 
@@ -18,7 +19,13 @@ pub fn run() {
             excerpt::delete_excerpt,
             excerpt::get_database_path,
             excerpt::list_excerpts,
-            excerpt::update_excerpt
+            excerpt::update_excerpt,
+            tag::create_tag,
+            tag::delete_tag,
+            tag::list_excerpt_tags,
+            tag::list_tags,
+            tag::set_excerpt_tags,
+            tag::update_tag
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

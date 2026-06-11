@@ -12,12 +12,22 @@ type Excerpt = {
   status: "inbox" | "processed" | "archived";
   createdAt: string;
   updatedAt: string;
+  tags: Tag[];
+};
+
+type Tag = {
+  id: string;
+  name: string;
+  parentId?: string | null;
+  color?: string | null;
+  createdAt: string;
 };
 
 const excerpts = ref<Excerpt[]>([]);
 const quote = ref("");
 const reflection = ref("");
 const location = ref("");
+const tagInput = ref("");
 const importance = ref(3);
 const databasePath = ref("");
 const errorMessage = ref("");
@@ -46,12 +56,14 @@ async function createExcerpt() {
         reflection: reflection.value,
         location: location.value,
         importance: importance.value,
+        tagNames: parseTagInput(tagInput.value),
       },
     });
 
     quote.value = "";
     reflection.value = "";
     location.value = "";
+    tagInput.value = "";
     importance.value = 3;
     await loadExcerpts();
   } catch (error) {
@@ -59,6 +71,13 @@ async function createExcerpt() {
   } finally {
     isSaving.value = false;
   }
+}
+
+function parseTagInput(value: string) {
+  return value
+    .split(/[\s,，#]+/)
+    .map((tag) => tag.trim())
+    .filter(Boolean);
 }
 </script>
 
@@ -95,6 +114,11 @@ async function createExcerpt() {
           <textarea v-model="reflection" rows="5" placeholder="写下此刻的理解" />
         </label>
 
+        <label>
+          标签
+          <input v-model="tagInput" placeholder="例如：人性 写作素材 #焦虑" />
+        </label>
+
         <div class="field-row">
           <label>
             位置
@@ -127,6 +151,11 @@ async function createExcerpt() {
         <article v-for="excerpt in excerpts" :key="excerpt.id" class="excerpt-card">
           <blockquote>{{ excerpt.quote }}</blockquote>
           <p v-if="excerpt.reflection" class="reflection">{{ excerpt.reflection }}</p>
+          <div v-if="excerpt.tags.length > 0" class="tag-row">
+            <span v-for="tag in excerpt.tags" :key="tag.id" class="tag-pill">
+              #{{ tag.name }}
+            </span>
+          </div>
           <footer>
             <span>重要性 {{ excerpt.importance }}</span>
             <span>{{ excerpt.status }}</span>
@@ -347,6 +376,23 @@ blockquote {
 .reflection {
   margin: 0;
   color: #49585d;
+}
+
+.tag-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tag-pill {
+  max-width: 100%;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: #e8eee6;
+  color: #2e6f62;
+  font-size: 0.78rem;
+  font-weight: 700;
+  overflow-wrap: anywhere;
 }
 
 footer {

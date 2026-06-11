@@ -401,3 +401,12 @@ Modes:
 - Keep the model source-agnostic. Manual entry is the primary input path.
 - Avoid making tags and topic nodes share the same table unless a clear need emerges. Their product meaning is different.
 - Preserve timestamps on link objects, not only on main records, because "when this excerpt entered this topic" matters.
+
+## Current Implementation Status
+
+- SQLite initialization and first schema migration are implemented in the Tauri backend.
+- Excerpt CRUD is implemented and exposed through Tauri commands.
+- Global tag CRUD is implemented and exposed through Tauri commands.
+- Excerpts can be linked to global tags through `excerpt_tags`.
+- Quick capture supports inline tag names. Missing tags are created automatically during excerpt creation.
+- Topic, topic node, topic excerpt, source work, and note workflows are still design-only.
