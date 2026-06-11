@@ -130,8 +130,33 @@ fn run_migrations(connection: &Connection) -> Result<(), String> {
               updated_at TEXT NOT NULL
             );
 
+            CREATE VIRTUAL TABLE IF NOT EXISTS excerpt_search USING fts5(
+              quote,
+              reflection,
+              content='excerpts',
+              content_rowid='rowid'
+            );
+
+            CREATE TRIGGER IF NOT EXISTS excerpts_ai AFTER INSERT ON excerpts BEGIN
+              INSERT INTO excerpt_search(rowid, quote, reflection)
+              VALUES (new.rowid, new.quote, new.reflection);
+            END;
+
+            CREATE TRIGGER IF NOT EXISTS excerpts_ad AFTER DELETE ON excerpts BEGIN
+              INSERT INTO excerpt_search(excerpt_search, rowid, quote, reflection)
+              VALUES ('delete', old.rowid, old.quote, old.reflection);
+            END;
+
+            CREATE TRIGGER IF NOT EXISTS excerpts_au AFTER UPDATE ON excerpts BEGIN
+              INSERT INTO excerpt_search(excerpt_search, rowid, quote, reflection)
+              VALUES ('delete', old.rowid, old.quote, old.reflection);
+              INSERT INTO excerpt_search(rowid, quote, reflection)
+              VALUES (new.rowid, new.quote, new.reflection);
+            END;
+
             CREATE INDEX IF NOT EXISTS idx_excerpts_created_at ON excerpts(created_at);
             CREATE INDEX IF NOT EXISTS idx_excerpts_updated_at ON excerpts(updated_at);
+            CREATE INDEX IF NOT EXISTS idx_excerpts_importance ON excerpts(importance);
             CREATE INDEX IF NOT EXISTS idx_excerpts_status ON excerpts(status);
             CREATE UNIQUE INDEX IF NOT EXISTS idx_tags_name_nocase ON tags(name COLLATE NOCASE);
             CREATE INDEX IF NOT EXISTS idx_tags_parent_id ON tags(parent_id);
@@ -142,6 +167,17 @@ fn run_migrations(connection: &Connection) -> Result<(), String> {
             ",
         )
         .map_err(|error| format!("failed to run database migrations: {error}"))?;
+
+    connection
+        .execute_batch(
+            "
+            INSERT INTO excerpt_search(rowid, quote, reflection)
+            SELECT rowid, quote, reflection
+            FROM excerpts
+            WHERE rowid NOT IN (SELECT rowid FROM excerpt_search);
+            ",
+        )
+        .map_err(|error| format!("failed to backfill excerpt search index: {error}"))?;
 
     Ok(())
 }

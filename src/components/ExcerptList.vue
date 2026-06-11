@@ -1,9 +1,39 @@
 <script setup lang="ts">
-import type { Excerpt } from "../types/excerpt";
+import { reactive } from "vue";
+import type { Excerpt, ExcerptFilters } from "../types/excerpt";
+import type { Tag } from "../types/tag";
 
 defineProps<{
   excerpts: Excerpt[];
+  tags: Tag[];
 }>();
+
+const emit = defineEmits<{
+  applyFilters: [filters: ExcerptFilters];
+}>();
+
+const filters = reactive<ExcerptFilters>({
+  search: "",
+  tagName: "",
+  status: "",
+  minImportance: null,
+  sortBy: "createdAt",
+  sortDirection: "desc",
+});
+
+function applyFilters() {
+  emit("applyFilters", { ...filters });
+}
+
+function resetFilters() {
+  filters.search = "";
+  filters.tagName = "";
+  filters.status = "";
+  filters.minImportance = null;
+  filters.sortBy = "createdAt";
+  filters.sortDirection = "desc";
+  applyFilters();
+}
 </script>
 
 <template>
@@ -12,6 +42,58 @@ defineProps<{
       <p class="eyebrow">Library</p>
       <h2>{{ excerpts.length }} 条摘抄</h2>
     </div>
+
+    <form class="filter-bar" @submit.prevent="applyFilters">
+      <label>
+        搜索
+        <input v-model="filters.search" placeholder="搜索原文或初始理解" />
+      </label>
+
+      <label>
+        标签
+        <select v-model="filters.tagName">
+          <option value="">全部标签</option>
+          <option v-for="tag in tags" :key="tag.id" :value="tag.name">
+            #{{ tag.name }}
+          </option>
+        </select>
+      </label>
+
+      <label>
+        状态
+        <select v-model="filters.status">
+          <option value="">全部状态</option>
+          <option value="inbox">inbox</option>
+          <option value="processed">processed</option>
+          <option value="archived">archived</option>
+        </select>
+      </label>
+
+      <label>
+        最低重要性
+        <input v-model.number="filters.minImportance" max="5" min="1" type="number" />
+      </label>
+
+      <label>
+        排序
+        <select v-model="filters.sortBy">
+          <option value="createdAt">创建时间</option>
+          <option value="updatedAt">更新时间</option>
+          <option value="importance">重要性</option>
+        </select>
+      </label>
+
+      <label>
+        方向
+        <select v-model="filters.sortDirection">
+          <option value="desc">降序</option>
+          <option value="asc">升序</option>
+        </select>
+      </label>
+
+      <button class="primary-action" type="submit">筛选</button>
+      <button class="secondary-action" type="button" @click="resetFilters">清空</button>
+    </form>
 
     <div class="excerpt-list">
       <article v-for="excerpt in excerpts" :key="excerpt.id" class="excerpt-card">

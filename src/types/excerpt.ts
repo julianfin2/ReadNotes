@@ -12,3 +12,12 @@ export type Excerpt = {
   updatedAt: string;
   tags: Tag[];
 };
+
+export type ExcerptFilters = {
+  search: string;
+  tagName: string;
+  status: "" | "inbox" | "processed" | "archived";
+  minImportance: number | null;
+  sortBy: "createdAt" | "updatedAt" | "importance";
+  sortDirection: "asc" | "desc";
+};

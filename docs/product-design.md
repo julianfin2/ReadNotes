@@ -412,4 +412,5 @@ Modes:
 - Topic, topic node, and topic excerpt link CRUD is implemented and exposed through Tauri commands.
 - The frontend is split into focused components under `src/components` and shared types under `src/types`.
 - A minimal topic workspace exists for creating topics, creating first-level topic nodes, and collecting existing excerpts into topics.
+- Excerpt library search and filtering is implemented with SQLite FTS for quote/reflection search, tag filtering, status filtering, minimum importance, and configurable sorting.
 - Source work and note workflows are still design-only.

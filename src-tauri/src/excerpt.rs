@@ -1,4 +1,4 @@
-use rusqlite::{params, Connection};
+use rusqlite::{params, params_from_iter, Connection, ToSql};
 use serde::{Deserialize, Serialize};
 use tauri::State;
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
@@ -44,6 +44,17 @@ pub struct UpdateExcerptRequest {
     pub location: Option<String>,
     pub importance: i64,
     pub status: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ListExcerptsRequest {
+    pub search: Option<String>,
+    pub tag_name: Option<String>,
+    pub status: Option<String>,
+    pub min_importance: Option<i64>,
+    pub sort_by: Option<String>,
+    pub sort_direction: Option<String>,
 }
 
 #[tauri::command]
@@ -100,26 +111,82 @@ pub fn create_excerpt(
 }
 
 #[tauri::command]
-pub fn list_excerpts(state: State<'_, AppState>) -> Result<Vec<Excerpt>, String> {
+pub fn list_excerpts(
+    state: State<'_, AppState>,
+    input: Option<ListExcerptsRequest>,
+) -> Result<Vec<Excerpt>, String> {
     let connection = state
         .db
         .lock()
         .map_err(|_| "database lock was poisoned".to_string())?;
+    let input = input.unwrap_or_default();
+    let mut clauses = Vec::new();
+    let mut parameter_values = Vec::new();
+
+    if let Some(search) = normalize_optional_text(input.search) {
+        clauses.push(
+            "excerpts.rowid IN (
+                SELECT rowid FROM excerpt_search WHERE excerpt_search MATCH ?
+            )"
+            .to_string(),
+        );
+        parameter_values.push(to_fts_query(&search));
+    }
+
+    if let Some(tag_name) = normalize_optional_text(input.tag_name) {
+        clauses.push(
+            "EXISTS (
+                SELECT 1
+                FROM excerpt_tags
+                INNER JOIN tags ON tags.id = excerpt_tags.tag_id
+                WHERE excerpt_tags.excerpt_id = excerpts.id
+                  AND lower(tags.name) = lower(?)
+            )"
+            .to_string(),
+        );
+        parameter_values.push(tag_name.trim_start_matches('#').to_string());
+    }
+
+    if let Some(status) = input.status {
+        let status = validate_status(&status)?;
+        clauses.push("excerpts.status = ?".to_string());
+        parameter_values.push(status);
+    }
+
+    if let Some(min_importance) = input.min_importance {
+        let min_importance = validate_importance(min_importance)?;
+        clauses.push("excerpts.importance >= ?".to_string());
+        parameter_values.push(min_importance.to_string());
+    }
+
+    let where_clause = if clauses.is_empty() {
+        String::new()
+    } else {
+        format!("WHERE {}", clauses.join(" AND "))
+    };
+    let order_clause =
+        build_order_clause(input.sort_by.as_deref(), input.sort_direction.as_deref())?;
+    let query = format!(
+        "
+        SELECT
+          id, quote, reflection, source_work_id, location,
+          importance, status, created_at, updated_at
+        FROM excerpts
+        {where_clause}
+        {order_clause}
+        "
+    );
+    let parameters: Vec<&dyn ToSql> = parameter_values
+        .iter()
+        .map(|value| value as &dyn ToSql)
+        .collect();
 
     let mut statement = connection
-        .prepare(
-            "
-            SELECT
-              id, quote, reflection, source_work_id, location,
-              importance, status, created_at, updated_at
-            FROM excerpts
-            ORDER BY created_at DESC
-            ",
-        )
+        .prepare(&query)
         .map_err(|error| format!("failed to prepare excerpt list: {error}"))?;
 
     let rows = statement
-        .query_map([], map_excerpt_row)
+        .query_map(params_from_iter(parameters), map_excerpt_row)
         .map_err(|error| format!("failed to list excerpts: {error}"))?;
 
     let mut excerpts = rows
@@ -131,6 +198,19 @@ pub fn list_excerpts(state: State<'_, AppState>) -> Result<Vec<Excerpt>, String>
     }
 
     Ok(excerpts)
+}
+
+impl Default for ListExcerptsRequest {
+    fn default() -> Self {
+        Self {
+            search: None,
+            tag_name: None,
+            status: None,
+            min_importance: None,
+            sort_by: Some("createdAt".to_string()),
+            sort_direction: Some("desc".to_string()),
+        }
+    }
 }
 
 #[tauri::command]
@@ -289,6 +369,17 @@ fn empty_to_none(value: Option<String>) -> Option<String> {
     })
 }
 
+fn normalize_optional_text(value: Option<String>) -> Option<String> {
+    value.and_then(|text| {
+        let trimmed = text.trim().to_string();
+        if trimmed.is_empty() {
+            None
+        } else {
+            Some(trimmed)
+        }
+    })
+}
+
 fn validate_importance(value: i64) -> Result<i64, String> {
     if (1..=5).contains(&value) {
         Ok(value)
@@ -302,6 +393,36 @@ fn validate_status(value: &str) -> Result<String, String> {
         "inbox" | "processed" | "archived" => Ok(value.to_string()),
         _ => Err("status must be inbox, processed, or archived".to_string()),
     }
+}
+
+fn build_order_clause(
+    sort_by: Option<&str>,
+    sort_direction: Option<&str>,
+) -> Result<String, String> {
+    let column = match sort_by.unwrap_or("createdAt") {
+        "createdAt" => "created_at",
+        "updatedAt" => "updated_at",
+        "importance" => "importance",
+        _ => return Err("sortBy must be createdAt, updatedAt, or importance".to_string()),
+    };
+    let direction = match sort_direction.unwrap_or("desc") {
+        "asc" => "ASC",
+        "desc" => "DESC",
+        _ => return Err("sortDirection must be asc or desc".to_string()),
+    };
+
+    Ok(format!("ORDER BY {column} {direction}, created_at DESC"))
+}
+
+fn to_fts_query(value: &str) -> String {
+    value
+        .split_whitespace()
+        .map(|term| {
+            let escaped = term.replace('"', "\"\"");
+            format!("\"{escaped}\"")
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
 }
 
 fn now_rfc3339() -> Result<String, String> {

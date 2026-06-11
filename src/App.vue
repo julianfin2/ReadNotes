@@ -5,26 +5,34 @@ import AppSidebar from "./components/AppSidebar.vue";
 import ExcerptCapture from "./components/ExcerptCapture.vue";
 import ExcerptList from "./components/ExcerptList.vue";
 import TopicWorkspace from "./components/TopicWorkspace.vue";
-import type { Excerpt } from "./types/excerpt";
+import type { Excerpt, ExcerptFilters } from "./types/excerpt";
+import type { Tag } from "./types/tag";
 
 type ViewKey = "excerpts" | "topics" | "tags" | "timeline";
 
 const activeView = ref<ViewKey>("excerpts");
 const excerpts = ref<Excerpt[]>([]);
+const tags = ref<Tag[]>([]);
 const databasePath = ref("");
 const errorMessage = ref("");
 const isSaving = ref(false);
 
 onMounted(async () => {
-  await Promise.all([loadDatabasePath(), loadExcerpts()]);
+  await Promise.all([loadDatabasePath(), loadExcerpts(), loadTags()]);
 });
 
 async function loadDatabasePath() {
   databasePath.value = await invoke<string>("get_database_path");
 }
 
-async function loadExcerpts() {
-  excerpts.value = await invoke<Excerpt[]>("list_excerpts");
+async function loadExcerpts(filters?: ExcerptFilters) {
+  excerpts.value = await invoke<Excerpt[]>("list_excerpts", {
+    input: filters ? toExcerptQuery(filters) : null,
+  });
+}
+
+async function loadTags() {
+  tags.value = await invoke<Tag[]>("list_tags");
 }
 
 async function createExcerpt(input: {
@@ -39,12 +47,23 @@ async function createExcerpt(input: {
 
   try {
     await invoke<Excerpt>("create_excerpt", { input });
-    await loadExcerpts();
+    await Promise.all([loadExcerpts(), loadTags()]);
   } catch (error) {
     errorMessage.value = String(error);
   } finally {
     isSaving.value = false;
   }
+}
+
+function toExcerptQuery(filters: ExcerptFilters) {
+  return {
+    search: filters.search || null,
+    tagName: filters.tagName || null,
+    status: filters.status || null,
+    minImportance: filters.minImportance || null,
+    sortBy: filters.sortBy,
+    sortDirection: filters.sortDirection,
+  };
 }
 </script>
 
@@ -59,7 +78,7 @@ async function createExcerpt(input: {
         :is-saving="isSaving"
         @create-excerpt="createExcerpt"
       />
-      <ExcerptList :excerpts="excerpts" />
+      <ExcerptList :excerpts="excerpts" :tags="tags" @apply-filters="loadExcerpts" />
     </template>
 
     <TopicWorkspace v-else-if="activeView === 'topics'" :excerpts="excerpts" />
@@ -207,6 +226,19 @@ form,
 .stack {
   display: grid;
   gap: 16px;
+}
+
+.filter-bar {
+  display: grid;
+  grid-template-columns: minmax(180px, 1.4fr) repeat(5, minmax(110px, 1fr));
+  gap: 12px;
+  align-items: end;
+  margin-bottom: 18px;
+}
+
+.filter-bar .primary-action,
+.filter-bar .secondary-action {
+  min-height: 40px;
 }
 
 label {
@@ -399,6 +431,10 @@ footer,
   }
 
   .topic-workspace-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .filter-bar {
     grid-template-columns: 1fr;
   }
 }
