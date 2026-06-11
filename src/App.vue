@@ -561,6 +561,12 @@ select:focus {
   background: #e8eee6;
 }
 
+.topic-selector:focus-visible,
+.node-selector:focus-visible {
+  outline: 2px solid #2e6f62;
+  outline-offset: 2px;
+}
+
 .topic-selector small {
   color: #7a817f;
 }

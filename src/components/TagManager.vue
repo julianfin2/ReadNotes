@@ -169,17 +169,22 @@ async function runSaving(task: () => Promise<void>) {
         :key="tag.id"
         class="topic-selector topic-selector-block"
         :class="{ active: tag.name === selectedTagName }"
+        role="button"
+        tabindex="0"
+        @click="loadExcerptsForTag(tag.name)"
+        @keydown.enter="loadExcerptsForTag(tag.name)"
+        @keydown.space.prevent="loadExcerptsForTag(tag.name)"
       >
-        <button class="plain-selector" type="button" @click="loadExcerptsForTag(tag.name)">
+        <button class="plain-selector" type="button" @click.stop="loadExcerptsForTag(tag.name)">
           <span>#{{ tag.name }}</span>
           <small>{{ tag.excerptCount }} 条</small>
         </button>
         <p v-if="tag.parentId" class="reflection">父标签：#{{ parentLabel(tag) }}</p>
         <div class="action-row">
-          <button class="secondary-action" type="button" @click="startEditing(tag)">
+          <button class="secondary-action" type="button" @click.stop="startEditing(tag)">
             编辑
           </button>
-          <button class="danger-action" type="button" @click="deleteTag(tag.id)">
+          <button class="danger-action" type="button" @click.stop="deleteTag(tag.id)">
             删除
           </button>
         </div>
