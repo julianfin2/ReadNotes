@@ -109,7 +109,8 @@ function toExcerptQuery(filters: ExcerptFilters) {
   <main class="app-shell">
     <AppSidebar :active-view="activeView" @select-view="activeView = $event" />
 
-    <template v-if="activeView === 'excerpts'">
+    <section class="app-main-frame">
+      <template v-if="activeView === 'excerpts'">
       <p v-if="errorMessage" class="app-error">{{ errorMessage }}</p>
       <ExcerptList
         :excerpts="excerpts"
@@ -121,16 +122,17 @@ function toExcerptQuery(filters: ExcerptFilters) {
         @delete-excerpt="deleteExcerpt"
         @update-excerpt="updateExcerpt"
       />
-    </template>
+      </template>
 
-    <TopicWorkspace v-else-if="activeView === 'topics'" :excerpts="excerpts" />
+      <TopicWorkspace v-else-if="activeView === 'topics'" :excerpts="excerpts" />
 
-    <TagManager v-else-if="activeView === 'tags'" />
+      <TagManager v-else-if="activeView === 'tags'" />
 
-    <TimelineView v-else-if="activeView === 'timeline'" :excerpts="excerpts" />
+      <TimelineView v-else-if="activeView === 'timeline'" :excerpts="excerpts" />
 
-    <section v-else class="workspace-panel">
-      <p class="empty-state">这个视图还没有实现。</p>
+      <section v-else class="workspace-panel">
+        <p class="empty-state">这个视图还没有实现。</p>
+      </section>
     </section>
   </main>
 </template>
@@ -173,8 +175,19 @@ button {
   display: grid;
   height: 100vh;
   min-height: 0;
-  grid-template-columns: 232px minmax(280px, 340px) minmax(0, 1fr);
+  grid-template-columns: 232px minmax(0, 1fr);
   overflow: hidden;
+}
+
+.app-main-frame {
+  display: grid;
+  grid-template-columns: minmax(280px, 340px) minmax(0, 1fr);
+  gap: 28px;
+  min-width: 0;
+  min-height: 0;
+  padding: 28px;
+  overflow: hidden;
+  background: #f4f1ea;
 }
 
 .sidebar {
@@ -247,7 +260,7 @@ nav {
 .library-panel,
 .topic-panel,
 .workspace-panel {
-  padding: 28px;
+  padding: 0;
   min-width: 0;
   min-height: 0;
 }
@@ -259,7 +272,7 @@ nav {
 }
 
 .page-panel {
-  grid-column: 2 / -1;
+  grid-column: 1 / -1;
   min-width: 0;
 }
 
@@ -837,6 +850,12 @@ footer,
     height: auto;
     min-height: 100vh;
     grid-template-columns: 1fr;
+    overflow: visible;
+  }
+
+  .app-main-frame {
+    grid-template-columns: 1fr;
+    padding: 20px;
     overflow: visible;
   }
 
