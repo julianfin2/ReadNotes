@@ -4,6 +4,7 @@ import { invoke } from "@tauri-apps/api/core";
 import AppSidebar from "./components/AppSidebar.vue";
 import ExcerptCapture from "./components/ExcerptCapture.vue";
 import ExcerptList from "./components/ExcerptList.vue";
+import TimelineView from "./components/TimelineView.vue";
 import TopicWorkspace from "./components/TopicWorkspace.vue";
 import type { Excerpt, ExcerptFilters } from "./types/excerpt";
 import type { Tag } from "./types/tag";
@@ -82,6 +83,8 @@ function toExcerptQuery(filters: ExcerptFilters) {
     </template>
 
     <TopicWorkspace v-else-if="activeView === 'topics'" :excerpts="excerpts" />
+
+    <TimelineView v-else-if="activeView === 'timeline'" :excerpts="excerpts" />
 
     <section v-else class="workspace-panel">
       <p class="empty-state">这个视图还没有实现。</p>
@@ -368,6 +371,45 @@ select:focus {
   gap: 18px;
 }
 
+.timeline-filter {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(160px, 1fr)) 96px 96px;
+  gap: 12px;
+  align-items: end;
+  margin-bottom: 20px;
+}
+
+.timeline-list {
+  display: grid;
+  gap: 14px;
+}
+
+.timeline-card {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  gap: 14px;
+}
+
+.timeline-marker {
+  align-self: start;
+  padding: 5px 8px;
+  border-radius: 999px;
+  background: #e8eee6;
+  color: #2e6f62;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.timeline-content {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid #ded7ca;
+  border-radius: 8px;
+  background: #fffdf9;
+}
+
 blockquote {
   margin: 0;
   padding-left: 14px;
@@ -435,6 +477,11 @@ footer,
   }
 
   .filter-bar {
+    grid-template-columns: 1fr;
+  }
+
+  .timeline-filter,
+  .timeline-card {
     grid-template-columns: 1fr;
   }
 }

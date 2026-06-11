@@ -33,7 +33,13 @@ defineEmits<{
         主题
       </button>
       <button class="nav-item" disabled>标签</button>
-      <button class="nav-item" disabled>时间线</button>
+      <button
+        class="nav-item"
+        :class="{ active: activeView === 'timeline' }"
+        @click="$emit('selectView', 'timeline')"
+      >
+        时间线
+      </button>
     </nav>
   </aside>
 </template>

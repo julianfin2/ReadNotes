@@ -164,6 +164,7 @@ fn run_migrations(connection: &Connection) -> Result<(), String> {
             CREATE INDEX IF NOT EXISTS idx_topic_excerpts_topic_id ON topic_excerpts(topic_id);
             CREATE INDEX IF NOT EXISTS idx_topic_excerpts_excerpt_id ON topic_excerpts(excerpt_id);
             CREATE INDEX IF NOT EXISTS idx_notes_target ON notes(target_type, target_id);
+            CREATE INDEX IF NOT EXISTS idx_notes_created_at ON notes(created_at);
             ",
         )
         .map_err(|error| format!("failed to run database migrations: {error}"))?;
