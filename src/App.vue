@@ -168,7 +168,7 @@ button {
 
 .app-main-frame {
   display: grid;
-  grid-template-columns: minmax(0, 1fr);
+  grid-template-columns: minmax(260px, 300px) minmax(0, 1fr);
   gap: 28px;
   min-width: 0;
   min-height: 0;
@@ -261,14 +261,11 @@ nav {
 .page-panel {
   grid-column: 1 / -1;
   min-width: 0;
-  min-height: 0;
 }
 
 .desktop-view {
   display: flex;
   flex-direction: column;
-  height: 100%;
-  min-height: 0;
   overflow: hidden;
 }
 
@@ -283,8 +280,8 @@ nav {
 .desktop-side-pane {
   display: flex;
   flex-direction: column;
-  align-self: stretch;
-  min-height: 0;
+  align-self: start;
+  max-height: 100%;
   padding: 16px;
   border: 1px solid #ded7ca;
   border-radius: 8px;
@@ -316,8 +313,7 @@ nav {
 }
 
 .topic-switcher {
-  flex: 1 1 0;
-  min-width: 0;
+  width: min(260px, 100%);
 }
 
 .filter-chip-row {
@@ -329,6 +325,7 @@ nav {
 }
 
 .filter-chip {
+  max-width: 260px;
   padding: 3px 8px;
   border-radius: 999px;
   background: #e8eee6;
@@ -385,18 +382,17 @@ form,
 
 .split-workspace {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+  grid-template-columns: minmax(280px, 340px) minmax(0, 1fr);
   gap: 16px;
   min-height: 0;
 }
 
 .library-workbench .split-workspace {
-  grid-template-columns: minmax(0, 1fr) minmax(0, 2.2fr);
+  grid-template-columns: minmax(300px, 340px) minmax(520px, 1fr);
 }
 
 .list-pane,
 .detail-pane {
-  min-width: 0;
   min-height: 0;
   border: 1px solid #ded7ca;
   border-radius: 8px;
@@ -443,6 +439,7 @@ form,
   display: grid;
   gap: 16px;
   width: 100%;
+  max-width: none;
   padding: 20px 22px;
   border: 1px solid #ded7ca;
   border-radius: 8px;
@@ -595,10 +592,10 @@ select:focus {
 
 .app-error {
   position: fixed;
-  left: 20px;
   right: 20px;
   bottom: 20px;
   z-index: 2;
+  max-width: min(420px, calc(100vw - 40px));
   margin: 0;
   padding: 10px 12px;
   border: 1px solid #d9a29c;
@@ -619,11 +616,8 @@ select:focus {
 }
 
 .modal-panel {
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-  height: 100%;
-  min-height: 0;
+  width: min(760px, 100%);
+  max-height: min(860px, calc(100vh - 48px));
   overflow: hidden;
   border: 1px solid #d6cfc2;
   border-radius: 8px;
@@ -641,8 +635,7 @@ select:focus {
 }
 
 .modal-body {
-  flex: 1 1 auto;
-  min-height: 0;
+  max-height: calc(100vh - 138px);
   overflow: auto;
   padding: 20px;
 }
@@ -784,7 +777,7 @@ select:focus {
 
 .topic-workspace-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+  grid-template-columns: minmax(280px, 340px) minmax(0, 1fr);
   gap: 18px;
   align-items: stretch;
   min-height: 0;
@@ -809,20 +802,13 @@ select:focus {
 .context-section {
   display: grid;
   gap: 12px;
-  min-width: 0;
   padding: 16px;
   border: 1px solid #ded7ca;
   border-radius: 8px;
   background: #fffdf9;
 }
 
-.topic-context-pane > .context-section:not(.material-context-section) {
-  flex: 0 0 auto;
-}
-
 .material-context-section {
-  flex: 1 1 auto;
-  grid-template-rows: auto auto minmax(0, 1fr) auto;
   min-height: 0;
 }
 
@@ -854,6 +840,7 @@ select:focus {
 
 .topic-detail-pane .reading-body {
   width: 100%;
+  max-width: none;
 }
 
 .document-detail-pane {
@@ -875,34 +862,34 @@ select:focus {
 
 .document-detail-pane .document-scroll {
   flex: 1 1 auto;
+  height: auto;
   min-height: 0;
-  padding: 24px 26px;
-  border: 1px solid #ded7ca;
-  border-radius: 8px;
-  background: #fffdf9;
+  padding: 0;
   overflow: auto;
 }
 
 .document-detail-pane .document-body,
 .document-detail-pane .inline-editor-body {
   width: 100%;
+  max-width: none;
   min-height: 100%;
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
+  padding: 24px 26px;
 }
 
 .document-detail-pane .document-body blockquote,
 .document-detail-pane .document-body .reflection,
 .document-detail-pane .document-body .tag-row {
   width: 100%;
+  max-width: none;
 }
 
 .document-detail-pane .inline-editor-body {
   display: grid;
   align-content: start;
   gap: 16px;
+  border: 1px solid #ded7ca;
+  border-radius: 8px;
+  background: #fffdf9;
 }
 
 .document-detail-pane .inline-editor-body textarea {
@@ -910,7 +897,7 @@ select:focus {
 }
 
 .document-detail-pane.is-editing .document-header,
-.document-detail-pane.is-editing .document-scroll {
+.document-detail-pane.is-editing .inline-editor-body {
   border-color: #bfd0c8;
   background: #fbfdf9;
 }
@@ -991,6 +978,7 @@ blockquote {
 }
 
 .tag-pill {
+  max-width: 100%;
   padding: 3px 8px;
   border-radius: 999px;
   background: #e8eee6;
