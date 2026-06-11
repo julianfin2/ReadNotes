@@ -20,7 +20,6 @@ const nodeModalOpen = ref(false);
 const addExcerptModalOpen = ref(false);
 const editTopicModalOpen = ref(false);
 const editNodeModalOpen = ref(false);
-const editTopicExcerptModalOpen = ref(false);
 const confirmModalOpen = ref(false);
 const editingTopicId = ref("");
 const editingNodeId = ref("");
@@ -89,6 +88,38 @@ const selectedTopicExcerpt = computed(() =>
     (topicExcerpt) => topicExcerpt.id === selectedTopicExcerptId.value,
   ) || null,
 );
+
+const isEditingSelectedTopicExcerpt = computed(() => {
+  return Boolean(
+    selectedTopicExcerpt.value &&
+      selectedTopicExcerpt.value.id === editingTopicExcerptId.value &&
+      editingTopicExcerpts[editingTopicExcerptId.value],
+  );
+});
+
+const isTopicExcerptEditDirty = computed(() => {
+  const topicExcerpt = selectedTopicExcerpt.value;
+
+  if (!topicExcerpt || topicExcerpt.id !== editingTopicExcerptId.value) {
+    return false;
+  }
+
+  const draft = editingTopicExcerpts[topicExcerpt.id];
+  if (!draft) {
+    return false;
+  }
+
+  return (
+    draft.nodeId !== (topicExcerpt.nodeId || "") ||
+    draft.reason !== (topicExcerpt.reason || "") ||
+    draft.topicReflection !== (topicExcerpt.topicReflection || "") ||
+    draft.sortOrder !== topicExcerpt.sortOrder
+  );
+});
+
+const canSaveTopicExcerptEdit = computed(() => {
+  return isTopicExcerptEditDirty.value && !isSaving.value;
+});
 
 onMounted(async () => {
   await loadTopics();
@@ -299,7 +330,7 @@ async function addExcerptToTopic() {
 
 async function updateTopicExcerpt(topicExcerptId: string) {
   const draft = editingTopicExcerpts[topicExcerptId];
-  if (!draft || !selectedTopicId.value) {
+  if (!draft || !selectedTopicId.value || !canSaveTopicExcerptEdit.value) {
     return;
   }
 
@@ -316,7 +347,6 @@ async function updateTopicExcerpt(topicExcerptId: string) {
 
     delete editingTopicExcerpts[topicExcerptId];
     editingTopicExcerptId.value = "";
-    editTopicExcerptModalOpen.value = false;
     await loadTopicExcerpts(selectedTopicId.value);
   });
 }
@@ -362,7 +392,6 @@ function startEditingTopicExcerpt(topicExcerpt: TopicExcerpt) {
     topicReflection: topicExcerpt.topicReflection || "",
     sortOrder: topicExcerpt.sortOrder,
   };
-  editTopicExcerptModalOpen.value = true;
 }
 
 function cancelEditingTopic(topicId: string) {
@@ -378,9 +407,11 @@ function cancelEditingNode(nodeId: string) {
 }
 
 function cancelEditingTopicExcerpt(topicExcerptId: string) {
-  delete editingTopicExcerpts[topicExcerptId];
-  editingTopicExcerptId.value = "";
-  editTopicExcerptModalOpen.value = false;
+  if (!topicExcerptId || topicExcerptId !== editingTopicExcerptId.value) {
+    return;
+  }
+
+  discardTopicExcerptEditing();
 }
 
 function requestConfirmation(title: string, message: string, action: ConfirmAction) {
@@ -414,7 +445,42 @@ function requestRemoveTopicExcerpt(topicExcerpt: TopicExcerpt) {
   );
 }
 
+function handleTopicChange(event: Event) {
+  const topicId = (event.target as HTMLSelectElement).value;
+
+  if (topicId === selectedTopicId.value) {
+    return;
+  }
+
+  if (!discardTopicExcerptEditing()) {
+    (event.target as HTMLSelectElement).value = selectedTopicId.value;
+    return;
+  }
+
+  selectedTopicId.value = topicId;
+}
+
+function selectTopicNode(nodeId: string) {
+  if (nodeId === selectedNodeId.value) {
+    return;
+  }
+
+  if (!discardTopicExcerptEditing()) {
+    return;
+  }
+
+  selectedNodeId.value = nodeId;
+}
+
 function selectTopicExcerpt(topicExcerptId: string) {
+  if (topicExcerptId === selectedTopicExcerptId.value) {
+    return;
+  }
+
+  if (!discardTopicExcerptEditing()) {
+    return;
+  }
+
   selectedTopicExcerptId.value = topicExcerptId;
 }
 
@@ -444,6 +510,21 @@ function clearEditingState() {
   for (const key of Object.keys(editingTopicExcerpts)) {
     delete editingTopicExcerpts[key];
   }
+  editingTopicExcerptId.value = "";
+}
+
+function discardTopicExcerptEditing() {
+  if (!editingTopicExcerptId.value) {
+    return true;
+  }
+
+  if (isTopicExcerptEditDirty.value && !window.confirm("当前收录信息有未保存修改，确定放弃吗？")) {
+    return false;
+  }
+
+  delete editingTopicExcerpts[editingTopicExcerptId.value];
+  editingTopicExcerptId.value = "";
+  return true;
 }
 
 function nodeLabel(node: TopicNode) {
@@ -488,9 +569,10 @@ async function runSaving(task: () => Promise<void>) {
       <div class="toolbar topic-toolbar">
         <select
           v-if="topics.length > 0"
-          v-model="selectedTopicId"
+          :value="selectedTopicId"
           class="topic-switcher"
           aria-label="切换主题"
+          @change="handleTopicChange"
         >
           <option v-for="topic in topics" :key="topic.id" :value="topic.id">
             {{ topic.title }}
@@ -550,7 +632,7 @@ async function runSaving(task: () => Promise<void>) {
             <button
               class="node-selector"
               :class="{ active: selectedNodeId === '' }"
-              @click="selectedNodeId = ''"
+              @click="selectTopicNode('')"
             >
               全部摘抄
             </button>
@@ -559,7 +641,7 @@ async function runSaving(task: () => Promise<void>) {
               <button
                 class="node-selector"
                 :class="{ active: node.id === selectedNodeId }"
-                @click="selectedNodeId = node.id"
+                @click="selectTopicNode(node.id)"
               >
                 {{ nodeLabel(node) }}
               </button>
@@ -618,9 +700,99 @@ async function runSaving(task: () => Promise<void>) {
         </section>
       </aside>
 
-      <article v-if="selectedTopicExcerpt" class="detail-pane excerpt-detail-pane topic-detail-pane">
-        <div class="detail-scroll">
-          <header class="detail-header">
+      <article
+        v-if="selectedTopicExcerpt"
+        class="detail-pane excerpt-detail-pane topic-detail-pane document-detail-pane"
+        :class="{ 'is-editing': isEditingSelectedTopicExcerpt }"
+      >
+        <form
+          v-if="isEditingSelectedTopicExcerpt && editingTopicExcerpts[editingTopicExcerptId]"
+          class="detail-document edit-document"
+          @submit.prevent="updateTopicExcerpt(editingTopicExcerptId)"
+        >
+          <header class="detail-header document-header">
+            <div>
+              <p class="eyebrow">Editing</p>
+              <h3>编辑收录</h3>
+              <footer>
+                <span>调整这条材料在当前主题中的归类、收录理由和主题理解</span>
+              </footer>
+            </div>
+            <div class="action-row">
+              <button
+                class="secondary-action"
+                type="button"
+                @click="cancelEditingTopicExcerpt(editingTopicExcerptId)"
+              >
+                取消
+              </button>
+              <button
+                class="primary-action"
+                :disabled="!canSaveTopicExcerptEdit"
+                type="submit"
+              >
+                保存
+              </button>
+            </div>
+          </header>
+
+          <div class="detail-scroll document-scroll">
+            <div class="inline-editor-body topic-excerpt-editor">
+              <section class="readonly-excerpt-preview">
+                <p
+                  v-if="
+                    selectedTopicExcerpt.excerpt.bookTitle ||
+                    selectedTopicExcerpt.excerpt.chapterTitle
+                  "
+                  class="source-line"
+                >
+                  <span v-if="selectedTopicExcerpt.excerpt.bookTitle">
+                    《{{ selectedTopicExcerpt.excerpt.bookTitle }}》
+                  </span>
+                  <span
+                    v-if="
+                      selectedTopicExcerpt.excerpt.bookTitle &&
+                      selectedTopicExcerpt.excerpt.chapterTitle
+                    "
+                  >
+                    /
+                  </span>
+                  <span v-if="selectedTopicExcerpt.excerpt.chapterTitle">
+                    {{ selectedTopicExcerpt.excerpt.chapterTitle }}
+                  </span>
+                </p>
+                <blockquote>{{ selectedTopicExcerpt.excerpt.quote }}</blockquote>
+              </section>
+
+              <label>
+                子主题
+                <select v-model="editingTopicExcerpts[editingTopicExcerptId].nodeId">
+                  <option value="">未分类</option>
+                  <option v-for="node in topicNodes" :key="node.id" :value="node.id">
+                    {{ nodeLabel(node) }}
+                  </option>
+                </select>
+              </label>
+              <label>
+                收录理由
+                <textarea
+                  v-model="editingTopicExcerpts[editingTopicExcerptId].reason"
+                  rows="5"
+                />
+              </label>
+              <label>
+                主题理解
+                <textarea
+                  v-model="editingTopicExcerpts[editingTopicExcerptId].topicReflection"
+                  rows="7"
+                />
+              </label>
+            </div>
+          </div>
+        </form>
+
+        <div v-else class="detail-document">
+          <header class="detail-header document-header">
             <div>
               <p
                 v-if="
@@ -668,22 +840,24 @@ async function runSaving(task: () => Promise<void>) {
             </div>
           </header>
 
-          <div class="reading-body topic-reading-body">
-            <blockquote>{{ selectedTopicExcerpt.excerpt.quote }}</blockquote>
-            <p v-if="selectedTopicExcerpt.reason" class="reflection">
-              收录理由：{{ selectedTopicExcerpt.reason }}
-            </p>
-            <p v-if="selectedTopicExcerpt.topicReflection" class="reflection">
-              主题理解：{{ selectedTopicExcerpt.topicReflection }}
-            </p>
-            <div v-if="selectedTopicExcerpt.excerpt.tags.length > 0" class="tag-row">
-              <span
-                v-for="tag in selectedTopicExcerpt.excerpt.tags"
-                :key="tag.id"
-                class="tag-pill"
-              >
-                #{{ tag.name }}
-              </span>
+          <div class="detail-scroll document-scroll">
+            <div class="reading-body topic-reading-body document-body">
+              <blockquote>{{ selectedTopicExcerpt.excerpt.quote }}</blockquote>
+              <p v-if="selectedTopicExcerpt.reason" class="reflection">
+                收录理由：{{ selectedTopicExcerpt.reason }}
+              </p>
+              <p v-if="selectedTopicExcerpt.topicReflection" class="reflection">
+                主题理解：{{ selectedTopicExcerpt.topicReflection }}
+              </p>
+              <div v-if="selectedTopicExcerpt.excerpt.tags.length > 0" class="tag-row">
+                <span
+                  v-for="tag in selectedTopicExcerpt.excerpt.tags"
+                  :key="tag.id"
+                  class="tag-pill"
+                >
+                  #{{ tag.name }}
+                </span>
+              </div>
             </div>
           </div>
         </div>
@@ -841,46 +1015,6 @@ async function runSaving(task: () => Promise<void>) {
       </label>
       <div class="modal-actions">
         <button class="secondary-action" type="button" @click="cancelEditingNode(editingNodeId)">
-          取消
-        </button>
-        <button class="primary-action" type="submit">保存</button>
-      </div>
-    </form>
-  </BaseModal>
-
-  <BaseModal
-    :open="editTopicExcerptModalOpen"
-    title="编辑收录"
-    @close="cancelEditingTopicExcerpt(editingTopicExcerptId)"
-  >
-    <form
-      v-if="editingTopicExcerptId && editingTopicExcerpts[editingTopicExcerptId]"
-      class="modal-form"
-      @submit.prevent="updateTopicExcerpt(editingTopicExcerptId)"
-    >
-      <label>
-        子主题
-        <select v-model="editingTopicExcerpts[editingTopicExcerptId].nodeId">
-          <option value="">未分类</option>
-          <option v-for="node in topicNodes" :key="node.id" :value="node.id">
-            {{ nodeLabel(node) }}
-          </option>
-        </select>
-      </label>
-      <label>
-        收录理由
-        <textarea v-model="editingTopicExcerpts[editingTopicExcerptId].reason" rows="3" />
-      </label>
-      <label>
-        主题理解
-        <textarea v-model="editingTopicExcerpts[editingTopicExcerptId].topicReflection" rows="5" />
-      </label>
-      <div class="modal-actions">
-        <button
-          class="secondary-action"
-          type="button"
-          @click="cancelEditingTopicExcerpt(editingTopicExcerptId)"
-        >
           取消
         </button>
         <button class="primary-action" type="submit">保存</button>

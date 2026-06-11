@@ -859,12 +859,12 @@ select:focus {
   max-width: none;
 }
 
-.library-detail-pane {
+.document-detail-pane {
   display: block;
 }
 
-.library-detail-pane .detail-document,
-.library-detail-pane .edit-document {
+.document-detail-pane .detail-document,
+.document-detail-pane .edit-document {
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -872,11 +872,11 @@ select:focus {
   min-height: 0;
 }
 
-.library-detail-pane .document-header {
+.document-detail-pane .document-header {
   flex: 0 0 auto;
 }
 
-.library-detail-pane .document-scroll {
+.document-detail-pane .document-scroll {
   flex: 1 1 auto;
   height: auto;
   min-height: 0;
@@ -884,22 +884,22 @@ select:focus {
   overflow: auto;
 }
 
-.library-detail-pane .document-body,
-.library-detail-pane .inline-editor-body {
+.document-detail-pane .document-body,
+.document-detail-pane .inline-editor-body {
   width: 100%;
   max-width: none;
   min-height: 100%;
   padding: 24px 26px;
 }
 
-.library-detail-pane .document-body blockquote,
-.library-detail-pane .document-body .reflection,
-.library-detail-pane .document-body .tag-row {
+.document-detail-pane .document-body blockquote,
+.document-detail-pane .document-body .reflection,
+.document-detail-pane .document-body .tag-row {
   width: 100%;
   max-width: none;
 }
 
-.library-detail-pane .inline-editor-body {
+.document-detail-pane .inline-editor-body {
   display: grid;
   align-content: start;
   gap: 16px;
@@ -908,14 +908,20 @@ select:focus {
   background: #fffdf9;
 }
 
-.library-detail-pane .inline-editor-body textarea {
+.document-detail-pane .inline-editor-body textarea {
   min-height: 140px;
 }
 
-.library-detail-pane.is-editing .document-header,
-.library-detail-pane.is-editing .inline-editor-body {
+.document-detail-pane.is-editing .document-header,
+.document-detail-pane.is-editing .inline-editor-body {
   border-color: #bfd0c8;
   background: #fbfdf9;
+}
+
+.topic-excerpt-editor .readonly-excerpt-preview {
+  display: grid;
+  gap: 10px;
+  padding-bottom: 2px;
 }
 
 .topic-empty-state {

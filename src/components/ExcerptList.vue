@@ -347,7 +347,7 @@ function discardEditing() {
 
       <article
         v-if="selectedExcerpt"
-        class="detail-pane excerpt-detail-pane library-detail-pane"
+        class="detail-pane excerpt-detail-pane library-detail-pane document-detail-pane"
         :class="{ 'is-editing': isEditingSelected }"
       >
         <form v-if="isEditingSelected" class="detail-document edit-document" @submit.prevent="submitEdit">
