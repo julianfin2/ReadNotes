@@ -415,4 +415,5 @@ Modes:
 - Excerpt library search and filtering is implemented with SQLite FTS for quote/reflection search, tag filtering, status filtering, minimum importance, and configurable sorting.
 - Note CRUD is implemented for excerpt, topic, topic node, and topic excerpt targets.
 - A minimal timeline view is implemented. It aggregates excerpt creation, topic excerpt collection, and note creation, with topic/excerpt filters.
+- Excerpt maintenance is implemented in the frontend: edit quote/reflection/location/importance/status/tags, archive excerpts, and delete excerpts.
 - Source work workflows are still design-only.

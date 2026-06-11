@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { reactive } from "vue";
-import type { Excerpt, ExcerptFilters } from "../types/excerpt";
+import type { Excerpt, ExcerptFilters, UpdateExcerptInput } from "../types/excerpt";
 import type { Tag } from "../types/tag";
 
 defineProps<{
@@ -10,6 +10,9 @@ defineProps<{
 
 const emit = defineEmits<{
   applyFilters: [filters: ExcerptFilters];
+  archiveExcerpt: [id: string];
+  deleteExcerpt: [id: string];
+  updateExcerpt: [input: UpdateExcerptInput];
 }>();
 
 const filters = reactive<ExcerptFilters>({
@@ -33,6 +36,52 @@ function resetFilters() {
   filters.sortBy = "createdAt";
   filters.sortDirection = "desc";
   applyFilters();
+}
+
+const editingById = reactive<Record<string, UpdateExcerptInput & { tagInput: string }>>({});
+
+function startEditing(excerpt: Excerpt) {
+  editingById[excerpt.id] = {
+    id: excerpt.id,
+    quote: excerpt.quote,
+    reflection: excerpt.reflection || "",
+    sourceWorkId: excerpt.sourceWorkId || null,
+    location: excerpt.location || "",
+    importance: excerpt.importance,
+    status: excerpt.status,
+    tagNames: excerpt.tags.map((tag) => tag.name),
+    tagInput: excerpt.tags.map((tag) => `#${tag.name}`).join(" "),
+  };
+}
+
+function cancelEditing(id: string) {
+  delete editingById[id];
+}
+
+function saveEditing(id: string) {
+  const draft = editingById[id];
+  if (!draft) {
+    return;
+  }
+
+  emit("updateExcerpt", {
+    id: draft.id,
+    quote: draft.quote,
+    reflection: draft.reflection,
+    sourceWorkId: draft.sourceWorkId,
+    location: draft.location,
+    importance: draft.importance,
+    status: draft.status,
+    tagNames: parseTagInput(draft.tagInput),
+  });
+  delete editingById[id];
+}
+
+function parseTagInput(value: string) {
+  return value
+    .split(/[\s,，#]+/)
+    .map((tag) => tag.trim())
+    .filter(Boolean);
 }
 </script>
 
@@ -97,18 +146,89 @@ function resetFilters() {
 
     <div class="excerpt-list">
       <article v-for="excerpt in excerpts" :key="excerpt.id" class="excerpt-card">
-        <blockquote>{{ excerpt.quote }}</blockquote>
-        <p v-if="excerpt.reflection" class="reflection">{{ excerpt.reflection }}</p>
-        <div v-if="excerpt.tags.length > 0" class="tag-row">
-          <span v-for="tag in excerpt.tags" :key="tag.id" class="tag-pill">
-            #{{ tag.name }}
-          </span>
-        </div>
-        <footer>
-          <span>重要性 {{ excerpt.importance }}</span>
-          <span>{{ excerpt.status }}</span>
-          <span>{{ new Date(excerpt.createdAt).toLocaleString() }}</span>
-        </footer>
+        <template v-if="editingById[excerpt.id]">
+          <form class="edit-form" @submit.prevent="saveEditing(excerpt.id)">
+            <label>
+              原文
+              <textarea v-model="editingById[excerpt.id].quote" rows="5" />
+            </label>
+
+            <label>
+              初始理解
+              <textarea v-model="editingById[excerpt.id].reflection" rows="4" />
+            </label>
+
+            <label>
+              标签
+              <input v-model="editingById[excerpt.id].tagInput" />
+            </label>
+
+            <div class="edit-grid">
+              <label>
+                位置
+                <input v-model="editingById[excerpt.id].location" />
+              </label>
+
+              <label>
+                重要性
+                <input
+                  v-model.number="editingById[excerpt.id].importance"
+                  max="5"
+                  min="1"
+                  type="number"
+                />
+              </label>
+
+              <label>
+                状态
+                <select v-model="editingById[excerpt.id].status">
+                  <option value="inbox">inbox</option>
+                  <option value="processed">processed</option>
+                  <option value="archived">archived</option>
+                </select>
+              </label>
+            </div>
+
+            <div class="action-row">
+              <button class="primary-action" type="submit">保存</button>
+              <button class="secondary-action" type="button" @click="cancelEditing(excerpt.id)">
+                取消
+              </button>
+            </div>
+          </form>
+        </template>
+
+        <template v-else>
+          <blockquote>{{ excerpt.quote }}</blockquote>
+          <p v-if="excerpt.reflection" class="reflection">{{ excerpt.reflection }}</p>
+          <div v-if="excerpt.tags.length > 0" class="tag-row">
+            <span v-for="tag in excerpt.tags" :key="tag.id" class="tag-pill">
+              #{{ tag.name }}
+            </span>
+          </div>
+          <footer>
+            <span>重要性 {{ excerpt.importance }}</span>
+            <span>{{ excerpt.status }}</span>
+            <span>{{ new Date(excerpt.createdAt).toLocaleString() }}</span>
+          </footer>
+
+          <div class="action-row">
+            <button class="secondary-action" type="button" @click="startEditing(excerpt)">
+              编辑
+            </button>
+            <button
+              class="secondary-action"
+              type="button"
+              :disabled="excerpt.status === 'archived'"
+              @click="$emit('archiveExcerpt', excerpt.id)"
+            >
+              归档
+            </button>
+            <button class="danger-action" type="button" @click="$emit('deleteExcerpt', excerpt.id)">
+              删除
+            </button>
+          </div>
+        </template>
       </article>
 
       <p v-if="excerpts.length === 0" class="empty-state">还没有摘抄。</p>

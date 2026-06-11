@@ -6,7 +6,7 @@ import ExcerptCapture from "./components/ExcerptCapture.vue";
 import ExcerptList from "./components/ExcerptList.vue";
 import TimelineView from "./components/TimelineView.vue";
 import TopicWorkspace from "./components/TopicWorkspace.vue";
-import type { Excerpt, ExcerptFilters } from "./types/excerpt";
+import type { Excerpt, ExcerptFilters, UpdateExcerptInput } from "./types/excerpt";
 import type { Tag } from "./types/tag";
 
 type ViewKey = "excerpts" | "topics" | "tags" | "timeline";
@@ -17,6 +17,7 @@ const tags = ref<Tag[]>([]);
 const databasePath = ref("");
 const errorMessage = ref("");
 const isSaving = ref(false);
+const lastFilters = ref<ExcerptFilters | undefined>();
 
 onMounted(async () => {
   await Promise.all([loadDatabasePath(), loadExcerpts(), loadTags()]);
@@ -27,9 +28,43 @@ async function loadDatabasePath() {
 }
 
 async function loadExcerpts(filters?: ExcerptFilters) {
+  lastFilters.value = filters;
   excerpts.value = await invoke<Excerpt[]>("list_excerpts", {
     input: filters ? toExcerptQuery(filters) : null,
   });
+}
+
+async function updateExcerpt(input: UpdateExcerptInput) {
+  errorMessage.value = "";
+
+  try {
+    await invoke<Excerpt>("update_excerpt", { input });
+    await Promise.all([loadExcerpts(lastFilters.value), loadTags()]);
+  } catch (error) {
+    errorMessage.value = String(error);
+  }
+}
+
+async function archiveExcerpt(id: string) {
+  errorMessage.value = "";
+
+  try {
+    await invoke<Excerpt>("archive_excerpt", { id });
+    await loadExcerpts(lastFilters.value);
+  } catch (error) {
+    errorMessage.value = String(error);
+  }
+}
+
+async function deleteExcerpt(id: string) {
+  errorMessage.value = "";
+
+  try {
+    await invoke("delete_excerpt", { id });
+    await Promise.all([loadExcerpts(lastFilters.value), loadTags()]);
+  } catch (error) {
+    errorMessage.value = String(error);
+  }
 }
 
 async function loadTags() {
@@ -79,7 +114,15 @@ function toExcerptQuery(filters: ExcerptFilters) {
         :is-saving="isSaving"
         @create-excerpt="createExcerpt"
       />
-      <ExcerptList :excerpts="excerpts" :tags="tags" @apply-filters="loadExcerpts" />
+      <p v-if="errorMessage" class="app-error">{{ errorMessage }}</p>
+      <ExcerptList
+        :excerpts="excerpts"
+        :tags="tags"
+        @apply-filters="loadExcerpts"
+        @archive-excerpt="archiveExcerpt"
+        @delete-excerpt="deleteExcerpt"
+        @update-excerpt="updateExcerpt"
+      />
     </template>
 
     <TopicWorkspace v-else-if="activeView === 'topics'" :excerpts="excerpts" />
@@ -287,7 +330,8 @@ select:focus {
 }
 
 .primary-action,
-.secondary-action {
+.secondary-action,
+.danger-action {
   min-height: 42px;
   border-radius: 6px;
   cursor: pointer;
@@ -305,8 +349,15 @@ select:focus {
   color: #2d3a3f;
 }
 
+.danger-action {
+  border: 1px solid #d9a29c;
+  background: #fff8f6;
+  color: #a23b32;
+}
+
 .primary-action:disabled,
-.secondary-action:disabled {
+.secondary-action:disabled,
+.danger-action:disabled {
   cursor: wait;
   opacity: 0.7;
 }
@@ -314,6 +365,21 @@ select:focus {
 .error-message {
   margin: 0;
   color: #a23b32;
+}
+
+.app-error {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 2;
+  max-width: min(420px, calc(100vw - 40px));
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid #d9a29c;
+  border-radius: 6px;
+  background: #fff8f6;
+  color: #a23b32;
+  box-shadow: 0 8px 18px rgba(38, 35, 30, 0.12);
 }
 
 .database-path {
@@ -331,6 +397,30 @@ select:focus {
   border: 1px solid #ded7ca;
   border-radius: 8px;
   background: #fffdf9;
+}
+
+.edit-form {
+  display: grid;
+  gap: 12px;
+}
+
+.edit-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 96px 140px;
+  gap: 12px;
+}
+
+.action-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.action-row .primary-action,
+.action-row .secondary-action,
+.action-row .danger-action {
+  min-height: 36px;
+  padding: 0 12px;
 }
 
 .topic-list,
@@ -481,7 +571,8 @@ footer,
   }
 
   .timeline-filter,
-  .timeline-card {
+  .timeline-card,
+  .edit-grid {
     grid-template-columns: 1fr;
   }
 }

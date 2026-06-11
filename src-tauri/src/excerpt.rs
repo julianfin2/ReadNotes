@@ -44,6 +44,7 @@ pub struct UpdateExcerptRequest {
     pub location: Option<String>,
     pub importance: i64,
     pub status: String,
+    pub tag_names: Option<Vec<String>>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -223,12 +224,16 @@ pub fn update_excerpt(
     let status = validate_status(&input.status)?;
     let now = now_rfc3339()?;
 
-    let connection = state
+    let mut connection = state
         .db
         .lock()
         .map_err(|_| "database lock was poisoned".to_string())?;
 
-    let changed = connection
+    let transaction = connection
+        .transaction()
+        .map_err(|error| format!("failed to start excerpt update transaction: {error}"))?;
+
+    let changed = transaction
         .execute(
             "
             UPDATE excerpts
@@ -258,6 +263,14 @@ pub fn update_excerpt(
     if changed == 0 {
         return Err("excerpt not found".to_string());
     }
+
+    if let Some(tag_names) = input.tag_names {
+        replace_excerpt_tags(&transaction, &input.id, tag_names)?;
+    }
+
+    transaction
+        .commit()
+        .map_err(|error| format!("failed to save excerpt update: {error}"))?;
 
     get_excerpt_by_id(&connection, &input.id)
 }

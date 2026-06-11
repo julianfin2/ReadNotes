@@ -21,3 +21,14 @@ export type ExcerptFilters = {
   sortBy: "createdAt" | "updatedAt" | "importance";
   sortDirection: "asc" | "desc";
 };
+
+export type UpdateExcerptInput = {
+  id: string;
+  quote: string;
+  reflection: string;
+  sourceWorkId?: string | null;
+  location: string;
+  importance: number;
+  status: "inbox" | "processed" | "archived";
+  tagNames: string[];
+};
