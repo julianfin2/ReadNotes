@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from "vue";
+import { computed, onMounted, reactive, ref, watch } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import BaseModal from "./BaseModal.vue";
 import type { Excerpt } from "../types/excerpt";
@@ -8,6 +8,7 @@ import type { TagWithCount } from "../types/tag";
 const tags = ref<TagWithCount[]>([]);
 const excerpts = ref<Excerpt[]>([]);
 const selectedTagName = ref("");
+const selectedExcerptId = ref("");
 const createModalOpen = ref(false);
 const editModalOpen = ref(false);
 const deleteModalOpen = ref(false);
@@ -25,6 +26,25 @@ const editingTags = reactive<
 
 const selectedTag = computed(() =>
   tags.value.find((tag) => tag.name === selectedTagName.value),
+);
+
+const selectedExcerpt = computed(() =>
+  excerpts.value.find((excerpt) => excerpt.id === selectedExcerptId.value) || null,
+);
+
+watch(
+  excerpts,
+  (items) => {
+    if (items.length === 0) {
+      selectedExcerptId.value = "";
+      return;
+    }
+
+    if (!items.some((excerpt) => excerpt.id === selectedExcerptId.value)) {
+      selectedExcerptId.value = items[0].id;
+    }
+  },
+  { immediate: true },
 );
 
 onMounted(async () => {
@@ -48,6 +68,10 @@ async function loadExcerptsForTag(tagName: string) {
       sortDirection: "desc",
     },
   });
+}
+
+function selectExcerpt(excerptId: string) {
+  selectedExcerptId.value = excerptId;
 }
 
 async function createTag() {
@@ -230,31 +254,69 @@ async function runSaving(task: () => Promise<void>) {
       </div>
     </header>
 
-    <div class="excerpt-list">
-      <article v-for="excerpt in excerpts" :key="excerpt.id" class="excerpt-card">
-        <blockquote>{{ excerpt.quote }}</blockquote>
-        <p v-if="excerpt.bookTitle || excerpt.chapterTitle" class="source-line">
-          <span v-if="excerpt.bookTitle">《{{ excerpt.bookTitle }}》</span>
-          <span v-if="excerpt.bookTitle && excerpt.chapterTitle"> / </span>
-          <span v-if="excerpt.chapterTitle">{{ excerpt.chapterTitle }}</span>
-        </p>
-        <p v-if="excerpt.reflection" class="reflection">{{ excerpt.reflection }}</p>
-        <div v-if="excerpt.tags.length > 0" class="tag-row">
-          <span v-for="tag in excerpt.tags" :key="tag.id" class="tag-pill">
-            #{{ tag.name }}
-          </span>
+    <div class="split-workspace tag-workspace-grid">
+      <aside class="list-pane">
+        <div class="list-scroll">
+          <button
+            v-for="excerpt in excerpts"
+            :key="excerpt.id"
+            class="excerpt-list-item"
+            :class="{ active: excerpt.id === selectedExcerptId }"
+            type="button"
+            @click="selectExcerpt(excerpt.id)"
+          >
+            <span class="item-title">{{ excerpt.quote }}</span>
+            <span v-if="excerpt.bookTitle || excerpt.chapterTitle" class="item-meta">
+              <span v-if="excerpt.bookTitle">《{{ excerpt.bookTitle }}》</span>
+              <span v-if="excerpt.bookTitle && excerpt.chapterTitle"> / </span>
+              <span v-if="excerpt.chapterTitle">{{ excerpt.chapterTitle }}</span>
+            </span>
+            <span class="item-meta">
+              重要性 {{ excerpt.importance }} / {{ new Date(excerpt.createdAt).toLocaleDateString() }}
+            </span>
+          </button>
+
+          <p v-if="selectedTagName && excerpts.length === 0" class="empty-state">
+            这个标签下还没有摘抄。
+          </p>
+          <p v-if="!selectedTagName" class="empty-state">选择一个标签查看摘抄。</p>
         </div>
-        <footer>
-          <span>重要性 {{ excerpt.importance }}</span>
-          <span>{{ excerpt.status }}</span>
-          <span>{{ new Date(excerpt.createdAt).toLocaleString() }}</span>
-        </footer>
+      </aside>
+
+      <article v-if="selectedExcerpt" class="detail-pane excerpt-detail-pane">
+        <div class="detail-scroll">
+          <header class="detail-header">
+            <div>
+              <p v-if="selectedExcerpt.bookTitle || selectedExcerpt.chapterTitle" class="source-line">
+                <span v-if="selectedExcerpt.bookTitle">《{{ selectedExcerpt.bookTitle }}》</span>
+                <span v-if="selectedExcerpt.bookTitle && selectedExcerpt.chapterTitle"> / </span>
+                <span v-if="selectedExcerpt.chapterTitle">{{ selectedExcerpt.chapterTitle }}</span>
+              </p>
+              <footer>
+                <span>重要性 {{ selectedExcerpt.importance }}</span>
+                <span>{{ selectedExcerpt.status }}</span>
+                <span>{{ new Date(selectedExcerpt.createdAt).toLocaleString() }}</span>
+              </footer>
+            </div>
+          </header>
+
+          <div class="reading-body">
+            <blockquote>{{ selectedExcerpt.quote }}</blockquote>
+            <p v-if="selectedExcerpt.reflection" class="reflection">
+              {{ selectedExcerpt.reflection }}
+            </p>
+            <div v-if="selectedExcerpt.tags.length > 0" class="tag-row">
+              <span v-for="tag in selectedExcerpt.tags" :key="tag.id" class="tag-pill">
+                #{{ tag.name }}
+              </span>
+            </div>
+          </div>
+        </div>
       </article>
 
-      <p v-if="selectedTagName && excerpts.length === 0" class="empty-state">
-        这个标签下还没有摘抄。
-      </p>
-      <p v-if="!selectedTagName" class="empty-state">选择一个标签查看摘抄。</p>
+      <section v-else class="detail-pane empty-detail">
+        <p class="empty-state">选择一条摘抄查看详情。</p>
+      </section>
     </div>
   </section>
 

@@ -14,6 +14,7 @@ const topicNodes = ref<TopicNode[]>([]);
 const topicExcerpts = ref<TopicExcerpt[]>([]);
 const selectedTopicId = ref("");
 const selectedNodeId = ref("");
+const selectedTopicExcerptId = ref("");
 const topicModalOpen = ref(false);
 const nodeModalOpen = ref(false);
 const addExcerptModalOpen = ref(false);
@@ -83,12 +84,19 @@ const visibleTopicExcerpts = computed(() => {
   );
 });
 
+const selectedTopicExcerpt = computed(() =>
+  visibleTopicExcerpts.value.find(
+    (topicExcerpt) => topicExcerpt.id === selectedTopicExcerptId.value,
+  ) || null,
+);
+
 onMounted(async () => {
   await loadTopics();
 });
 
 watch(selectedTopicId, async (topicId) => {
   selectedNodeId.value = "";
+  selectedTopicExcerptId.value = "";
   topicNodes.value = [];
   topicExcerpts.value = [];
   clearEditingState();
@@ -97,6 +105,21 @@ watch(selectedTopicId, async (topicId) => {
     await Promise.all([loadTopicNodes(topicId), loadTopicExcerpts(topicId)]);
   }
 });
+
+watch(
+  visibleTopicExcerpts,
+  (items) => {
+    if (items.length === 0) {
+      selectedTopicExcerptId.value = "";
+      return;
+    }
+
+    if (!items.some((topicExcerpt) => topicExcerpt.id === selectedTopicExcerptId.value)) {
+      selectedTopicExcerptId.value = items[0].id;
+    }
+  },
+  { immediate: true },
+);
 
 async function loadTopics() {
   topics.value = await invoke<Topic[]>("list_topics");
@@ -391,6 +414,10 @@ function requestRemoveTopicExcerpt(topicExcerpt: TopicExcerpt) {
   );
 }
 
+function selectTopicExcerpt(topicExcerptId: string) {
+  selectedTopicExcerptId.value = topicExcerptId;
+}
+
 async function confirmDestructiveAction() {
   const action = confirmAction.value;
   if (!action) {
@@ -564,7 +591,7 @@ async function runSaving(task: () => Promise<void>) {
         </div>
       </div>
 
-      <div class="stack">
+      <div class="topic-material-list-pane">
         <div class="topic-card context-card">
           <h3>{{ selectedNode?.title || "全部摘抄" }}</h3>
           <p class="subtle-text">
@@ -572,15 +599,18 @@ async function runSaving(task: () => Promise<void>) {
           </p>
         </div>
 
-        <article
+        <button
           v-for="topicExcerpt in visibleTopicExcerpts"
           :key="topicExcerpt.id"
-          class="excerpt-card"
+          class="excerpt-list-item"
+          :class="{ active: topicExcerpt.id === selectedTopicExcerptId }"
+          type="button"
+          @click="selectTopicExcerpt(topicExcerpt.id)"
         >
-          <blockquote>{{ topicExcerpt.excerpt.quote }}</blockquote>
-          <p
+          <span class="item-title">{{ topicExcerpt.excerpt.quote }}</span>
+          <span
             v-if="topicExcerpt.excerpt.bookTitle || topicExcerpt.excerpt.chapterTitle"
-            class="source-line"
+            class="item-meta"
           >
             <span v-if="topicExcerpt.excerpt.bookTitle">
               《{{ topicExcerpt.excerpt.bookTitle }}》
@@ -591,43 +621,87 @@ async function runSaving(task: () => Promise<void>) {
             <span v-if="topicExcerpt.excerpt.chapterTitle">
               {{ topicExcerpt.excerpt.chapterTitle }}
             </span>
-          </p>
-          <p v-if="topicExcerpt.reason" class="reflection">
-            收录理由：{{ topicExcerpt.reason }}
-          </p>
-          <p v-if="topicExcerpt.topicReflection" class="reflection">
-            主题理解：{{ topicExcerpt.topicReflection }}
-          </p>
-          <div v-if="topicExcerpt.excerpt.tags.length > 0" class="tag-row">
-            <span v-for="tag in topicExcerpt.excerpt.tags" :key="tag.id" class="tag-pill">
-              #{{ tag.name }}
-            </span>
-          </div>
-          <footer>
-            <span>{{ new Date(topicExcerpt.addedAt).toLocaleString() }}</span>
-          </footer>
-          <div class="action-row">
-            <button
-              class="secondary-action"
-              type="button"
-              @click="startEditingTopicExcerpt(topicExcerpt)"
-            >
-              编辑
-            </button>
-            <button
-              class="danger-action"
-              type="button"
-              @click="requestRemoveTopicExcerpt(topicExcerpt)"
-            >
-              移除
-            </button>
-          </div>
-        </article>
+          </span>
+          <span class="item-meta">{{ new Date(topicExcerpt.addedAt).toLocaleDateString() }}</span>
+        </button>
 
         <p v-if="visibleTopicExcerpts.length === 0" class="empty-state">
           当前范围还没有收录摘抄。
         </p>
       </div>
+
+      <article v-if="selectedTopicExcerpt" class="detail-pane excerpt-detail-pane">
+        <div class="detail-scroll">
+          <header class="detail-header">
+            <div>
+              <p
+                v-if="
+                  selectedTopicExcerpt.excerpt.bookTitle ||
+                  selectedTopicExcerpt.excerpt.chapterTitle
+                "
+                class="source-line"
+              >
+                <span v-if="selectedTopicExcerpt.excerpt.bookTitle">
+                  《{{ selectedTopicExcerpt.excerpt.bookTitle }}》
+                </span>
+                <span
+                  v-if="
+                    selectedTopicExcerpt.excerpt.bookTitle &&
+                    selectedTopicExcerpt.excerpt.chapterTitle
+                  "
+                >
+                  /
+                </span>
+                <span v-if="selectedTopicExcerpt.excerpt.chapterTitle">
+                  {{ selectedTopicExcerpt.excerpt.chapterTitle }}
+                </span>
+              </p>
+              <footer>
+                <span>{{ new Date(selectedTopicExcerpt.addedAt).toLocaleString() }}</span>
+              </footer>
+            </div>
+            <div class="action-row">
+              <button
+                class="secondary-action"
+                type="button"
+                @click="startEditingTopicExcerpt(selectedTopicExcerpt)"
+              >
+                编辑
+              </button>
+              <button
+                class="danger-action"
+                type="button"
+                @click="requestRemoveTopicExcerpt(selectedTopicExcerpt)"
+              >
+                移除
+              </button>
+            </div>
+          </header>
+
+          <div class="reading-body">
+            <blockquote>{{ selectedTopicExcerpt.excerpt.quote }}</blockquote>
+            <p v-if="selectedTopicExcerpt.reason" class="reflection">
+              收录理由：{{ selectedTopicExcerpt.reason }}
+            </p>
+            <p v-if="selectedTopicExcerpt.topicReflection" class="reflection">
+              主题理解：{{ selectedTopicExcerpt.topicReflection }}
+            </p>
+            <div v-if="selectedTopicExcerpt.excerpt.tags.length > 0" class="tag-row">
+              <span
+                v-for="tag in selectedTopicExcerpt.excerpt.tags"
+                :key="tag.id"
+                class="tag-pill"
+              >
+                #{{ tag.name }}
+              </span>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <section v-else class="detail-pane empty-detail">
+        <p class="empty-state">选择一条材料查看详情。</p>
+      </section>
     </div>
 
     <p v-else class="empty-state">先创建一个主题。</p>

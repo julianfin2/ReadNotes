@@ -181,7 +181,7 @@ button {
 
 .app-main-frame {
   display: grid;
-  grid-template-columns: minmax(280px, 340px) minmax(0, 1fr);
+  grid-template-columns: minmax(260px, 300px) minmax(0, 1fr);
   gap: 28px;
   min-width: 0;
   min-height: 0;
@@ -775,18 +775,26 @@ select:focus {
 
 .topic-workspace-grid {
   display: grid;
-  grid-template-columns: minmax(240px, 300px) minmax(360px, 1fr);
-  gap: 18px;
+  grid-template-columns: minmax(200px, 240px) minmax(240px, 300px) minmax(0, 1fr);
+  gap: 14px;
   align-items: stretch;
   min-height: 0;
   overflow: hidden;
 }
 
 .topic-workspace-grid > .stack,
+.topic-material-list-pane,
 .workspace-panel > .excerpt-list,
 .workspace-panel > .timeline-list {
   overflow: auto;
   padding-right: 2px;
+}
+
+.topic-material-list-pane {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  min-height: 0;
 }
 
 .context-card {
