@@ -321,6 +321,14 @@ nav {
   gap: 10px;
 }
 
+.topic-toolbar {
+  align-items: flex-start;
+}
+
+.topic-switcher {
+  width: min(260px, 100%);
+}
+
 .filter-chip-row {
   display: flex;
   flex-wrap: wrap;
@@ -655,8 +663,7 @@ select:focus {
   font-size: 0.78rem;
 }
 
-.excerpt-card,
-.topic-card {
+.excerpt-card {
   display: grid;
   gap: 12px;
   padding: 18px;
@@ -775,35 +782,74 @@ select:focus {
 
 .topic-workspace-grid {
   display: grid;
-  grid-template-columns: minmax(200px, 240px) minmax(240px, 300px) minmax(0, 1fr);
-  gap: 14px;
+  grid-template-columns: minmax(280px, 340px) minmax(0, 1fr);
+  gap: 18px;
   align-items: stretch;
   min-height: 0;
   overflow: hidden;
 }
 
 .topic-workspace-grid > .stack,
-.topic-material-list-pane,
+.topic-context-pane,
 .workspace-panel > .excerpt-list,
 .workspace-panel > .timeline-list {
   overflow: auto;
   padding-right: 2px;
 }
 
-.topic-material-list-pane {
-  display: grid;
-  align-content: start;
-  gap: 12px;
+.topic-context-pane {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
   min-height: 0;
 }
 
-.context-card {
-  background: #fbf8f1;
+.context-section {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid #ded7ca;
+  border-radius: 8px;
+  background: #fffdf9;
 }
 
-.selected-node-card {
-  border-color: #bfd0c8;
-  background: #f7fbf7;
+.material-context-section {
+  min-height: 0;
+}
+
+.material-list-scroll {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  min-height: 0;
+  overflow: auto;
+}
+
+.context-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-top: 4px;
+}
+
+.context-actions .subtle-text {
+  flex-basis: 100%;
+}
+
+.context-caption {
+  margin: 0;
+  color: #6e7678;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.topic-detail-pane .reading-body {
+  max-width: 980px;
+}
+
+.topic-empty-state {
+  gap: 12px;
+  min-height: 240px;
 }
 
 .timeline-filter {
