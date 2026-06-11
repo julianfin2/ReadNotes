@@ -58,6 +58,8 @@ fn run_migrations(connection: &Connection) -> Result<(), String> {
               quote TEXT NOT NULL,
               reflection TEXT,
               source_work_id TEXT,
+              book_title TEXT,
+              chapter_title TEXT,
               location TEXT,
               importance INTEGER NOT NULL DEFAULT 3,
               status TEXT NOT NULL DEFAULT 'inbox',
@@ -130,30 +132,6 @@ fn run_migrations(connection: &Connection) -> Result<(), String> {
               updated_at TEXT NOT NULL
             );
 
-            CREATE VIRTUAL TABLE IF NOT EXISTS excerpt_search USING fts5(
-              quote,
-              reflection,
-              content='excerpts',
-              content_rowid='rowid'
-            );
-
-            CREATE TRIGGER IF NOT EXISTS excerpts_ai AFTER INSERT ON excerpts BEGIN
-              INSERT INTO excerpt_search(rowid, quote, reflection)
-              VALUES (new.rowid, new.quote, new.reflection);
-            END;
-
-            CREATE TRIGGER IF NOT EXISTS excerpts_ad AFTER DELETE ON excerpts BEGIN
-              INSERT INTO excerpt_search(excerpt_search, rowid, quote, reflection)
-              VALUES ('delete', old.rowid, old.quote, old.reflection);
-            END;
-
-            CREATE TRIGGER IF NOT EXISTS excerpts_au AFTER UPDATE ON excerpts BEGIN
-              INSERT INTO excerpt_search(excerpt_search, rowid, quote, reflection)
-              VALUES ('delete', old.rowid, old.quote, old.reflection);
-              INSERT INTO excerpt_search(rowid, quote, reflection)
-              VALUES (new.rowid, new.quote, new.reflection);
-            END;
-
             CREATE INDEX IF NOT EXISTS idx_excerpts_created_at ON excerpts(created_at);
             CREATE INDEX IF NOT EXISTS idx_excerpts_updated_at ON excerpts(updated_at);
             CREATE INDEX IF NOT EXISTS idx_excerpts_importance ON excerpts(importance);
@@ -169,11 +147,59 @@ fn run_migrations(connection: &Connection) -> Result<(), String> {
         )
         .map_err(|error| format!("failed to run database migrations: {error}"))?;
 
+    add_column_if_missing(connection, "excerpts", "book_title", "TEXT")?;
+    add_column_if_missing(connection, "excerpts", "chapter_title", "TEXT")?;
+
     connection
         .execute_batch(
             "
-            INSERT INTO excerpt_search(rowid, quote, reflection)
-            SELECT rowid, quote, reflection
+            DROP TRIGGER IF EXISTS excerpts_ai;
+            DROP TRIGGER IF EXISTS excerpts_ad;
+            DROP TRIGGER IF EXISTS excerpts_au;
+            DROP TABLE IF EXISTS excerpt_search;
+
+            CREATE VIRTUAL TABLE IF NOT EXISTS excerpt_search USING fts5(
+              quote,
+              reflection,
+              book_title,
+              chapter_title,
+              content='excerpts',
+              content_rowid='rowid'
+            );
+
+            CREATE TRIGGER IF NOT EXISTS excerpts_ai AFTER INSERT ON excerpts BEGIN
+              INSERT INTO excerpt_search(rowid, quote, reflection, book_title, chapter_title)
+              VALUES (new.rowid, new.quote, new.reflection, new.book_title, new.chapter_title);
+            END;
+
+            CREATE TRIGGER IF NOT EXISTS excerpts_ad AFTER DELETE ON excerpts BEGIN
+              INSERT INTO excerpt_search(
+                excerpt_search, rowid, quote, reflection, book_title, chapter_title
+              )
+              VALUES (
+                'delete', old.rowid, old.quote, old.reflection, old.book_title, old.chapter_title
+              );
+            END;
+
+            CREATE TRIGGER IF NOT EXISTS excerpts_au AFTER UPDATE ON excerpts BEGIN
+              INSERT INTO excerpt_search(
+                excerpt_search, rowid, quote, reflection, book_title, chapter_title
+              )
+              VALUES (
+                'delete', old.rowid, old.quote, old.reflection, old.book_title, old.chapter_title
+              );
+              INSERT INTO excerpt_search(rowid, quote, reflection, book_title, chapter_title)
+              VALUES (new.rowid, new.quote, new.reflection, new.book_title, new.chapter_title);
+            END;
+            ",
+        )
+        .map_err(|error| format!("failed to rebuild excerpt search index: {error}"))?;
+
+    connection
+        .execute_batch(
+            "
+            INSERT INTO excerpt_search(rowid, quote, reflection, book_title, chapter_title)
+            SELECT rowid, quote, reflection, book_title, chapter_title
             FROM excerpts
             WHERE rowid NOT IN (SELECT rowid FROM excerpt_search);
             ",
@@ -181,4 +207,18 @@ fn run_migrations(connection: &Connection) -> Result<(), String> {
         .map_err(|error| format!("failed to backfill excerpt search index: {error}"))?;
 
     Ok(())
+}
+
+fn add_column_if_missing(
+    connection: &Connection,
+    table: &str,
+    column: &str,
+    column_type: &str,
+) -> Result<(), String> {
+    let query = format!("ALTER TABLE {table} ADD COLUMN {column} {column_type}");
+    match connection.execute(&query, []) {
+        Ok(_) => Ok(()),
+        Err(error) if error.to_string().contains("duplicate column name") => Ok(()),
+        Err(error) => Err(format!("failed to add column {table}.{column}: {error}")),
+    }
 }

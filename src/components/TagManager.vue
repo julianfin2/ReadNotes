@@ -240,6 +240,11 @@ async function runSaving(task: () => Promise<void>) {
     <div class="excerpt-list">
       <article v-for="excerpt in excerpts" :key="excerpt.id" class="excerpt-card">
         <blockquote>{{ excerpt.quote }}</blockquote>
+        <p v-if="excerpt.bookTitle || excerpt.chapterTitle" class="source-line">
+          <span v-if="excerpt.bookTitle">《{{ excerpt.bookTitle }}》</span>
+          <span v-if="excerpt.bookTitle && excerpt.chapterTitle"> / </span>
+          <span v-if="excerpt.chapterTitle">{{ excerpt.chapterTitle }}</span>
+        </p>
         <p v-if="excerpt.reflection" class="reflection">{{ excerpt.reflection }}</p>
         <div v-if="excerpt.tags.length > 0" class="tag-row">
           <span v-for="tag in excerpt.tags" :key="tag.id" class="tag-pill">

@@ -75,6 +75,8 @@ async function loadTags() {
 async function createExcerpt(input: {
   quote: string;
   reflection: string;
+  bookTitle: string;
+  chapterTitle: string;
   location: string;
   importance: number;
   tagNames: string[];
@@ -413,6 +415,19 @@ select:focus {
   gap: 12px;
 }
 
+.source-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.source-line {
+  margin: 0;
+  color: #6f6257;
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
 .action-row {
   display: flex;
   flex-wrap: wrap;
@@ -594,7 +609,8 @@ footer,
 
   .timeline-filter,
   .timeline-card,
-  .edit-grid {
+  .edit-grid,
+  .source-grid {
     grid-template-columns: 1fr;
   }
 }

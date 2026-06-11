@@ -14,6 +14,8 @@ pub struct Excerpt {
     pub quote: String,
     pub reflection: Option<String>,
     pub source_work_id: Option<String>,
+    pub book_title: Option<String>,
+    pub chapter_title: Option<String>,
     pub location: Option<String>,
     pub importance: i64,
     pub status: String,
@@ -28,6 +30,8 @@ pub struct CreateExcerptRequest {
     pub quote: String,
     pub reflection: Option<String>,
     pub source_work_id: Option<String>,
+    pub book_title: Option<String>,
+    pub chapter_title: Option<String>,
     pub location: Option<String>,
     pub importance: Option<i64>,
     pub status: Option<String>,
@@ -41,6 +45,8 @@ pub struct UpdateExcerptRequest {
     pub quote: String,
     pub reflection: Option<String>,
     pub source_work_id: Option<String>,
+    pub book_title: Option<String>,
+    pub chapter_title: Option<String>,
     pub location: Option<String>,
     pub importance: i64,
     pub status: String,
@@ -83,16 +89,18 @@ pub fn create_excerpt(
         .execute(
             "
             INSERT INTO excerpts (
-              id, quote, reflection, source_work_id, location,
+              id, quote, reflection, source_work_id, book_title, chapter_title, location,
               importance, status, created_at, updated_at
             )
-            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
+            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)
             ",
             params![
                 id,
                 quote,
                 empty_to_none(input.reflection),
                 empty_to_none(input.source_work_id),
+                empty_to_none(input.book_title),
+                empty_to_none(input.chapter_title),
                 empty_to_none(input.location),
                 importance,
                 status,
@@ -171,7 +179,7 @@ pub fn list_excerpts(
         "
         SELECT
           id, quote, reflection, source_work_id, location,
-          importance, status, created_at, updated_at
+          book_title, chapter_title, importance, status, created_at, updated_at
         FROM excerpts
         {where_clause}
         {order_clause}
@@ -241,10 +249,12 @@ pub fn update_excerpt(
               quote = ?2,
               reflection = ?3,
               source_work_id = ?4,
-              location = ?5,
-              importance = ?6,
-              status = ?7,
-              updated_at = ?8
+              book_title = ?5,
+              chapter_title = ?6,
+              location = ?7,
+              importance = ?8,
+              status = ?9,
+              updated_at = ?10
             WHERE id = ?1
             ",
             params![
@@ -252,6 +262,8 @@ pub fn update_excerpt(
                 quote,
                 empty_to_none(input.reflection),
                 empty_to_none(input.source_work_id),
+                empty_to_none(input.book_title),
+                empty_to_none(input.chapter_title),
                 empty_to_none(input.location),
                 importance,
                 status,
@@ -334,7 +346,7 @@ pub fn get_excerpt_by_id(connection: &Connection, id: &str) -> Result<Excerpt, S
             "
             SELECT
               id, quote, reflection, source_work_id, location,
-              importance, status, created_at, updated_at
+              book_title, chapter_title, importance, status, created_at, updated_at
             FROM excerpts
             WHERE id = ?1
             ",
@@ -354,10 +366,12 @@ fn map_excerpt_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Excerpt> {
         reflection: row.get(2)?,
         source_work_id: row.get(3)?,
         location: row.get(4)?,
-        importance: row.get(5)?,
-        status: row.get(6)?,
-        created_at: row.get(7)?,
-        updated_at: row.get(8)?,
+        book_title: row.get(5)?,
+        chapter_title: row.get(6)?,
+        importance: row.get(7)?,
+        status: row.get(8)?,
+        created_at: row.get(9)?,
+        updated_at: row.get(10)?,
         tags: Vec::new(),
     })
 }

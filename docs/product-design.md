@@ -29,7 +29,7 @@ Primary responsibilities:
 - Store the quoted text.
 - Store the user's initial reflection.
 - Support global tags.
-- Support optional source work metadata, such as book title and page.
+- Support optional book title and chapter title.
 - Preserve created and updated timestamps for timeline review.
 
 ### Tag
@@ -99,14 +99,14 @@ The topic excerpt link should store:
 
 The global excerpt reflection and the topic-specific reflection must stay separate.
 
-### Source Work
+### Excerpt Provenance
 
-Source work is optional lightweight metadata for a book, article, or other work.
+Source work management is not part of the current product scope.
 
-The product does not need to support PDF, web clipping, Kindle import, or source-specific adapters. Source work only exists so the user can later answer questions like:
+The product does not need to support PDF, web clipping, Kindle import, or source-specific adapters. For excerpt provenance, each excerpt should only store:
 
-- What did I excerpt from this book?
-- Which author did this passage come from?
+- Book title
+- Chapter title
 
 ### Note
 
@@ -130,7 +130,8 @@ type Excerpt = {
   id: string
   quote: string
   reflection?: string
-  sourceWorkId?: string
+  bookTitle?: string
+  chapterTitle?: string
   location?: string
   importance: 1 | 2 | 3 | 4 | 5
   status: "inbox" | "processed" | "archived"
@@ -184,14 +185,6 @@ type TopicExcerpt = {
   updatedAt: string
 }
 
-type SourceWork = {
-  id: string
-  title: string
-  author?: string
-  type?: "book" | "article" | "other"
-  createdAt: string
-}
-
 type Note = {
   id: string
   targetType: "excerpt" | "topic" | "topicNode" | "topicExcerpt"
@@ -205,25 +198,17 @@ type Note = {
 ### SQLite Schema Draft
 
 ```sql
-CREATE TABLE works (
-  id TEXT PRIMARY KEY,
-  title TEXT NOT NULL,
-  author TEXT,
-  type TEXT,
-  created_at TEXT NOT NULL
-);
-
 CREATE TABLE excerpts (
   id TEXT PRIMARY KEY,
   quote TEXT NOT NULL,
   reflection TEXT,
-  source_work_id TEXT,
+  book_title TEXT,
+  chapter_title TEXT,
   location TEXT,
   importance INTEGER NOT NULL DEFAULT 3,
   status TEXT NOT NULL DEFAULT 'inbox',
   created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL,
-  FOREIGN KEY (source_work_id) REFERENCES works(id)
+  updated_at TEXT NOT NULL
 );
 
 CREATE TABLE tags (
@@ -298,7 +283,7 @@ The `notes.target_id` field is intentionally polymorphic. Application logic must
 ### Must Have
 
 - Create, edit, archive, and delete excerpts.
-- Add quote text, initial reflection, importance, optional source work, and optional location.
+- Add quote text, initial reflection, importance, optional book title, optional chapter title, and optional location.
 - Create and assign tags.
 - Search excerpts by text, tags, importance, status, and time.
 - Create topics.
@@ -313,8 +298,7 @@ The `notes.target_id` field is intentionally polymorphic. Application logic must
 
 - Reorder topic nodes.
 - Reorder excerpts inside a topic node.
-- Filter topic excerpts by tag, source work, and importance.
-- Export a topic to Markdown with its structure, excerpts, reasons, reflections, and notes.
+- Filter topic excerpts by tag, book title, chapter title, and importance.
 - Keep all user data local by default.
 
 ### Not In First Version
@@ -327,6 +311,7 @@ The `notes.target_id` field is intentionally polymorphic. Application logic must
 - Rich text editing.
 - Sharing or publishing.
 - User accounts.
+- Markdown export.
 
 ## Main Screens
 
@@ -339,7 +324,8 @@ Fields:
 - Quote
 - Initial reflection
 - Tags
-- Optional source work
+- Optional book title
+- Optional chapter title
 - Optional location
 - Optional related topics
 
@@ -356,7 +342,7 @@ Purpose: browse and search all excerpt materials.
 Capabilities:
 
 - Full-text search.
-- Filter by tag, source work, importance, status, and date.
+- Filter by tag, book title, chapter title, importance, status, and date.
 - Sort by created time, updated time, and importance.
 - Open excerpt detail.
 
@@ -418,4 +404,5 @@ Modes:
 - Excerpt maintenance is implemented in the frontend: edit quote/reflection/location/importance/status/tags, archive excerpts, and delete excerpts.
 - Topic workspace maintenance is implemented in the frontend: edit/delete topics, edit/delete nested topic nodes, and edit/remove topic excerpt links.
 - Tag management is implemented in the frontend: create/edit/delete tags, assign parent tags, show excerpt counts, and browse excerpts by selected tag.
-- Source work workflows are still design-only.
+- Excerpts support lightweight source fields: book title and chapter title.
+- Source work workflows are not planned for the current scope.

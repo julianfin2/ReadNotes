@@ -46,6 +46,8 @@ function startEditing(excerpt: Excerpt) {
     quote: excerpt.quote,
     reflection: excerpt.reflection || "",
     sourceWorkId: excerpt.sourceWorkId || null,
+    bookTitle: excerpt.bookTitle || "",
+    chapterTitle: excerpt.chapterTitle || "",
     location: excerpt.location || "",
     importance: excerpt.importance,
     status: excerpt.status,
@@ -69,6 +71,8 @@ function saveEditing(id: string) {
     quote: draft.quote,
     reflection: draft.reflection,
     sourceWorkId: draft.sourceWorkId,
+    bookTitle: draft.bookTitle,
+    chapterTitle: draft.chapterTitle,
     location: draft.location,
     importance: draft.importance,
     status: draft.status,
@@ -95,7 +99,7 @@ function parseTagInput(value: string) {
     <form class="filter-bar" @submit.prevent="applyFilters">
       <label>
         搜索
-        <input v-model="filters.search" placeholder="搜索原文或初始理解" />
+        <input v-model="filters.search" placeholder="搜索原文、理解、书籍或章节" />
       </label>
 
       <label>
@@ -163,6 +167,18 @@ function parseTagInput(value: string) {
               <input v-model="editingById[excerpt.id].tagInput" />
             </label>
 
+            <div class="source-grid">
+              <label>
+                书籍名
+                <input v-model="editingById[excerpt.id].bookTitle" />
+              </label>
+
+              <label>
+                章节名
+                <input v-model="editingById[excerpt.id].chapterTitle" />
+              </label>
+            </div>
+
             <div class="edit-grid">
               <label>
                 位置
@@ -200,6 +216,11 @@ function parseTagInput(value: string) {
 
         <template v-else>
           <blockquote>{{ excerpt.quote }}</blockquote>
+          <p v-if="excerpt.bookTitle || excerpt.chapterTitle" class="source-line">
+            <span v-if="excerpt.bookTitle">《{{ excerpt.bookTitle }}》</span>
+            <span v-if="excerpt.bookTitle && excerpt.chapterTitle"> / </span>
+            <span v-if="excerpt.chapterTitle">{{ excerpt.chapterTitle }}</span>
+          </p>
           <p v-if="excerpt.reflection" class="reflection">{{ excerpt.reflection }}</p>
           <div v-if="excerpt.tags.length > 0" class="tag-row">
             <span v-for="tag in excerpt.tags" :key="tag.id" class="tag-pill">

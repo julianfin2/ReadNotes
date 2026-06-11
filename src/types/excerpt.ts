@@ -5,6 +5,8 @@ export type Excerpt = {
   quote: string;
   reflection?: string | null;
   sourceWorkId?: string | null;
+  bookTitle?: string | null;
+  chapterTitle?: string | null;
   location?: string | null;
   importance: number;
   status: "inbox" | "processed" | "archived";
@@ -27,6 +29,8 @@ export type UpdateExcerptInput = {
   quote: string;
   reflection: string;
   sourceWorkId?: string | null;
+  bookTitle: string;
+  chapterTitle: string;
   location: string;
   importance: number;
   status: "inbox" | "processed" | "archived";

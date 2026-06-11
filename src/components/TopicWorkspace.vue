@@ -624,6 +624,20 @@ async function runSaving(task: () => Promise<void>) {
 
           <template v-else>
             <blockquote>{{ topicExcerpt.excerpt.quote }}</blockquote>
+            <p
+              v-if="topicExcerpt.excerpt.bookTitle || topicExcerpt.excerpt.chapterTitle"
+              class="source-line"
+            >
+              <span v-if="topicExcerpt.excerpt.bookTitle">
+                《{{ topicExcerpt.excerpt.bookTitle }}》
+              </span>
+              <span v-if="topicExcerpt.excerpt.bookTitle && topicExcerpt.excerpt.chapterTitle">
+                /
+              </span>
+              <span v-if="topicExcerpt.excerpt.chapterTitle">
+                {{ topicExcerpt.excerpt.chapterTitle }}
+              </span>
+            </p>
             <p v-if="topicExcerpt.reason" class="reflection">
               收录理由：{{ topicExcerpt.reason }}
             </p>
