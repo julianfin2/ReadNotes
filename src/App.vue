@@ -454,7 +454,8 @@ form,
 .reading-body {
   display: grid;
   gap: 16px;
-  max-width: 820px;
+  width: 100%;
+  max-width: none;
   padding: 20px 22px;
   border: 1px solid #ded7ca;
   border-radius: 8px;
@@ -854,7 +855,8 @@ select:focus {
 }
 
 .topic-detail-pane .reading-body {
-  max-width: 980px;
+  width: 100%;
+  max-width: none;
 }
 
 .library-detail-pane {
