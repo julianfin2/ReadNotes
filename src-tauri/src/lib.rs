@@ -31,6 +31,7 @@ pub fn run() {
             tag::delete_tag,
             tag::list_excerpt_tags,
             tag::list_tags,
+            tag::list_tags_with_counts,
             tag::set_excerpt_tags,
             tag::update_tag,
             topic::add_excerpt_to_topic,

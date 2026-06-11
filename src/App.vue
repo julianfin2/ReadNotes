@@ -4,6 +4,7 @@ import { invoke } from "@tauri-apps/api/core";
 import AppSidebar from "./components/AppSidebar.vue";
 import ExcerptCapture from "./components/ExcerptCapture.vue";
 import ExcerptList from "./components/ExcerptList.vue";
+import TagManager from "./components/TagManager.vue";
 import TimelineView from "./components/TimelineView.vue";
 import TopicWorkspace from "./components/TopicWorkspace.vue";
 import type { Excerpt, ExcerptFilters, UpdateExcerptInput } from "./types/excerpt";
@@ -126,6 +127,8 @@ function toExcerptQuery(filters: ExcerptFilters) {
     </template>
 
     <TopicWorkspace v-else-if="activeView === 'topics'" :excerpts="excerpts" />
+
+    <TagManager v-else-if="activeView === 'tags'" />
 
     <TimelineView v-else-if="activeView === 'timeline'" :excerpts="excerpts" />
 

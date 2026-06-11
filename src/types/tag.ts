@@ -5,3 +5,7 @@ export type Tag = {
   color?: string | null;
   createdAt: string;
 };
+
+export type TagWithCount = Tag & {
+  excerptCount: number;
+};

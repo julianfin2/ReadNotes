@@ -417,4 +417,5 @@ Modes:
 - A minimal timeline view is implemented. It aggregates excerpt creation, topic excerpt collection, and note creation, with topic/excerpt filters.
 - Excerpt maintenance is implemented in the frontend: edit quote/reflection/location/importance/status/tags, archive excerpts, and delete excerpts.
 - Topic workspace maintenance is implemented in the frontend: edit/delete topics, edit/delete nested topic nodes, and edit/remove topic excerpt links.
+- Tag management is implemented in the frontend: create/edit/delete tags, assign parent tags, show excerpt counts, and browse excerpts by selected tag.
 - Source work workflows are still design-only.

@@ -16,6 +16,17 @@ pub struct Tag {
     pub created_at: String,
 }
 
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TagWithCount {
+    pub id: String,
+    pub name: String,
+    pub parent_id: Option<String>,
+    pub color: Option<String>,
+    pub created_at: String,
+    pub excerpt_count: i64,
+}
+
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CreateTagRequest {
@@ -63,6 +74,39 @@ pub fn list_tags(state: State<'_, AppState>) -> Result<Vec<Tag>, String> {
         .map_err(|_| "database lock was poisoned".to_string())?;
 
     list_all_tags(&connection)
+}
+
+#[tauri::command]
+pub fn list_tags_with_counts(state: State<'_, AppState>) -> Result<Vec<TagWithCount>, String> {
+    let connection = state
+        .db
+        .lock()
+        .map_err(|_| "database lock was poisoned".to_string())?;
+
+    let mut statement = connection
+        .prepare(
+            "
+            SELECT
+              tags.id,
+              tags.name,
+              tags.parent_id,
+              tags.color,
+              tags.created_at,
+              COUNT(excerpt_tags.excerpt_id) AS excerpt_count
+            FROM tags
+            LEFT JOIN excerpt_tags ON excerpt_tags.tag_id = tags.id
+            GROUP BY tags.id
+            ORDER BY lower(tags.name) ASC
+            ",
+        )
+        .map_err(|error| format!("failed to prepare tags with counts: {error}"))?;
+
+    let rows = statement
+        .query_map([], map_tag_with_count_row)
+        .map_err(|error| format!("failed to list tags with counts: {error}"))?;
+
+    rows.collect::<Result<Vec<_>, _>>()
+        .map_err(|error| format!("failed to read tags with counts: {error}"))
 }
 
 #[tauri::command]
@@ -341,6 +385,17 @@ fn map_tag_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Tag> {
         parent_id: row.get(2)?,
         color: row.get(3)?,
         created_at: row.get(4)?,
+    })
+}
+
+fn map_tag_with_count_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<TagWithCount> {
+    Ok(TagWithCount {
+        id: row.get(0)?,
+        name: row.get(1)?,
+        parent_id: row.get(2)?,
+        color: row.get(3)?,
+        created_at: row.get(4)?,
+        excerpt_count: row.get(5)?,
     })
 }
 
