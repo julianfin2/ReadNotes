@@ -868,6 +868,13 @@ select:focus {
   overflow: auto;
 }
 
+.document-detail-pane .edit-document .document-scroll {
+  border: 1px solid #ded7ca;
+  border-radius: 8px;
+  background: #fffdf9;
+  overflow: hidden;
+}
+
 .document-detail-pane .document-body,
 .document-detail-pane .inline-editor-body {
   width: 100%;
@@ -892,6 +899,15 @@ select:focus {
   background: #fffdf9;
 }
 
+.document-detail-pane .edit-document .inline-editor-body {
+  height: 100%;
+  min-height: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  overflow: auto;
+}
+
 .document-detail-pane .inline-editor-body textarea {
   min-height: 140px;
 }
@@ -900,6 +916,15 @@ select:focus {
 .document-detail-pane.is-editing .inline-editor-body {
   border-color: #bfd0c8;
   background: #fbfdf9;
+}
+
+.document-detail-pane.is-editing .edit-document .document-scroll {
+  border-color: #bfd0c8;
+  background: #fbfdf9;
+}
+
+.document-detail-pane.is-editing .edit-document .inline-editor-body {
+  background: transparent;
 }
 
 .topic-excerpt-editor .readonly-excerpt-preview {
