@@ -14,8 +14,6 @@ const emit = defineEmits<{
       reflection: string;
       bookTitle: string;
       chapterTitle: string;
-      location: string;
-      importance: number;
       tagNames: string[];
     },
   ];
@@ -25,9 +23,7 @@ const quote = ref("");
 const reflection = ref("");
 const bookTitle = ref("");
 const chapterTitle = ref("");
-const location = ref("");
 const tagInput = ref("");
-const importance = ref(3);
 
 function submit() {
   emit("createExcerpt", {
@@ -35,8 +31,6 @@ function submit() {
     reflection: reflection.value,
     bookTitle: bookTitle.value,
     chapterTitle: chapterTitle.value,
-    location: location.value,
-    importance: importance.value,
     tagNames: parseTagInput(tagInput.value),
   });
 
@@ -44,9 +38,7 @@ function submit() {
   reflection.value = "";
   bookTitle.value = "";
   chapterTitle.value = "";
-  location.value = "";
   tagInput.value = "";
-  importance.value = 3;
 }
 
 function parseTagInput(value: string) {
@@ -89,19 +81,6 @@ function parseTagInput(value: string) {
         章节名
         <input v-model="chapterTitle" placeholder="例如：地方政府的权力与事务" />
       </label>
-
-      <div class="field-row">
-        <label>
-          位置
-          <input v-model="location" placeholder="页码、章节，可选" />
-        </label>
-
-        <label>
-          重要性
-          <input v-model.number="importance" max="5" min="1" type="number" />
-        </label>
-      </div>
-
       <button class="primary-action" :disabled="isSaving" type="submit">
         {{ isSaving ? "保存中" : "保存摘抄" }}
       </button>

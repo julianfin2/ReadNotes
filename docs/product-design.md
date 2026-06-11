@@ -132,9 +132,6 @@ type Excerpt = {
   reflection?: string
   bookTitle?: string
   chapterTitle?: string
-  location?: string
-  importance: 1 | 2 | 3 | 4 | 5
-  status: "inbox" | "processed" | "archived"
   createdAt: string
   updatedAt: string
 }
@@ -204,9 +201,6 @@ CREATE TABLE excerpts (
   reflection TEXT,
   book_title TEXT,
   chapter_title TEXT,
-  location TEXT,
-  importance INTEGER NOT NULL DEFAULT 3,
-  status TEXT NOT NULL DEFAULT 'inbox',
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
@@ -282,10 +276,10 @@ The `notes.target_id` field is intentionally polymorphic. Application logic must
 
 ### Must Have
 
-- Create, edit, archive, and delete excerpts.
-- Add quote text, initial reflection, importance, optional book title, optional chapter title, and optional location.
+- Create, edit, and delete excerpts.
+- Add quote text, initial reflection, optional book title, and optional chapter title.
 - Create and assign tags.
-- Search excerpts by text, tags, importance, status, and time.
+- Search excerpts by text, tags, and time.
 - Create topics.
 - Create nested topic nodes.
 - Add excerpts to topics.
@@ -298,7 +292,7 @@ The `notes.target_id` field is intentionally polymorphic. Application logic must
 
 - Reorder topic nodes.
 - Reorder excerpts inside a topic node.
-- Filter topic excerpts by tag, book title, chapter title, and importance.
+- Filter topic excerpts by tag, book title, and chapter title.
 - Keep all user data local by default.
 
 ### Not In First Version
@@ -326,7 +320,6 @@ Fields:
 - Tags
 - Optional book title
 - Optional chapter title
-- Optional location
 - Optional related topics
 
 Expected interactions:
@@ -342,8 +335,8 @@ Purpose: browse and search all excerpt materials.
 Capabilities:
 
 - Full-text search.
-- Filter by tag, book title, chapter title, importance, status, and date.
-- Sort by created time, updated time, and importance.
+- Filter by tag, book title, chapter title, and date.
+- Sort by created time and updated time.
 - Open excerpt detail.
 
 ### Topic Workspace
@@ -398,10 +391,10 @@ Modes:
 - Topic, topic node, and topic excerpt link CRUD is implemented and exposed through Tauri commands.
 - The frontend is split into focused components under `src/components` and shared types under `src/types`.
 - A minimal topic workspace exists for creating topics, creating first-level topic nodes, and collecting existing excerpts into topics.
-- Excerpt library search and filtering is implemented with SQLite FTS for quote/reflection search, tag filtering, status filtering, minimum importance, and configurable sorting.
+- Excerpt library search and filtering is implemented with SQLite FTS for quote/reflection search, tag filtering, and configurable time sorting.
 - Note CRUD is implemented for excerpt, topic, topic node, and topic excerpt targets.
 - A minimal timeline view is implemented. It aggregates excerpt creation, topic excerpt collection, and note creation, with topic/excerpt filters.
-- Excerpt maintenance is implemented in the frontend: edit quote/reflection/location/importance/status/tags, archive excerpts, and delete excerpts.
+- Excerpt maintenance is implemented in the frontend: edit quote/reflection/book title/chapter title/tags and delete excerpts.
 - Topic workspace maintenance is implemented in the frontend: edit/delete topics, edit/delete nested topic nodes, and edit/remove topic excerpt links.
 - Tag management is implemented in the frontend: create/edit/delete tags, assign parent tags, show excerpt counts, and browse excerpts by selected tag.
 - Excerpts support lightweight source fields: book title and chapter title.

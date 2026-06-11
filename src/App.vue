@@ -48,17 +48,6 @@ async function updateExcerpt(input: UpdateExcerptInput) {
   }
 }
 
-async function archiveExcerpt(id: string) {
-  errorMessage.value = "";
-
-  try {
-    await invoke<Excerpt>("archive_excerpt", { id });
-    await loadExcerpts(lastFilters.value);
-  } catch (error) {
-    errorMessage.value = String(error);
-  }
-}
-
 async function deleteExcerpt(id: string) {
   errorMessage.value = "";
 
@@ -79,8 +68,6 @@ async function createExcerpt(input: {
   reflection: string;
   bookTitle: string;
   chapterTitle: string;
-  location: string;
-  importance: number;
   tagNames: string[];
 }) {
   errorMessage.value = "";
@@ -100,8 +87,6 @@ function toExcerptQuery(filters: ExcerptFilters) {
   return {
     search: filters.search || null,
     tagName: filters.tagName || null,
-    status: filters.status || null,
-    minImportance: filters.minImportance || null,
     sortBy: filters.sortBy,
     sortDirection: filters.sortDirection,
   };
@@ -120,7 +105,6 @@ function toExcerptQuery(filters: ExcerptFilters) {
         :is-saving="isSaving"
         :tags="tags"
         @apply-filters="loadExcerpts"
-        @archive-excerpt="archiveExcerpt"
         @create-excerpt="createExcerpt"
         @delete-excerpt="deleteExcerpt"
         @update-excerpt="updateExcerpt"

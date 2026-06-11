@@ -262,7 +262,7 @@ async function runSaving(task: () => Promise<void>) {
               <span v-if="excerpt.chapterTitle">{{ excerpt.chapterTitle }}</span>
             </span>
             <span class="item-meta">
-              重要性 {{ excerpt.importance }} / {{ new Date(excerpt.createdAt).toLocaleDateString() }}
+              {{ new Date(excerpt.createdAt).toLocaleDateString() }}
             </span>
           </button>
 
@@ -283,8 +283,6 @@ async function runSaving(task: () => Promise<void>) {
                 <span v-if="selectedExcerpt.chapterTitle">{{ selectedExcerpt.chapterTitle }}</span>
               </p>
               <footer>
-                <span>重要性 {{ selectedExcerpt.importance }}</span>
-                <span>{{ selectedExcerpt.status }}</span>
                 <span>{{ new Date(selectedExcerpt.createdAt).toLocaleString() }}</span>
               </footer>
             </div>

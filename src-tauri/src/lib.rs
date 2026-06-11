@@ -16,7 +16,6 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            excerpt::archive_excerpt,
             excerpt::create_excerpt,
             excerpt::delete_excerpt,
             excerpt::get_database_path,

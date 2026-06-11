@@ -7,9 +7,6 @@ export type Excerpt = {
   sourceWorkId?: string | null;
   bookTitle?: string | null;
   chapterTitle?: string | null;
-  location?: string | null;
-  importance: number;
-  status: "inbox" | "processed" | "archived";
   createdAt: string;
   updatedAt: string;
   tags: Tag[];
@@ -18,9 +15,7 @@ export type Excerpt = {
 export type ExcerptFilters = {
   search: string;
   tagName: string;
-  status: "" | "inbox" | "processed" | "archived";
-  minImportance: number | null;
-  sortBy: "createdAt" | "updatedAt" | "importance";
+  sortBy: "createdAt" | "updatedAt";
   sortDirection: "asc" | "desc";
 };
 
@@ -31,8 +26,5 @@ export type UpdateExcerptInput = {
   sourceWorkId?: string | null;
   bookTitle: string;
   chapterTitle: string;
-  location: string;
-  importance: number;
-  status: "inbox" | "processed" | "archived";
   tagNames: string[];
 };

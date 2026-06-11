@@ -60,9 +60,6 @@ fn run_migrations(connection: &Connection) -> Result<(), String> {
               source_work_id TEXT,
               book_title TEXT,
               chapter_title TEXT,
-              location TEXT,
-              importance INTEGER NOT NULL DEFAULT 3,
-              status TEXT NOT NULL DEFAULT 'inbox',
               created_at TEXT NOT NULL,
               updated_at TEXT NOT NULL,
               FOREIGN KEY (source_work_id) REFERENCES works(id)
@@ -134,8 +131,6 @@ fn run_migrations(connection: &Connection) -> Result<(), String> {
 
             CREATE INDEX IF NOT EXISTS idx_excerpts_created_at ON excerpts(created_at);
             CREATE INDEX IF NOT EXISTS idx_excerpts_updated_at ON excerpts(updated_at);
-            CREATE INDEX IF NOT EXISTS idx_excerpts_importance ON excerpts(importance);
-            CREATE INDEX IF NOT EXISTS idx_excerpts_status ON excerpts(status);
             CREATE UNIQUE INDEX IF NOT EXISTS idx_tags_name_nocase ON tags(name COLLATE NOCASE);
             CREATE INDEX IF NOT EXISTS idx_tags_parent_id ON tags(parent_id);
             CREATE INDEX IF NOT EXISTS idx_topic_nodes_topic_id ON topic_nodes(topic_id);
@@ -149,6 +144,7 @@ fn run_migrations(connection: &Connection) -> Result<(), String> {
 
     add_column_if_missing(connection, "excerpts", "book_title", "TEXT")?;
     add_column_if_missing(connection, "excerpts", "chapter_title", "TEXT")?;
+    migrate_excerpts_without_removed_fields(connection)?;
 
     connection
         .execute_batch(
@@ -207,6 +203,76 @@ fn run_migrations(connection: &Connection) -> Result<(), String> {
         .map_err(|error| format!("failed to backfill excerpt search index: {error}"))?;
 
     Ok(())
+}
+
+fn migrate_excerpts_without_removed_fields(connection: &Connection) -> Result<(), String> {
+    let columns = table_columns(connection, "excerpts")?;
+    let has_removed_columns = ["location", "importance", "status"]
+        .iter()
+        .any(|column| columns.iter().any(|existing| existing == column));
+
+    if !has_removed_columns {
+        return Ok(());
+    }
+
+    connection
+        .execute_batch(
+            "
+            PRAGMA foreign_keys = OFF;
+            BEGIN;
+
+            DROP TRIGGER IF EXISTS excerpts_ai;
+            DROP TRIGGER IF EXISTS excerpts_ad;
+            DROP TRIGGER IF EXISTS excerpts_au;
+            DROP TABLE IF EXISTS excerpt_search;
+            DROP INDEX IF EXISTS idx_excerpts_importance;
+            DROP INDEX IF EXISTS idx_excerpts_status;
+
+            CREATE TABLE excerpts_new (
+              id TEXT PRIMARY KEY,
+              quote TEXT NOT NULL,
+              reflection TEXT,
+              source_work_id TEXT,
+              book_title TEXT,
+              chapter_title TEXT,
+              created_at TEXT NOT NULL,
+              updated_at TEXT NOT NULL,
+              FOREIGN KEY (source_work_id) REFERENCES works(id)
+            );
+
+            INSERT INTO excerpts_new (
+              id, quote, reflection, source_work_id, book_title, chapter_title,
+              created_at, updated_at
+            )
+            SELECT
+              id, quote, reflection, source_work_id, book_title, chapter_title,
+              created_at, updated_at
+            FROM excerpts;
+
+            DROP TABLE excerpts;
+            ALTER TABLE excerpts_new RENAME TO excerpts;
+
+            CREATE INDEX IF NOT EXISTS idx_excerpts_created_at ON excerpts(created_at);
+            CREATE INDEX IF NOT EXISTS idx_excerpts_updated_at ON excerpts(updated_at);
+
+            COMMIT;
+            PRAGMA foreign_keys = ON;
+            ",
+        )
+        .map_err(|error| format!("failed to migrate excerpt schema: {error}"))
+}
+
+fn table_columns(connection: &Connection, table: &str) -> Result<Vec<String>, String> {
+    let query = format!("PRAGMA table_info({table})");
+    let mut statement = connection
+        .prepare(&query)
+        .map_err(|error| format!("failed to inspect table {table}: {error}"))?;
+    let rows = statement
+        .query_map([], |row| row.get::<_, String>(1))
+        .map_err(|error| format!("failed to read table info for {table}: {error}"))?;
+
+    rows.collect::<Result<Vec<_>, _>>()
+        .map_err(|error| format!("failed to collect table columns for {table}: {error}"))
 }
 
 fn add_column_if_missing(

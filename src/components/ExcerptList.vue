@@ -12,15 +12,12 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   applyFilters: [filters: ExcerptFilters];
-  archiveExcerpt: [id: string];
   createExcerpt: [
     input: {
       quote: string;
       reflection: string;
       bookTitle: string;
       chapterTitle: string;
-      location: string;
-      importance: number;
       tagNames: string[];
     },
   ];
@@ -38,8 +35,6 @@ const deletingExcerptId = ref("");
 const filters = reactive<ExcerptFilters>({
   search: "",
   tagName: "",
-  status: "",
-  minImportance: null,
   sortBy: "createdAt",
   sortDirection: "desc",
 });
@@ -49,8 +44,6 @@ const createDraft = reactive({
   reflection: "",
   bookTitle: "",
   chapterTitle: "",
-  location: "",
-  importance: 3,
   tagInput: "",
 });
 
@@ -61,9 +54,6 @@ const editDraft = reactive<UpdateExcerptInput & { tagInput: string }>({
   sourceWorkId: null,
   bookTitle: "",
   chapterTitle: "",
-  location: "",
-  importance: 3,
-  status: "inbox",
   tagNames: [],
   tagInput: "",
 });
@@ -72,8 +62,6 @@ const activeFilterCount = computed(() => {
   return [
     filters.search,
     filters.tagName,
-    filters.status,
-    filters.minImportance,
     filters.sortBy !== "createdAt" ? filters.sortBy : "",
     filters.sortDirection !== "desc" ? filters.sortDirection : "",
   ].filter(Boolean).length;
@@ -87,12 +75,6 @@ const activeFilterLabels = computed(() => {
   }
   if (filters.tagName) {
     labels.push(`标签：#${filters.tagName}`);
-  }
-  if (filters.status) {
-    labels.push(`状态：${filters.status}`);
-  }
-  if (filters.minImportance) {
-    labels.push(`重要性 >= ${filters.minImportance}`);
   }
   if (filters.sortBy !== "createdAt") {
     labels.push(`排序：${filters.sortBy}`);
@@ -128,9 +110,6 @@ const isEditDirty = computed(() => {
     editDraft.sourceWorkId !== (excerpt.sourceWorkId || null) ||
     editDraft.bookTitle !== normalizeOptionalText(excerpt.bookTitle) ||
     editDraft.chapterTitle !== normalizeOptionalText(excerpt.chapterTitle) ||
-    editDraft.location !== normalizeOptionalText(excerpt.location) ||
-    editDraft.importance !== excerpt.importance ||
-    editDraft.status !== excerpt.status ||
     excerptTags.join("\n") !== draftTags.join("\n")
   );
 });
@@ -164,8 +143,6 @@ function submitCreate() {
     reflection: createDraft.reflection,
     bookTitle: createDraft.bookTitle,
     chapterTitle: createDraft.chapterTitle,
-    location: createDraft.location,
-    importance: createDraft.importance,
     tagNames: parseTagInput(createDraft.tagInput),
   });
   resetCreateDraft();
@@ -180,9 +157,6 @@ function startEditing(excerpt: Excerpt) {
   editDraft.sourceWorkId = excerpt.sourceWorkId || null;
   editDraft.bookTitle = excerpt.bookTitle || "";
   editDraft.chapterTitle = excerpt.chapterTitle || "";
-  editDraft.location = excerpt.location || "";
-  editDraft.importance = excerpt.importance;
-  editDraft.status = excerpt.status;
   editDraft.tagNames = excerpt.tags.map((tag) => tag.name);
   editDraft.tagInput = excerpt.tags.map((tag) => `#${tag.name}`).join(" ");
 }
@@ -231,9 +205,6 @@ function submitEdit() {
     sourceWorkId: editDraft.sourceWorkId,
     bookTitle: editDraft.bookTitle,
     chapterTitle: editDraft.chapterTitle,
-    location: editDraft.location,
-    importance: editDraft.importance,
-    status: editDraft.status,
     tagNames: parseTagInput(editDraft.tagInput),
   });
   editingId.value = "";
@@ -251,8 +222,6 @@ function applyFilters() {
 function resetFilters() {
   filters.search = "";
   filters.tagName = "";
-  filters.status = "";
-  filters.minImportance = null;
   filters.sortBy = "createdAt";
   filters.sortDirection = "desc";
   applyFilters();
@@ -263,8 +232,6 @@ function resetCreateDraft() {
   createDraft.reflection = "";
   createDraft.bookTitle = "";
   createDraft.chapterTitle = "";
-  createDraft.location = "";
-  createDraft.importance = 3;
   createDraft.tagInput = "";
 }
 
@@ -337,7 +304,7 @@ function discardEditing() {
               <span v-if="excerpt.chapterTitle">{{ excerpt.chapterTitle }}</span>
             </span>
             <span class="item-meta">
-              重要性 {{ excerpt.importance }} / {{ new Date(excerpt.createdAt).toLocaleDateString() }}
+              {{ new Date(excerpt.createdAt).toLocaleDateString() }}
             </span>
           </button>
 
@@ -396,24 +363,6 @@ function discardEditing() {
                 标签
                 <input v-model="editDraft.tagInput" />
               </label>
-              <div class="edit-grid">
-                <label>
-                  位置
-                  <input v-model="editDraft.location" />
-                </label>
-                <label>
-                  重要性
-                  <input v-model.number="editDraft.importance" max="5" min="1" type="number" />
-                </label>
-                <label>
-                  状态
-                  <select v-model="editDraft.status">
-                    <option value="inbox">inbox</option>
-                    <option value="processed">processed</option>
-                    <option value="archived">archived</option>
-                  </select>
-                </label>
-              </div>
             </div>
           </div>
         </form>
@@ -428,22 +377,12 @@ function discardEditing() {
               </p>
               <p v-else class="source-line">未记录书籍与章节</p>
               <footer>
-                <span>重要性 {{ selectedExcerpt.importance }}</span>
-                <span>{{ selectedExcerpt.status }}</span>
                 <span>{{ new Date(selectedExcerpt.createdAt).toLocaleString() }}</span>
               </footer>
             </div>
             <div class="action-row">
               <button class="secondary-action" type="button" @click="startEditing(selectedExcerpt)">
                 编辑
-              </button>
-              <button
-                class="secondary-action"
-                type="button"
-                :disabled="selectedExcerpt.status === 'archived'"
-                @click="$emit('archiveExcerpt', selectedExcerpt.id)"
-              >
-                归档
               </button>
               <button
                 class="danger-action"
@@ -501,16 +440,6 @@ function discardEditing() {
         标签
         <input v-model="createDraft.tagInput" placeholder="例如：人性 写作素材 #焦虑" />
       </label>
-      <div class="edit-grid">
-        <label>
-          位置
-          <input v-model="createDraft.location" placeholder="页码、章节，可选" />
-        </label>
-        <label>
-          重要性
-          <input v-model.number="createDraft.importance" max="5" min="1" type="number" />
-        </label>
-      </div>
       <div class="modal-actions">
         <button class="secondary-action" type="button" @click="createModalOpen = false">取消</button>
         <button class="primary-action" :disabled="props.isSaving" type="submit">保存</button>
@@ -541,36 +470,22 @@ function discardEditing() {
           <option v-for="tag in props.tags" :key="tag.id" :value="tag.name">#{{ tag.name }}</option>
         </select>
       </label>
-      <div class="edit-grid">
-        <label>
-          状态
-          <select v-model="filters.status">
-            <option value="">全部状态</option>
-            <option value="inbox">inbox</option>
-            <option value="processed">processed</option>
-            <option value="archived">archived</option>
-          </select>
-        </label>
-        <label>
-          最低重要性
-          <input v-model.number="filters.minImportance" max="5" min="1" type="number" />
-        </label>
+      <div class="source-grid">
         <label>
           排序
           <select v-model="filters.sortBy">
             <option value="createdAt">创建时间</option>
             <option value="updatedAt">更新时间</option>
-            <option value="importance">重要性</option>
+          </select>
+        </label>
+        <label>
+          方向
+          <select v-model="filters.sortDirection">
+            <option value="desc">降序</option>
+            <option value="asc">升序</option>
           </select>
         </label>
       </div>
-      <label>
-        方向
-        <select v-model="filters.sortDirection">
-          <option value="desc">降序</option>
-          <option value="asc">升序</option>
-        </select>
-      </label>
       <div class="modal-actions">
         <button class="secondary-action" type="button" @click="resetFilters">清空</button>
         <button class="primary-action" type="submit">应用</button>

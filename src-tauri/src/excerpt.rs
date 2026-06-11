@@ -16,9 +16,6 @@ pub struct Excerpt {
     pub source_work_id: Option<String>,
     pub book_title: Option<String>,
     pub chapter_title: Option<String>,
-    pub location: Option<String>,
-    pub importance: i64,
-    pub status: String,
     pub created_at: String,
     pub updated_at: String,
     pub tags: Vec<Tag>,
@@ -32,9 +29,6 @@ pub struct CreateExcerptRequest {
     pub source_work_id: Option<String>,
     pub book_title: Option<String>,
     pub chapter_title: Option<String>,
-    pub location: Option<String>,
-    pub importance: Option<i64>,
-    pub status: Option<String>,
     pub tag_names: Option<Vec<String>>,
 }
 
@@ -47,9 +41,6 @@ pub struct UpdateExcerptRequest {
     pub source_work_id: Option<String>,
     pub book_title: Option<String>,
     pub chapter_title: Option<String>,
-    pub location: Option<String>,
-    pub importance: i64,
-    pub status: String,
     pub tag_names: Option<Vec<String>>,
 }
 
@@ -58,8 +49,6 @@ pub struct UpdateExcerptRequest {
 pub struct ListExcerptsRequest {
     pub search: Option<String>,
     pub tag_name: Option<String>,
-    pub status: Option<String>,
-    pub min_importance: Option<i64>,
     pub sort_by: Option<String>,
     pub sort_direction: Option<String>,
 }
@@ -70,8 +59,6 @@ pub fn create_excerpt(
     input: CreateExcerptRequest,
 ) -> Result<Excerpt, String> {
     let quote = normalize_required_text(input.quote, "quote")?;
-    let importance = validate_importance(input.importance.unwrap_or(3))?;
-    let status = validate_status(input.status.as_deref().unwrap_or("inbox"))?;
     let tag_names = input.tag_names.unwrap_or_default();
     let now = now_rfc3339()?;
     let id = Uuid::new_v4().to_string();
@@ -89,10 +76,10 @@ pub fn create_excerpt(
         .execute(
             "
             INSERT INTO excerpts (
-              id, quote, reflection, source_work_id, book_title, chapter_title, location,
-              importance, status, created_at, updated_at
+              id, quote, reflection, source_work_id, book_title, chapter_title,
+              created_at, updated_at
             )
-            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)
+            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
             ",
             params![
                 id,
@@ -101,9 +88,6 @@ pub fn create_excerpt(
                 empty_to_none(input.source_work_id),
                 empty_to_none(input.book_title),
                 empty_to_none(input.chapter_title),
-                empty_to_none(input.location),
-                importance,
-                status,
                 now,
                 now
             ],
@@ -156,18 +140,6 @@ pub fn list_excerpts(
         parameter_values.push(tag_name.trim_start_matches('#').to_string());
     }
 
-    if let Some(status) = input.status {
-        let status = validate_status(&status)?;
-        clauses.push("excerpts.status = ?".to_string());
-        parameter_values.push(status);
-    }
-
-    if let Some(min_importance) = input.min_importance {
-        let min_importance = validate_importance(min_importance)?;
-        clauses.push("excerpts.importance >= ?".to_string());
-        parameter_values.push(min_importance.to_string());
-    }
-
     let where_clause = if clauses.is_empty() {
         String::new()
     } else {
@@ -178,8 +150,8 @@ pub fn list_excerpts(
     let query = format!(
         "
         SELECT
-          id, quote, reflection, source_work_id, location,
-          book_title, chapter_title, importance, status, created_at, updated_at
+          id, quote, reflection, source_work_id,
+          book_title, chapter_title, created_at, updated_at
         FROM excerpts
         {where_clause}
         {order_clause}
@@ -214,8 +186,6 @@ impl Default for ListExcerptsRequest {
         Self {
             search: None,
             tag_name: None,
-            status: None,
-            min_importance: None,
             sort_by: Some("createdAt".to_string()),
             sort_direction: Some("desc".to_string()),
         }
@@ -228,8 +198,6 @@ pub fn update_excerpt(
     input: UpdateExcerptRequest,
 ) -> Result<Excerpt, String> {
     let quote = normalize_required_text(input.quote, "quote")?;
-    let importance = validate_importance(input.importance)?;
-    let status = validate_status(&input.status)?;
     let now = now_rfc3339()?;
 
     let mut connection = state
@@ -251,10 +219,7 @@ pub fn update_excerpt(
               source_work_id = ?4,
               book_title = ?5,
               chapter_title = ?6,
-              location = ?7,
-              importance = ?8,
-              status = ?9,
-              updated_at = ?10
+              updated_at = ?7
             WHERE id = ?1
             ",
             params![
@@ -264,9 +229,6 @@ pub fn update_excerpt(
                 empty_to_none(input.source_work_id),
                 empty_to_none(input.book_title),
                 empty_to_none(input.chapter_title),
-                empty_to_none(input.location),
-                importance,
-                status,
                 now
             ],
         )
@@ -285,11 +247,6 @@ pub fn update_excerpt(
         .map_err(|error| format!("failed to save excerpt update: {error}"))?;
 
     get_excerpt_by_id(&connection, &input.id)
-}
-
-#[tauri::command]
-pub fn archive_excerpt(state: State<'_, AppState>, id: String) -> Result<Excerpt, String> {
-    set_excerpt_status(state, id, "archived")
 }
 
 #[tauri::command]
@@ -315,38 +272,13 @@ pub fn get_database_path(state: State<'_, AppState>) -> String {
     state.db_path.display().to_string()
 }
 
-fn set_excerpt_status(
-    state: State<'_, AppState>,
-    id: String,
-    status: &str,
-) -> Result<Excerpt, String> {
-    let now = now_rfc3339()?;
-    let connection = state
-        .db
-        .lock()
-        .map_err(|_| "database lock was poisoned".to_string())?;
-
-    let changed = connection
-        .execute(
-            "UPDATE excerpts SET status = ?2, updated_at = ?3 WHERE id = ?1",
-            params![id, status, now],
-        )
-        .map_err(|error| format!("failed to update excerpt status: {error}"))?;
-
-    if changed == 0 {
-        return Err("excerpt not found".to_string());
-    }
-
-    get_excerpt_by_id(&connection, &id)
-}
-
 pub fn get_excerpt_by_id(connection: &Connection, id: &str) -> Result<Excerpt, String> {
     let mut excerpt = connection
         .query_row(
             "
             SELECT
-              id, quote, reflection, source_work_id, location,
-              book_title, chapter_title, importance, status, created_at, updated_at
+              id, quote, reflection, source_work_id,
+              book_title, chapter_title, created_at, updated_at
             FROM excerpts
             WHERE id = ?1
             ",
@@ -365,13 +297,10 @@ fn map_excerpt_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Excerpt> {
         quote: row.get(1)?,
         reflection: row.get(2)?,
         source_work_id: row.get(3)?,
-        location: row.get(4)?,
-        book_title: row.get(5)?,
-        chapter_title: row.get(6)?,
-        importance: row.get(7)?,
-        status: row.get(8)?,
-        created_at: row.get(9)?,
-        updated_at: row.get(10)?,
+        book_title: row.get(4)?,
+        chapter_title: row.get(5)?,
+        created_at: row.get(6)?,
+        updated_at: row.get(7)?,
         tags: Vec::new(),
     })
 }
@@ -407,21 +336,6 @@ fn normalize_optional_text(value: Option<String>) -> Option<String> {
     })
 }
 
-fn validate_importance(value: i64) -> Result<i64, String> {
-    if (1..=5).contains(&value) {
-        Ok(value)
-    } else {
-        Err("importance must be between 1 and 5".to_string())
-    }
-}
-
-fn validate_status(value: &str) -> Result<String, String> {
-    match value {
-        "inbox" | "processed" | "archived" => Ok(value.to_string()),
-        _ => Err("status must be inbox, processed, or archived".to_string()),
-    }
-}
-
 fn build_order_clause(
     sort_by: Option<&str>,
     sort_direction: Option<&str>,
@@ -429,8 +343,7 @@ fn build_order_clause(
     let column = match sort_by.unwrap_or("createdAt") {
         "createdAt" => "created_at",
         "updatedAt" => "updated_at",
-        "importance" => "importance",
-        _ => return Err("sortBy must be createdAt, updatedAt, or importance".to_string()),
+        _ => return Err("sortBy must be createdAt or updatedAt".to_string()),
     };
     let direction = match sort_direction.unwrap_or("desc") {
         "asc" => "ASC",
