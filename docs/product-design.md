@@ -409,4 +409,7 @@ Modes:
 - Global tag CRUD is implemented and exposed through Tauri commands.
 - Excerpts can be linked to global tags through `excerpt_tags`.
 - Quick capture supports inline tag names. Missing tags are created automatically during excerpt creation.
-- Topic, topic node, topic excerpt, source work, and note workflows are still design-only.
+- Topic, topic node, and topic excerpt link CRUD is implemented and exposed through Tauri commands.
+- The frontend is split into focused components under `src/components` and shared types under `src/types`.
+- A minimal topic workspace exists for creating topics, creating first-level topic nodes, and collecting existing excerpts into topics.
+- Source work and note workflows are still design-only.

@@ -235,7 +235,7 @@ fn set_excerpt_status(
     get_excerpt_by_id(&connection, &id)
 }
 
-fn get_excerpt_by_id(connection: &Connection, id: &str) -> Result<Excerpt, String> {
+pub fn get_excerpt_by_id(connection: &Connection, id: &str) -> Result<Excerpt, String> {
     let mut excerpt = connection
         .query_row(
             "

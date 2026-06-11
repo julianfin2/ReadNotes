@@ -1,34 +1,16 @@
 <script setup lang="ts">
 import { onMounted, ref } from "vue";
 import { invoke } from "@tauri-apps/api/core";
+import AppSidebar from "./components/AppSidebar.vue";
+import ExcerptCapture from "./components/ExcerptCapture.vue";
+import ExcerptList from "./components/ExcerptList.vue";
+import TopicWorkspace from "./components/TopicWorkspace.vue";
+import type { Excerpt } from "./types/excerpt";
 
-type Excerpt = {
-  id: string;
-  quote: string;
-  reflection?: string | null;
-  sourceWorkId?: string | null;
-  location?: string | null;
-  importance: number;
-  status: "inbox" | "processed" | "archived";
-  createdAt: string;
-  updatedAt: string;
-  tags: Tag[];
-};
+type ViewKey = "excerpts" | "topics" | "tags" | "timeline";
 
-type Tag = {
-  id: string;
-  name: string;
-  parentId?: string | null;
-  color?: string | null;
-  createdAt: string;
-};
-
+const activeView = ref<ViewKey>("excerpts");
 const excerpts = ref<Excerpt[]>([]);
-const quote = ref("");
-const reflection = ref("");
-const location = ref("");
-const tagInput = ref("");
-const importance = ref(3);
 const databasePath = ref("");
 const errorMessage = ref("");
 const isSaving = ref(false);
@@ -45,26 +27,18 @@ async function loadExcerpts() {
   excerpts.value = await invoke<Excerpt[]>("list_excerpts");
 }
 
-async function createExcerpt() {
+async function createExcerpt(input: {
+  quote: string;
+  reflection: string;
+  location: string;
+  importance: number;
+  tagNames: string[];
+}) {
   errorMessage.value = "";
   isSaving.value = true;
 
   try {
-    await invoke<Excerpt>("create_excerpt", {
-      input: {
-        quote: quote.value,
-        reflection: reflection.value,
-        location: location.value,
-        importance: importance.value,
-        tagNames: parseTagInput(tagInput.value),
-      },
-    });
-
-    quote.value = "";
-    reflection.value = "";
-    location.value = "";
-    tagInput.value = "";
-    importance.value = 3;
+    await invoke<Excerpt>("create_excerpt", { input });
     await loadExcerpts();
   } catch (error) {
     errorMessage.value = String(error);
@@ -72,99 +46,26 @@ async function createExcerpt() {
     isSaving.value = false;
   }
 }
-
-function parseTagInput(value: string) {
-  return value
-    .split(/[\s,，#]+/)
-    .map((tag) => tag.trim())
-    .filter(Boolean);
-}
 </script>
 
 <template>
   <main class="app-shell">
-    <aside class="sidebar">
-      <div>
-        <p class="eyebrow">ReadNotes</p>
-        <h1>摘抄库</h1>
-      </div>
+    <AppSidebar :active-view="activeView" @select-view="activeView = $event" />
 
-      <nav>
-        <button class="nav-item active">摘抄</button>
-        <button class="nav-item" disabled>主题</button>
-        <button class="nav-item" disabled>标签</button>
-        <button class="nav-item" disabled>时间线</button>
-      </nav>
-    </aside>
+    <template v-if="activeView === 'excerpts'">
+      <ExcerptCapture
+        :database-path="databasePath"
+        :error-message="errorMessage"
+        :is-saving="isSaving"
+        @create-excerpt="createExcerpt"
+      />
+      <ExcerptList :excerpts="excerpts" />
+    </template>
 
-    <section class="capture-panel">
-      <div class="section-heading">
-        <p class="eyebrow">Quick capture</p>
-        <h2>新增摘抄</h2>
-      </div>
+    <TopicWorkspace v-else-if="activeView === 'topics'" :excerpts="excerpts" />
 
-      <form @submit.prevent="createExcerpt">
-        <label>
-          原文
-          <textarea v-model="quote" rows="7" placeholder="输入摘抄原文" />
-        </label>
-
-        <label>
-          初始理解
-          <textarea v-model="reflection" rows="5" placeholder="写下此刻的理解" />
-        </label>
-
-        <label>
-          标签
-          <input v-model="tagInput" placeholder="例如：人性 写作素材 #焦虑" />
-        </label>
-
-        <div class="field-row">
-          <label>
-            位置
-            <input v-model="location" placeholder="页码、章节，可选" />
-          </label>
-
-          <label>
-            重要性
-            <input v-model.number="importance" max="5" min="1" type="number" />
-          </label>
-        </div>
-
-        <button class="primary-action" :disabled="isSaving" type="submit">
-          {{ isSaving ? "保存中" : "保存摘抄" }}
-        </button>
-
-        <p v-if="errorMessage" class="error-message">{{ errorMessage }}</p>
-      </form>
-
-      <p class="database-path">Database: {{ databasePath }}</p>
-    </section>
-
-    <section class="library-panel">
-      <div class="section-heading">
-        <p class="eyebrow">Library</p>
-        <h2>{{ excerpts.length }} 条摘抄</h2>
-      </div>
-
-      <div class="excerpt-list">
-        <article v-for="excerpt in excerpts" :key="excerpt.id" class="excerpt-card">
-          <blockquote>{{ excerpt.quote }}</blockquote>
-          <p v-if="excerpt.reflection" class="reflection">{{ excerpt.reflection }}</p>
-          <div v-if="excerpt.tags.length > 0" class="tag-row">
-            <span v-for="tag in excerpt.tags" :key="tag.id" class="tag-pill">
-              #{{ tag.name }}
-            </span>
-          </div>
-          <footer>
-            <span>重要性 {{ excerpt.importance }}</span>
-            <span>{{ excerpt.status }}</span>
-            <span>{{ new Date(excerpt.createdAt).toLocaleString() }}</span>
-          </footer>
-        </article>
-
-        <p v-if="excerpts.length === 0" class="empty-state">还没有摘抄。</p>
-      </div>
+    <section v-else class="workspace-panel">
+      <p class="empty-state">这个视图还没有实现。</p>
     </section>
   </main>
 </template>
@@ -193,6 +94,7 @@ body {
 
 button,
 input,
+select,
 textarea {
   font: inherit;
 }
@@ -231,7 +133,8 @@ button {
 }
 
 h1,
-h2 {
+h2,
+h3 {
   margin: 0;
   letter-spacing: 0;
 }
@@ -242,6 +145,10 @@ h1 {
 
 h2 {
   font-size: 1.25rem;
+}
+
+h3 {
+  font-size: 1rem;
 }
 
 nav {
@@ -269,11 +176,24 @@ nav {
 }
 
 .capture-panel,
-.library-panel {
+.library-panel,
+.topic-panel,
+.workspace-panel {
   padding: 28px;
 }
 
 .capture-panel {
+  border-right: 1px solid #d9d3c7;
+  background: #fbf8f1;
+}
+
+.library-panel,
+.topic-panel,
+.workspace-panel {
+  background: #f4f1ea;
+}
+
+.topic-panel {
   border-right: 1px solid #d9d3c7;
   background: #fbf8f1;
 }
@@ -283,7 +203,8 @@ nav {
 }
 
 form,
-.excerpt-list {
+.excerpt-list,
+.stack {
   display: grid;
   gap: 16px;
 }
@@ -297,7 +218,8 @@ label {
 }
 
 textarea,
-input {
+input,
+select {
   width: 100%;
   border: 1px solid #d6cfc2;
   border-radius: 6px;
@@ -311,13 +233,15 @@ textarea {
   padding: 10px 12px;
 }
 
-input {
+input,
+select {
   min-height: 40px;
   padding: 0 12px;
 }
 
 textarea:focus,
-input:focus {
+input:focus,
+select:focus {
   border-color: #8a6552;
 }
 
@@ -327,16 +251,27 @@ input:focus {
   gap: 12px;
 }
 
-.primary-action {
+.primary-action,
+.secondary-action {
   min-height: 42px;
   border-radius: 6px;
-  background: #2e6f62;
-  color: white;
   cursor: pointer;
   font-weight: 700;
 }
 
-.primary-action:disabled {
+.primary-action {
+  background: #2e6f62;
+  color: white;
+}
+
+.secondary-action {
+  border: 1px solid #d6cfc2;
+  background: #fffdf9;
+  color: #2d3a3f;
+}
+
+.primary-action:disabled,
+.secondary-action:disabled {
   cursor: wait;
   opacity: 0.7;
 }
@@ -353,17 +288,52 @@ input:focus {
   font-size: 0.78rem;
 }
 
-.library-panel {
-  background: #f4f1ea;
-}
-
-.excerpt-card {
+.excerpt-card,
+.topic-card {
   display: grid;
   gap: 12px;
   padding: 18px;
   border: 1px solid #ded7ca;
   border-radius: 8px;
   background: #fffdf9;
+}
+
+.topic-list,
+.node-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.topic-selector,
+.node-selector {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 40px;
+  padding: 8px 10px;
+  border: 1px solid #d6cfc2;
+  border-radius: 6px;
+  background: #fffdf9;
+  color: #2d3a3f;
+  cursor: pointer;
+  text-align: left;
+}
+
+.topic-selector.active,
+.node-selector.active {
+  border-color: #2e6f62;
+  background: #e8eee6;
+}
+
+.topic-selector small {
+  color: #7a817f;
+}
+
+.topic-workspace-grid {
+  display: grid;
+  grid-template-columns: minmax(260px, 340px) minmax(0, 1fr);
+  gap: 18px;
 }
 
 blockquote {
@@ -395,7 +365,8 @@ blockquote {
   overflow-wrap: anywhere;
 }
 
-footer {
+footer,
+.meta-row {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
@@ -420,6 +391,15 @@ footer {
   .capture-panel {
     border-right: 0;
     border-bottom: 1px solid #d9d3c7;
+  }
+
+  .topic-panel {
+    border-right: 0;
+    border-bottom: 1px solid #d9d3c7;
+  }
+
+  .topic-workspace-grid {
+    grid-template-columns: 1fr;
   }
 }
 </style>
