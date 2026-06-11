@@ -31,9 +31,7 @@ const emit = defineEmits<{
 const createModalOpen = ref(false);
 const editModalOpen = ref(false);
 const filterModalOpen = ref(false);
-const manageModalOpen = ref(false);
 const editingId = ref("");
-const managedExcerpt = ref<Excerpt | null>(null);
 
 const filters = reactive<ExcerptFilters>({
   search: "",
@@ -94,8 +92,6 @@ function submitCreate() {
 }
 
 function startEditing(excerpt: Excerpt) {
-  manageModalOpen.value = false;
-  managedExcerpt.value = null;
   editingId.value = excerpt.id;
   editDraft.id = excerpt.id;
   editDraft.quote = excerpt.quote;
@@ -109,34 +105,6 @@ function startEditing(excerpt: Excerpt) {
   editDraft.tagNames = excerpt.tags.map((tag) => tag.name);
   editDraft.tagInput = excerpt.tags.map((tag) => `#${tag.name}`).join(" ");
   editModalOpen.value = true;
-}
-
-function openManageModal(excerpt: Excerpt) {
-  managedExcerpt.value = excerpt;
-  manageModalOpen.value = true;
-}
-
-function closeManageModal() {
-  managedExcerpt.value = null;
-  manageModalOpen.value = false;
-}
-
-function archiveManagedExcerpt() {
-  if (!managedExcerpt.value) {
-    return;
-  }
-
-  emit("archiveExcerpt", managedExcerpt.value.id);
-  closeManageModal();
-}
-
-function deleteManagedExcerpt() {
-  if (!managedExcerpt.value) {
-    return;
-  }
-
-  emit("deleteExcerpt", managedExcerpt.value.id);
-  closeManageModal();
 }
 
 function submitEdit() {
@@ -228,9 +196,22 @@ function parseTagInput(value: string) {
           <span>{{ new Date(excerpt.createdAt).toLocaleString() }}</span>
         </footer>
 
-        <button class="quiet-action" type="button" @click="openManageModal(excerpt)">
-          管理
-        </button>
+        <div class="action-row">
+          <button class="secondary-action" type="button" @click="startEditing(excerpt)">
+            编辑
+          </button>
+          <button
+            class="secondary-action"
+            type="button"
+            :disabled="excerpt.status === 'archived'"
+            @click="$emit('archiveExcerpt', excerpt.id)"
+          >
+            归档
+          </button>
+          <button class="danger-action" type="button" @click="$emit('deleteExcerpt', excerpt.id)">
+            删除
+          </button>
+        </div>
       </article>
 
       <p v-if="excerpts.length === 0" class="empty-state">还没有摘抄。</p>
@@ -325,33 +306,6 @@ function parseTagInput(value: string) {
         <button class="primary-action" type="submit">保存</button>
       </div>
     </form>
-  </BaseModal>
-
-  <BaseModal :open="manageModalOpen" title="管理摘抄" @close="closeManageModal">
-    <div v-if="managedExcerpt" class="modal-form">
-      <blockquote>{{ managedExcerpt.quote }}</blockquote>
-      <p v-if="managedExcerpt.bookTitle || managedExcerpt.chapterTitle" class="source-line">
-        <span v-if="managedExcerpt.bookTitle">《{{ managedExcerpt.bookTitle }}》</span>
-        <span v-if="managedExcerpt.bookTitle && managedExcerpt.chapterTitle"> / </span>
-        <span v-if="managedExcerpt.chapterTitle">{{ managedExcerpt.chapterTitle }}</span>
-      </p>
-      <div class="modal-actions">
-        <button class="secondary-action" type="button" @click="startEditing(managedExcerpt)">
-          编辑
-        </button>
-        <button
-          class="secondary-action"
-          type="button"
-          :disabled="managedExcerpt.status === 'archived'"
-          @click="archiveManagedExcerpt"
-        >
-          归档
-        </button>
-        <button class="danger-action" type="button" @click="deleteManagedExcerpt">
-          删除
-        </button>
-      </div>
-    </div>
   </BaseModal>
 
   <BaseModal :open="filterModalOpen" title="筛选摘抄" @close="filterModalOpen = false">
