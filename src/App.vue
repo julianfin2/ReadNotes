@@ -861,14 +861,11 @@ select:focus {
 }
 
 .document-detail-pane .document-scroll {
+  display: block;
   flex: 1 1 auto;
   height: auto;
   min-height: 0;
   padding: 0;
-  overflow: auto;
-}
-
-.document-detail-pane .edit-document .document-scroll {
   border: 1px solid #ded7ca;
   border-radius: 8px;
   background: #fffdf9;
@@ -879,13 +876,24 @@ select:focus {
 .document-detail-pane .inline-editor-body {
   width: 100%;
   max-width: none;
+  height: 100%;
   min-height: 100%;
   padding: 24px 26px;
+}
+
+.document-detail-pane .document-body {
+  align-content: start;
+  align-items: start;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  overflow: auto;
 }
 
 .document-detail-pane .document-body blockquote,
 .document-detail-pane .document-body .reflection,
 .document-detail-pane .document-body .tag-row {
+  align-self: start;
   width: 100%;
   max-width: none;
 }
@@ -918,7 +926,7 @@ select:focus {
   background: #fbfdf9;
 }
 
-.document-detail-pane.is-editing .edit-document .document-scroll {
+.document-detail-pane.is-editing .document-scroll {
   border-color: #bfd0c8;
   background: #fbfdf9;
 }
