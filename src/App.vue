@@ -891,8 +891,10 @@ select:focus {
 }
 
 .library-detail-pane .document-body blockquote,
-.library-detail-pane .document-body .reflection {
-  max-width: 96ch;
+.library-detail-pane .document-body .reflection,
+.library-detail-pane .document-body .tag-row {
+  width: 100%;
+  max-width: none;
 }
 
 .library-detail-pane .inline-editor-body {
