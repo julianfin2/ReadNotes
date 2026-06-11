@@ -523,9 +523,27 @@ async function runSaving(task: () => Promise<void>) {
         <section class="context-section">
           <div class="card-header">
             <h3>子主题</h3>
-            <button class="secondary-action" type="button" @click="nodeModalOpen = true">
-              添加
-            </button>
+            <div class="inline-actions">
+              <button
+                v-if="selectedNode"
+                class="secondary-action"
+                type="button"
+                @click="startEditingNode(selectedNode)"
+              >
+                编辑
+              </button>
+              <button
+                v-if="selectedNode"
+                class="danger-action"
+                type="button"
+                @click="requestDeleteTopicNode(selectedNode)"
+              >
+                删除
+              </button>
+              <button class="secondary-action" type="button" @click="nodeModalOpen = true">
+                添加
+              </button>
+            </div>
           </div>
 
           <div class="node-list">
@@ -550,16 +568,6 @@ async function runSaving(task: () => Promise<void>) {
 
           <div v-if="selectedNode" class="context-actions">
             <p v-if="selectedNode.summary" class="subtle-text">{{ selectedNode.summary }}</p>
-            <button class="secondary-action" type="button" @click="startEditingNode(selectedNode)">
-              编辑子主题
-            </button>
-            <button
-              class="danger-action"
-              type="button"
-              @click="requestDeleteTopicNode(selectedNode)"
-            >
-              删除子主题
-            </button>
           </div>
         </section>
 

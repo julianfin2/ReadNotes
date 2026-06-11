@@ -367,6 +367,13 @@ nav {
   gap: 12px;
 }
 
+.inline-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 .subtle-text {
   margin: 4px 0 0;
   color: #6e7678;
