@@ -859,6 +859,11 @@ select:focus {
   min-height: 240px;
 }
 
+.tag-empty-state {
+  gap: 12px;
+  min-height: 240px;
+}
+
 .timeline-filter {
   display: grid;
   grid-template-columns: repeat(2, minmax(160px, 1fr)) 96px 96px;

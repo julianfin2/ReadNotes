@@ -198,63 +198,53 @@ async function runSaving(task: () => Promise<void>) {
 </script>
 
 <template>
-  <section class="topic-panel desktop-side-pane">
+  <section class="page-panel workspace-panel desktop-view tag-page">
     <header class="page-header">
       <div>
         <p class="eyebrow">Tags</p>
-        <h2>标签</h2>
-        <p class="subtle-text">{{ tags.length }} 个标签</p>
-      </div>
-      <button class="primary-action" type="button" @click="createModalOpen = true">
-        新建标签
-      </button>
-    </header>
-
-    <div class="topic-list">
-      <div
-        v-for="tag in tags"
-        :key="tag.id"
-        class="topic-selector topic-selector-block"
-        :class="{ active: tag.name === selectedTagName }"
-        role="button"
-        tabindex="0"
-        @click="loadExcerptsForTag(tag.name)"
-        @keydown.enter="loadExcerptsForTag(tag.name)"
-        @keydown.space.prevent="loadExcerptsForTag(tag.name)"
-      >
-        <button class="plain-selector" type="button" @click.stop="loadExcerptsForTag(tag.name)">
-          <span>#{{ tag.name }}</span>
-          <small>{{ tag.excerptCount }} 条</small>
-        </button>
-        <p v-if="tag.parentId" class="reflection">父标签：#{{ parentLabel(tag) }}</p>
-      </div>
-    </div>
-
-    <p v-if="tags.length === 0" class="empty-state">还没有标签。</p>
-    <p v-if="errorMessage" class="error-message">{{ errorMessage }}</p>
-  </section>
-
-  <section class="workspace-panel desktop-view">
-    <header class="page-header">
-      <div>
-        <p class="eyebrow">Tagged excerpts</p>
-        <h2>{{ selectedTagName ? `#${selectedTagName}` : "标签摘抄" }}</h2>
+        <h2>{{ selectedTagName ? `#${selectedTagName}` : "标签" }}</h2>
         <p v-if="selectedTag" class="subtle-text">
           {{ selectedTag.excerptCount }} 条摘抄
           <span v-if="selectedTag.parentId"> / 父标签 #{{ parentLabel(selectedTag) }}</span>
         </p>
+        <p v-else class="subtle-text">{{ tags.length }} 个标签</p>
       </div>
-      <div v-if="selectedTag" class="toolbar">
-        <button class="secondary-action" type="button" @click="startEditing(selectedTag)">
+
+      <div class="toolbar topic-toolbar">
+        <select
+          v-if="tags.length > 0"
+          v-model="selectedTagName"
+          class="topic-switcher"
+          aria-label="切换标签"
+          @change="loadExcerptsForTag(selectedTagName)"
+        >
+          <option v-for="tag in tags" :key="tag.id" :value="tag.name">
+            #{{ tag.name }}
+          </option>
+        </select>
+        <button class="primary-action" type="button" @click="createModalOpen = true">
+          新建标签
+        </button>
+        <button
+          v-if="selectedTag"
+          class="secondary-action"
+          type="button"
+          @click="startEditing(selectedTag)"
+        >
           编辑标签
         </button>
-        <button class="danger-action" type="button" @click="requestDeleteTag(selectedTag.id)">
+        <button
+          v-if="selectedTag"
+          class="danger-action"
+          type="button"
+          @click="requestDeleteTag(selectedTag.id)"
+        >
           删除标签
         </button>
       </div>
     </header>
 
-    <div class="split-workspace tag-workspace-grid">
+    <div v-if="selectedTag" class="split-workspace tag-workspace-grid">
       <aside class="list-pane">
         <div class="list-scroll">
           <button
@@ -318,6 +308,15 @@ async function runSaving(task: () => Promise<void>) {
         <p class="empty-state">选择一条摘抄查看详情。</p>
       </section>
     </div>
+
+    <div v-else class="empty-detail tag-empty-state">
+      <p class="empty-state">先创建一个标签。</p>
+      <button class="primary-action" type="button" @click="createModalOpen = true">
+        新建标签
+      </button>
+    </div>
+
+    <p v-if="errorMessage" class="error-message">{{ errorMessage }}</p>
   </section>
 
   <BaseModal :open="createModalOpen" title="新建标签" @close="createModalOpen = false">
