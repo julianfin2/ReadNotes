@@ -107,8 +107,8 @@ function kindLabel(kind: TimelineEntry["kind"]) {
 </script>
 
 <template>
-  <section class="page-panel workspace-panel">
-    <header class="page-header">
+  <section class="page-panel workspace-panel desktop-view">
+    <header class="page-header desktop-toolbar">
       <div>
         <p class="eyebrow">Timeline</p>
         <h2>时间线</h2>

@@ -394,7 +394,7 @@ async function runSaving(task: () => Promise<void>) {
 </script>
 
 <template>
-  <section class="topic-panel">
+  <section class="topic-panel desktop-side-pane">
     <header class="page-header">
       <div>
         <p class="eyebrow">Topics</p>
@@ -423,7 +423,7 @@ async function runSaving(task: () => Promise<void>) {
     <p v-if="topics.length === 0" class="empty-state">还没有主题。</p>
   </section>
 
-  <section class="workspace-panel">
+  <section class="workspace-panel desktop-view">
     <header class="page-header">
       <div>
         <p class="eyebrow">Workspace</p>

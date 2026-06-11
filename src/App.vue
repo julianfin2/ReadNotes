@@ -155,6 +155,7 @@ function toExcerptQuery(filters: ExcerptFilters) {
 
 body {
   margin: 0;
+  overflow: hidden;
 }
 
 button,
@@ -170,8 +171,10 @@ button {
 
 .app-shell {
   display: grid;
-  min-height: 100vh;
+  height: 100vh;
+  min-height: 0;
   grid-template-columns: 232px minmax(300px, 380px) minmax(0, 1fr);
+  overflow: hidden;
 }
 
 .sidebar {
@@ -182,6 +185,7 @@ button {
   border-right: 1px solid #d9d3c7;
   background: #253238;
   color: #f9f5ed;
+  overflow: hidden;
 }
 
 .eyebrow {
@@ -244,6 +248,8 @@ nav {
 .topic-panel,
 .workspace-panel {
   padding: 28px;
+  min-width: 0;
+  min-height: 0;
 }
 
 .library-panel,
@@ -257,12 +263,28 @@ nav {
   min-width: 0;
 }
 
+.desktop-view {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
+}
+
+.desktop-side-pane {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto auto;
+  overflow: hidden;
+}
+
 .page-header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
   margin-bottom: 22px;
+}
+
+.desktop-toolbar {
+  margin-bottom: 16px;
 }
 
 .toolbar,
@@ -300,6 +322,81 @@ form,
   display: grid;
   gap: 16px;
   align-content: start;
+  min-height: 0;
+}
+
+.split-workspace {
+  display: grid;
+  grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
+  gap: 16px;
+  min-height: 0;
+}
+
+.list-pane,
+.detail-pane {
+  min-height: 0;
+  border: 1px solid #ded7ca;
+  border-radius: 8px;
+  background: #fffdf9;
+  overflow: hidden;
+}
+
+.list-scroll,
+.detail-scroll {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  height: 100%;
+  overflow: auto;
+  padding: 12px;
+}
+
+.detail-scroll {
+  gap: 14px;
+  padding: 20px;
+}
+
+.empty-detail {
+  display: grid;
+  place-items: center;
+}
+
+.excerpt-list-item {
+  display: grid;
+  gap: 5px;
+  width: 100%;
+  min-height: 72px;
+  padding: 10px 12px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: #1d2528;
+  cursor: pointer;
+  text-align: left;
+}
+
+.excerpt-list-item:hover,
+.excerpt-list-item.active {
+  border-color: #bfd0c8;
+  background: #e8eee6;
+}
+
+.item-title {
+  display: -webkit-box;
+  overflow: hidden;
+  color: #1d2528;
+  font-weight: 700;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.item-meta {
+  overflow: hidden;
+  color: #6e7678;
+  font-size: 0.8rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .modal-form {
@@ -524,6 +621,12 @@ select:focus {
   margin-top: 18px;
 }
 
+.desktop-side-pane .topic-list {
+  min-height: 0;
+  overflow: auto;
+  padding-right: 2px;
+}
+
 .topic-selector,
 .node-selector {
   display: flex;
@@ -578,7 +681,16 @@ select:focus {
   display: grid;
   grid-template-columns: minmax(260px, 340px) minmax(0, 1fr);
   gap: 18px;
-  align-items: start;
+  align-items: stretch;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.topic-workspace-grid > .stack,
+.workspace-panel > .excerpt-list,
+.workspace-panel > .timeline-list {
+  overflow: auto;
+  padding-right: 2px;
 }
 
 .context-card {
@@ -601,6 +713,8 @@ select:focus {
 .timeline-list {
   display: grid;
   gap: 14px;
+  min-height: 0;
+  overflow: auto;
 }
 
 .timeline-card {
@@ -673,8 +787,15 @@ footer,
 }
 
 @media (max-width: 900px) {
+  body {
+    overflow: auto;
+  }
+
   .app-shell {
+    height: auto;
+    min-height: 100vh;
     grid-template-columns: 1fr;
+    overflow: visible;
   }
 
   .page-panel {
@@ -698,6 +819,27 @@ footer,
 
   .topic-workspace-grid {
     grid-template-columns: 1fr;
+    overflow: visible;
+  }
+
+  .desktop-view,
+  .desktop-side-pane,
+  .split-workspace {
+    overflow: visible;
+  }
+
+  .split-workspace {
+    grid-template-columns: 1fr;
+  }
+
+  .list-pane,
+  .detail-pane,
+  .desktop-side-pane .topic-list,
+  .topic-workspace-grid > .stack,
+  .workspace-panel > .excerpt-list,
+  .workspace-panel > .timeline-list,
+  .timeline-list {
+    overflow: visible;
   }
 
   .filter-bar {
