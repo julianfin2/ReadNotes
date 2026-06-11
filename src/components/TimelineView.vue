@@ -36,7 +36,24 @@ const targetOptions = computed(() => {
   }));
 });
 
-const activeFilterCount = computed(() => [topicFilterId.value, excerptFilterId.value].filter(Boolean).length);
+const activeFilterCount = computed(() =>
+  [topicFilterId.value, excerptFilterId.value].filter(Boolean).length,
+);
+
+const activeFilterLabels = computed(() => {
+  const labels: string[] = [];
+  const topic = topics.value.find((candidate) => candidate.id === topicFilterId.value);
+  const excerpt = props.excerpts.find((candidate) => candidate.id === excerptFilterId.value);
+
+  if (topic) {
+    labels.push(`主题：${topic.title}`);
+  }
+  if (excerpt) {
+    labels.push(`摘抄：${excerpt.quote.slice(0, 24)}`);
+  }
+
+  return labels;
+});
 
 onMounted(async () => {
   await Promise.all([loadTopics(), loadTimeline()]);
@@ -124,6 +141,13 @@ function kindLabel(kind: TimelineEntry["kind"]) {
         </button>
       </div>
     </header>
+
+    <div v-if="activeFilterLabels.length > 0" class="filter-chip-row">
+      <span v-for="label in activeFilterLabels" :key="label" class="filter-chip">
+        {{ label }}
+      </span>
+      <button class="text-action" type="button" @click="resetFilters">清空筛选</button>
+    </div>
 
     <p v-if="errorMessage" class="error-message">{{ errorMessage }}</p>
 

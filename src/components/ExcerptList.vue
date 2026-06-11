@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, reactive, ref } from "vue";
+import { computed, reactive, ref, watch } from "vue";
 import BaseModal from "./BaseModal.vue";
 import type { Excerpt, ExcerptFilters, UpdateExcerptInput } from "../types/excerpt";
 import type { Tag } from "../types/tag";
@@ -31,8 +31,10 @@ const emit = defineEmits<{
 const createModalOpen = ref(false);
 const editModalOpen = ref(false);
 const filterModalOpen = ref(false);
+const deleteModalOpen = ref(false);
 const editingId = ref("");
 const selectedExcerptId = ref("");
+const deletingExcerptId = ref("");
 
 const filters = reactive<ExcerptFilters>({
   search: "",
@@ -78,9 +80,49 @@ const activeFilterCount = computed(() => {
   ].filter(Boolean).length;
 });
 
-const selectedExcerpt = computed(() => {
-  return props.excerpts.find((excerpt) => excerpt.id === selectedExcerptId.value) || props.excerpts[0];
+const activeFilterLabels = computed(() => {
+  const labels: string[] = [];
+
+  if (filters.search) {
+    labels.push(`搜索：${filters.search}`);
+  }
+  if (filters.tagName) {
+    labels.push(`标签：#${filters.tagName}`);
+  }
+  if (filters.status) {
+    labels.push(`状态：${filters.status}`);
+  }
+  if (filters.minImportance) {
+    labels.push(`重要性 >= ${filters.minImportance}`);
+  }
+  if (filters.sortBy !== "createdAt") {
+    labels.push(`排序：${filters.sortBy}`);
+  }
+  if (filters.sortDirection !== "desc") {
+    labels.push("升序");
+  }
+
+  return labels;
 });
+
+const selectedExcerpt = computed(() => {
+  return props.excerpts.find((excerpt) => excerpt.id === selectedExcerptId.value) || null;
+});
+
+watch(
+  () => props.excerpts,
+  (excerpts) => {
+    if (excerpts.length === 0) {
+      selectedExcerptId.value = "";
+      return;
+    }
+
+    if (!excerpts.some((excerpt) => excerpt.id === selectedExcerptId.value)) {
+      selectedExcerptId.value = excerpts[0].id;
+    }
+  },
+  { immediate: true },
+);
 
 function submitCreate() {
   emit("createExcerpt", {
@@ -114,6 +156,26 @@ function startEditing(excerpt: Excerpt) {
 
 function selectExcerpt(id: string) {
   selectedExcerptId.value = id;
+}
+
+function requestDeleteExcerpt(id: string) {
+  deletingExcerptId.value = id;
+  deleteModalOpen.value = true;
+}
+
+function confirmDeleteExcerpt() {
+  if (!deletingExcerptId.value) {
+    return;
+  }
+
+  emit("deleteExcerpt", deletingExcerptId.value);
+  deletingExcerptId.value = "";
+  deleteModalOpen.value = false;
+}
+
+function cancelDeleteExcerpt() {
+  deletingExcerptId.value = "";
+  deleteModalOpen.value = false;
 }
 
 function submitEdit() {
@@ -185,6 +247,13 @@ function parseTagInput(value: string) {
       </div>
     </header>
 
+    <div v-if="activeFilterLabels.length > 0" class="filter-chip-row">
+      <span v-for="label in activeFilterLabels" :key="label" class="filter-chip">
+        {{ label }}
+      </span>
+      <button class="text-action" type="button" @click="resetFilters">清空筛选</button>
+    </div>
+
     <div class="split-workspace">
       <aside class="list-pane">
         <div class="list-scroll">
@@ -241,7 +310,7 @@ function parseTagInput(value: string) {
               <button
                 class="danger-action"
                 type="button"
-                @click="$emit('deleteExcerpt', selectedExcerpt.id)"
+                @click="requestDeleteExcerpt(selectedExcerpt.id)"
               >
                 删除
               </button>
@@ -355,6 +424,16 @@ function parseTagInput(value: string) {
         <button class="primary-action" type="submit">保存</button>
       </div>
     </form>
+  </BaseModal>
+
+  <BaseModal :open="deleteModalOpen" title="删除摘抄" @close="cancelDeleteExcerpt">
+    <div class="modal-form">
+      <p class="reflection">删除后这条摘抄及其关联记录将不可见。确认删除吗？</p>
+      <div class="modal-actions">
+        <button class="secondary-action" type="button" @click="cancelDeleteExcerpt">取消</button>
+        <button class="danger-action" type="button" @click="confirmDeleteExcerpt">删除</button>
+      </div>
+    </div>
   </BaseModal>
 
   <BaseModal :open="filterModalOpen" title="筛选摘抄" @close="filterModalOpen = false">

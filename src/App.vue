@@ -277,14 +277,28 @@ nav {
 }
 
 .desktop-view {
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
+}
+
+.desktop-view > .split-workspace,
+.desktop-view > .topic-workspace-grid,
+.desktop-view > .excerpt-list,
+.desktop-view > .timeline-list {
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 .desktop-side-pane {
   display: flex;
   flex-direction: column;
+  align-self: start;
+  max-height: 100%;
+  padding: 16px;
+  border: 1px solid #ded7ca;
+  border-radius: 8px;
+  background: #fbf8f1;
   overflow: hidden;
 }
 
@@ -307,6 +321,37 @@ nav {
   gap: 10px;
 }
 
+.filter-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: -6px 0 14px;
+}
+
+.filter-chip {
+  max-width: 260px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: #e8eee6;
+  color: #2e6f62;
+  font-size: 0.78rem;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.text-action {
+  min-height: 26px;
+  padding: 0;
+  background: transparent;
+  color: #6e4e40;
+  cursor: pointer;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
 .card-header {
   display: flex;
   align-items: center;
@@ -318,10 +363,6 @@ nav {
   margin: 4px 0 0;
   color: #6e7678;
   font-size: 0.9rem;
-}
-
-.topic-panel {
-  background: transparent;
 }
 
 .section-heading {

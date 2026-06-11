@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref, watch } from "vue";
+import { computed, onMounted, reactive, ref, shallowRef, watch } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import BaseModal from "./BaseModal.vue";
 import type { Excerpt } from "../types/excerpt";
@@ -20,9 +20,12 @@ const addExcerptModalOpen = ref(false);
 const editTopicModalOpen = ref(false);
 const editNodeModalOpen = ref(false);
 const editTopicExcerptModalOpen = ref(false);
+const confirmModalOpen = ref(false);
 const editingTopicId = ref("");
 const editingNodeId = ref("");
 const editingTopicExcerptId = ref("");
+const confirmTitle = ref("");
+const confirmMessage = ref("");
 const topicTitle = ref("");
 const topicQuestion = ref("");
 const nodeTitle = ref("");
@@ -55,9 +58,12 @@ type TopicExcerptDraft = {
   sortOrder: number;
 };
 
+type ConfirmAction = () => void | Promise<void>;
+
 const editingTopics = reactive<Record<string, TopicDraft>>({});
 const editingNodes = reactive<Record<string, NodeDraft>>({});
 const editingTopicExcerpts = reactive<Record<string, TopicExcerptDraft>>({});
+const confirmAction = shallowRef<ConfirmAction | null>(null);
 
 const selectedTopic = computed(() =>
   topics.value.find((topic) => topic.id === selectedTopicId.value),
@@ -354,6 +360,53 @@ function cancelEditingTopicExcerpt(topicExcerptId: string) {
   editTopicExcerptModalOpen.value = false;
 }
 
+function requestConfirmation(title: string, message: string, action: ConfirmAction) {
+  confirmTitle.value = title;
+  confirmMessage.value = message;
+  confirmAction.value = action;
+  confirmModalOpen.value = true;
+}
+
+function requestDeleteTopic(topic: Topic) {
+  requestConfirmation(
+    "删除主题",
+    "删除主题会同时移除它的子主题和收录材料。确认删除吗？",
+    () => deleteTopic(topic.id),
+  );
+}
+
+function requestDeleteTopicNode(node: TopicNode) {
+  requestConfirmation(
+    "删除子主题",
+    "删除子主题会影响当前主题下的材料归类。确认删除吗？",
+    () => deleteTopicNode(node.id),
+  );
+}
+
+function requestRemoveTopicExcerpt(topicExcerpt: TopicExcerpt) {
+  requestConfirmation(
+    "移除收录",
+    "这只会把摘抄从当前主题中移除，不会删除摘抄原文。确认移除吗？",
+    () => removeTopicExcerpt(topicExcerpt.id),
+  );
+}
+
+async function confirmDestructiveAction() {
+  const action = confirmAction.value;
+  if (!action) {
+    return;
+  }
+
+  confirmModalOpen.value = false;
+  confirmAction.value = null;
+  await action();
+}
+
+function cancelConfirmation() {
+  confirmModalOpen.value = false;
+  confirmAction.value = null;
+}
+
 function clearEditingState() {
   for (const key of Object.keys(editingTopics)) {
     delete editingTopics[key];
@@ -436,7 +489,11 @@ async function runSaving(task: () => Promise<void>) {
         <button class="secondary-action" type="button" @click="startEditingTopic(selectedTopic)">
           编辑主题
         </button>
-        <button class="danger-action" type="button" @click="deleteTopic(selectedTopic.id)">
+        <button
+          class="danger-action"
+          type="button"
+          @click="requestDeleteTopic(selectedTopic)"
+        >
           删除主题
         </button>
       </div>
@@ -484,7 +541,11 @@ async function runSaving(task: () => Promise<void>) {
             <button class="secondary-action" type="button" @click="startEditingNode(selectedNode)">
               编辑子主题
             </button>
-            <button class="danger-action" type="button" @click="deleteTopicNode(selectedNode.id)">
+            <button
+              class="danger-action"
+              type="button"
+              @click="requestDeleteTopicNode(selectedNode)"
+            >
               删除子主题
             </button>
           </div>
@@ -553,7 +614,11 @@ async function runSaving(task: () => Promise<void>) {
             >
               编辑
             </button>
-            <button class="danger-action" type="button" @click="removeTopicExcerpt(topicExcerpt.id)">
+            <button
+              class="danger-action"
+              type="button"
+              @click="requestRemoveTopicExcerpt(topicExcerpt)"
+            >
               移除
             </button>
           </div>
@@ -751,5 +816,15 @@ async function runSaving(task: () => Promise<void>) {
         <button class="primary-action" type="submit">保存</button>
       </div>
     </form>
+  </BaseModal>
+
+  <BaseModal :open="confirmModalOpen" :title="confirmTitle" @close="cancelConfirmation">
+    <div class="modal-form">
+      <p class="reflection">{{ confirmMessage }}</p>
+      <div class="modal-actions">
+        <button class="secondary-action" type="button" @click="cancelConfirmation">取消</button>
+        <button class="danger-action" type="button" @click="confirmDestructiveAction">确认</button>
+      </div>
+    </div>
   </BaseModal>
 </template>

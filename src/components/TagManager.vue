@@ -10,7 +10,9 @@ const excerpts = ref<Excerpt[]>([]);
 const selectedTagName = ref("");
 const createModalOpen = ref(false);
 const editModalOpen = ref(false);
+const deleteModalOpen = ref(false);
 const editingTagId = ref("");
+const deletingTagId = ref("");
 const newTagName = ref("");
 const newTagParentId = ref("");
 const newTagColor = ref("");
@@ -111,6 +113,27 @@ async function deleteTag(tagId: string) {
   });
 }
 
+function requestDeleteTag(tagId: string) {
+  deletingTagId.value = tagId;
+  deleteModalOpen.value = true;
+}
+
+async function confirmDeleteTag() {
+  if (!deletingTagId.value) {
+    return;
+  }
+
+  const tagId = deletingTagId.value;
+  deletingTagId.value = "";
+  deleteModalOpen.value = false;
+  await deleteTag(tagId);
+}
+
+function cancelDeleteTag() {
+  deletingTagId.value = "";
+  deleteModalOpen.value = false;
+}
+
 function startEditing(tag: TagWithCount) {
   editingTagId.value = tag.id;
   editingTags[tag.id] = {
@@ -201,7 +224,7 @@ async function runSaving(task: () => Promise<void>) {
         <button class="secondary-action" type="button" @click="startEditing(selectedTag)">
           编辑标签
         </button>
-        <button class="danger-action" type="button" @click="deleteTag(selectedTag.id)">
+        <button class="danger-action" type="button" @click="requestDeleteTag(selectedTag.id)">
           删除标签
         </button>
       </div>
@@ -295,5 +318,15 @@ async function runSaving(task: () => Promise<void>) {
         <button class="primary-action" type="submit">保存</button>
       </div>
     </form>
+  </BaseModal>
+
+  <BaseModal :open="deleteModalOpen" title="删除标签" @close="cancelDeleteTag">
+    <div class="modal-form">
+      <p class="reflection">删除标签会移除它和摘抄之间的关联。确认删除吗？</p>
+      <div class="modal-actions">
+        <button class="secondary-action" type="button" @click="cancelDeleteTag">取消</button>
+        <button class="danger-action" type="button" @click="confirmDeleteTag">删除</button>
+      </div>
+    </div>
   </BaseModal>
 </template>
