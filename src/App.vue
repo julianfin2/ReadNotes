@@ -36,12 +36,15 @@ async function loadExcerpts(filters?: ExcerptFilters) {
 
 async function updateExcerpt(input: UpdateExcerptInput) {
   errorMessage.value = "";
+  isSaving.value = true;
 
   try {
     await invoke<Excerpt>("update_excerpt", { input });
     await Promise.all([loadExcerpts(lastFilters.value), loadTags()]);
   } catch (error) {
     errorMessage.value = String(error);
+  } finally {
+    isSaving.value = false;
   }
 }
 
@@ -593,7 +596,7 @@ select:focus {
 .primary-action:disabled,
 .secondary-action:disabled,
 .danger-action:disabled {
-  cursor: wait;
+  cursor: not-allowed;
   opacity: 0.7;
 }
 
@@ -852,6 +855,63 @@ select:focus {
 
 .topic-detail-pane .reading-body {
   max-width: 980px;
+}
+
+.library-detail-pane {
+  display: block;
+}
+
+.library-detail-pane .detail-document,
+.library-detail-pane .edit-document {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  height: 100%;
+  min-height: 0;
+}
+
+.library-detail-pane .document-header {
+  flex: 0 0 auto;
+}
+
+.library-detail-pane .document-scroll {
+  flex: 1 1 auto;
+  height: auto;
+  min-height: 0;
+  padding: 0;
+  overflow: auto;
+}
+
+.library-detail-pane .document-body,
+.library-detail-pane .inline-editor-body {
+  width: 100%;
+  max-width: none;
+  min-height: 100%;
+  padding: 24px 26px;
+}
+
+.library-detail-pane .document-body blockquote,
+.library-detail-pane .document-body .reflection {
+  max-width: 96ch;
+}
+
+.library-detail-pane .inline-editor-body {
+  display: grid;
+  align-content: start;
+  gap: 16px;
+  border: 1px solid #ded7ca;
+  border-radius: 8px;
+  background: #fffdf9;
+}
+
+.library-detail-pane .inline-editor-body textarea {
+  min-height: 140px;
+}
+
+.library-detail-pane.is-editing .document-header,
+.library-detail-pane.is-editing .inline-editor-body {
+  border-color: #bfd0c8;
+  background: #fbfdf9;
 }
 
 .topic-empty-state {
