@@ -327,9 +327,13 @@ form,
 
 .split-workspace {
   display: grid;
-  grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
+  grid-template-columns: minmax(280px, 340px) minmax(0, 1fr);
   gap: 16px;
   min-height: 0;
+}
+
+.library-workbench .split-workspace {
+  grid-template-columns: minmax(300px, 340px) minmax(520px, 1fr);
 }
 
 .list-pane,
@@ -354,6 +358,36 @@ form,
 .detail-scroll {
   gap: 14px;
   padding: 20px;
+}
+
+.excerpt-detail-pane {
+  border-color: transparent;
+  background: transparent;
+}
+
+.excerpt-detail-pane .detail-scroll {
+  padding: 0 0 0 2px;
+}
+
+.detail-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 18px;
+  border: 1px solid #ded7ca;
+  border-radius: 8px;
+  background: #fffdf9;
+}
+
+.reading-body {
+  display: grid;
+  gap: 16px;
+  max-width: 820px;
+  padding: 20px 22px;
+  border: 1px solid #ded7ca;
+  border-radius: 8px;
+  background: #fffdf9;
 }
 
 .empty-detail {

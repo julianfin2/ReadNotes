@@ -211,45 +211,53 @@ function parseTagInput(value: string) {
         </div>
       </aside>
 
-      <article v-if="selectedExcerpt" class="detail-pane">
+      <article v-if="selectedExcerpt" class="detail-pane excerpt-detail-pane">
         <div class="detail-scroll">
-          <blockquote>{{ selectedExcerpt.quote }}</blockquote>
-          <p v-if="selectedExcerpt.bookTitle || selectedExcerpt.chapterTitle" class="source-line">
-            <span v-if="selectedExcerpt.bookTitle">《{{ selectedExcerpt.bookTitle }}》</span>
-            <span v-if="selectedExcerpt.bookTitle && selectedExcerpt.chapterTitle"> / </span>
-            <span v-if="selectedExcerpt.chapterTitle">{{ selectedExcerpt.chapterTitle }}</span>
-          </p>
-          <p v-if="selectedExcerpt.reflection" class="reflection">{{ selectedExcerpt.reflection }}</p>
-          <div v-if="selectedExcerpt.tags.length > 0" class="tag-row">
-            <span v-for="tag in selectedExcerpt.tags" :key="tag.id" class="tag-pill">
-              #{{ tag.name }}
-            </span>
-          </div>
-          <footer>
-            <span>重要性 {{ selectedExcerpt.importance }}</span>
-            <span>{{ selectedExcerpt.status }}</span>
-            <span>{{ new Date(selectedExcerpt.createdAt).toLocaleString() }}</span>
-          </footer>
+          <header class="detail-header">
+            <div>
+              <p v-if="selectedExcerpt.bookTitle || selectedExcerpt.chapterTitle" class="source-line">
+                <span v-if="selectedExcerpt.bookTitle">《{{ selectedExcerpt.bookTitle }}》</span>
+                <span v-if="selectedExcerpt.bookTitle && selectedExcerpt.chapterTitle"> / </span>
+                <span v-if="selectedExcerpt.chapterTitle">{{ selectedExcerpt.chapterTitle }}</span>
+              </p>
+              <footer>
+                <span>重要性 {{ selectedExcerpt.importance }}</span>
+                <span>{{ selectedExcerpt.status }}</span>
+                <span>{{ new Date(selectedExcerpt.createdAt).toLocaleString() }}</span>
+              </footer>
+            </div>
+            <div class="action-row">
+              <button class="secondary-action" type="button" @click="startEditing(selectedExcerpt)">
+                编辑
+              </button>
+              <button
+                class="secondary-action"
+                type="button"
+                :disabled="selectedExcerpt.status === 'archived'"
+                @click="$emit('archiveExcerpt', selectedExcerpt.id)"
+              >
+                归档
+              </button>
+              <button
+                class="danger-action"
+                type="button"
+                @click="$emit('deleteExcerpt', selectedExcerpt.id)"
+              >
+                删除
+              </button>
+            </div>
+          </header>
 
-          <div class="action-row">
-            <button class="secondary-action" type="button" @click="startEditing(selectedExcerpt)">
-              编辑
-            </button>
-            <button
-              class="secondary-action"
-              type="button"
-              :disabled="selectedExcerpt.status === 'archived'"
-              @click="$emit('archiveExcerpt', selectedExcerpt.id)"
-            >
-              归档
-            </button>
-            <button
-              class="danger-action"
-              type="button"
-              @click="$emit('deleteExcerpt', selectedExcerpt.id)"
-            >
-              删除
-            </button>
+          <div class="reading-body">
+            <blockquote>{{ selectedExcerpt.quote }}</blockquote>
+            <p v-if="selectedExcerpt.reflection" class="reflection">
+              {{ selectedExcerpt.reflection }}
+            </p>
+            <div v-if="selectedExcerpt.tags.length > 0" class="tag-row">
+              <span v-for="tag in selectedExcerpt.tags" :key="tag.id" class="tag-pill">
+                #{{ tag.name }}
+              </span>
+            </div>
           </div>
         </div>
       </article>
