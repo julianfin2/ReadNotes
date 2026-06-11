@@ -408,7 +408,7 @@ function requestDeleteTopicNode(node: TopicNode) {
 
 function requestRemoveTopicExcerpt(topicExcerpt: TopicExcerpt) {
   requestConfirmation(
-    "移除收录",
+    "从主题移除",
     "这只会把摘抄从当前主题中移除，不会删除摘抄原文。确认移除吗？",
     () => removeTopicExcerpt(topicExcerpt.id),
   );
@@ -644,16 +644,18 @@ async function runSaving(task: () => Promise<void>) {
               <button
                 class="secondary-action"
                 type="button"
+                title="编辑这条材料在当前主题中的子主题、收录理由和主题理解"
                 @click="startEditingTopicExcerpt(selectedTopicExcerpt)"
               >
-                编辑
+                编辑收录
               </button>
               <button
                 class="danger-action"
                 type="button"
+                title="只从当前主题移除，不删除摘抄原文"
                 @click="requestRemoveTopicExcerpt(selectedTopicExcerpt)"
               >
-                移除
+                移出主题
               </button>
             </div>
           </header>
