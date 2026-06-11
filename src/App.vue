@@ -445,6 +445,25 @@ select:focus {
   text-align: left;
 }
 
+.topic-selector-block,
+.node-editor {
+  display: grid;
+  gap: 10px;
+}
+
+.plain-selector {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  min-height: 32px;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
 .topic-selector.active,
 .node-selector.active {
   border-color: #2e6f62;
