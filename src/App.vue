@@ -283,8 +283,8 @@ nav {
 }
 
 .desktop-side-pane {
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto auto;
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
 }
 
@@ -321,8 +321,7 @@ nav {
 }
 
 .topic-panel {
-  border-right: 1px solid #d9d3c7;
-  background: #fbf8f1;
+  background: transparent;
 }
 
 .section-heading {
@@ -672,6 +671,7 @@ select:focus {
 }
 
 .desktop-side-pane .topic-list {
+  flex: 0 1 auto;
   min-height: 0;
   overflow: auto;
   padding-right: 2px;
