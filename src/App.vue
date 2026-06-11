@@ -810,11 +810,14 @@ select:focus {
   display: grid;
   gap: 12px;
   min-width: 0;
-  min-height: 0;
   padding: 16px;
   border: 1px solid #ded7ca;
   border-radius: 8px;
   background: #fffdf9;
+}
+
+.topic-context-pane > .context-section:not(.material-context-section) {
+  flex: 0 0 auto;
 }
 
 .material-context-section {
