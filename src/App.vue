@@ -299,6 +299,7 @@ form,
 .stack {
   display: grid;
   gap: 16px;
+  align-content: start;
 }
 
 .modal-form {
@@ -577,6 +578,16 @@ select:focus {
   display: grid;
   grid-template-columns: minmax(260px, 340px) minmax(0, 1fr);
   gap: 18px;
+  align-items: start;
+}
+
+.context-card {
+  background: #fbf8f1;
+}
+
+.selected-node-card {
+  border-color: #bfd0c8;
+  background: #f7fbf7;
 }
 
 .timeline-filter {

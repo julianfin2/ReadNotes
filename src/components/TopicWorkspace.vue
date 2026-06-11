@@ -17,6 +17,12 @@ const selectedNodeId = ref("");
 const topicModalOpen = ref(false);
 const nodeModalOpen = ref(false);
 const addExcerptModalOpen = ref(false);
+const editTopicModalOpen = ref(false);
+const editNodeModalOpen = ref(false);
+const editTopicExcerptModalOpen = ref(false);
+const editingTopicId = ref("");
+const editingNodeId = ref("");
+const editingTopicExcerptId = ref("");
 const topicTitle = ref("");
 const topicQuestion = ref("");
 const nodeTitle = ref("");
@@ -148,6 +154,8 @@ async function updateTopic(topicId: string) {
     });
 
     delete editingTopics[topicId];
+    editingTopicId.value = "";
+    editTopicModalOpen.value = false;
     await reloadSelectedTopic();
   });
 }
@@ -207,6 +215,8 @@ async function updateTopicNode(nodeId: string) {
     });
 
     delete editingNodes[nodeId];
+    editingNodeId.value = "";
+    editNodeModalOpen.value = false;
     await loadTopicNodes(selectedTopicId.value);
   });
 }
@@ -276,6 +286,8 @@ async function updateTopicExcerpt(topicExcerptId: string) {
     });
 
     delete editingTopicExcerpts[topicExcerptId];
+    editingTopicExcerptId.value = "";
+    editTopicExcerptModalOpen.value = false;
     await loadTopicExcerpts(selectedTopicId.value);
   });
 }
@@ -292,42 +304,54 @@ async function removeTopicExcerpt(topicExcerptId: string) {
 }
 
 function startEditingTopic(topic: Topic) {
+  editingTopicId.value = topic.id;
   editingTopics[topic.id] = {
     title: topic.title,
     description: topic.description || "",
     researchQuestion: topic.researchQuestion || "",
     status: topic.status,
   };
+  editTopicModalOpen.value = true;
 }
 
 function startEditingNode(node: TopicNode) {
+  editingNodeId.value = node.id;
   editingNodes[node.id] = {
     parentId: node.parentId || "",
     title: node.title,
     summary: node.summary || "",
     sortOrder: node.sortOrder,
   };
+  editNodeModalOpen.value = true;
 }
 
 function startEditingTopicExcerpt(topicExcerpt: TopicExcerpt) {
+  editingTopicExcerptId.value = topicExcerpt.id;
   editingTopicExcerpts[topicExcerpt.id] = {
     nodeId: topicExcerpt.nodeId || "",
     reason: topicExcerpt.reason || "",
     topicReflection: topicExcerpt.topicReflection || "",
     sortOrder: topicExcerpt.sortOrder,
   };
+  editTopicExcerptModalOpen.value = true;
 }
 
 function cancelEditingTopic(topicId: string) {
   delete editingTopics[topicId];
+  editingTopicId.value = "";
+  editTopicModalOpen.value = false;
 }
 
 function cancelEditingNode(nodeId: string) {
   delete editingNodes[nodeId];
+  editingNodeId.value = "";
+  editNodeModalOpen.value = false;
 }
 
 function cancelEditingTopicExcerpt(topicExcerptId: string) {
   delete editingTopicExcerpts[topicExcerptId];
+  editingTopicExcerptId.value = "";
+  editTopicExcerptModalOpen.value = false;
 }
 
 function clearEditingState() {
@@ -383,66 +407,40 @@ async function runSaving(task: () => Promise<void>) {
     </header>
 
     <div class="topic-list">
-      <div
+      <button
         v-for="topic in topics"
         :key="topic.id"
         class="topic-selector topic-selector-block"
         :class="{ active: topic.id === selectedTopicId }"
+        type="button"
+        @click="selectedTopicId = topic.id"
       >
-        <template v-if="editingTopics[topic.id]">
-          <form class="edit-form" @submit.prevent="updateTopic(topic.id)">
-            <label>
-              标题
-              <input v-model="editingTopics[topic.id].title" />
-            </label>
-            <label>
-              研究问题
-              <textarea v-model="editingTopics[topic.id].researchQuestion" rows="3" />
-            </label>
-            <label>
-              状态
-              <select v-model="editingTopics[topic.id].status">
-                <option value="collecting">collecting</option>
-                <option value="organizing">organizing</option>
-                <option value="drafting">drafting</option>
-                <option value="finished">finished</option>
-                <option value="paused">paused</option>
-              </select>
-            </label>
-            <div class="action-row">
-              <button class="primary-action" type="submit">保存</button>
-              <button class="secondary-action" type="button" @click="cancelEditingTopic(topic.id)">
-                取消
-              </button>
-            </div>
-          </form>
-        </template>
-
-        <template v-else>
-          <button class="plain-selector" type="button" @click="selectedTopicId = topic.id">
-            <span>{{ topic.title }}</span>
-            <small>{{ topic.status }}</small>
-          </button>
-          <div class="action-row">
-            <button class="secondary-action" type="button" @click="startEditingTopic(topic)">
-              编辑
-            </button>
-            <button class="danger-action" type="button" @click="deleteTopic(topic.id)">
-              删除
-            </button>
-          </div>
-        </template>
-      </div>
+        <span>{{ topic.title }}</span>
+        <small>{{ topic.status }}</small>
+      </button>
     </div>
 
     <p v-if="topics.length === 0" class="empty-state">还没有主题。</p>
   </section>
 
   <section class="workspace-panel">
-    <div class="section-heading">
-      <p class="eyebrow">Workspace</p>
-      <h2>{{ selectedTopic?.title || "主题工作台" }}</h2>
-    </div>
+    <header class="page-header">
+      <div>
+        <p class="eyebrow">Workspace</p>
+        <h2>{{ selectedTopic?.title || "主题工作台" }}</h2>
+        <p v-if="selectedTopic?.researchQuestion" class="subtle-text">
+          {{ selectedTopic.researchQuestion }}
+        </p>
+      </div>
+      <div v-if="selectedTopic" class="toolbar">
+        <button class="secondary-action" type="button" @click="startEditingTopic(selectedTopic)">
+          编辑主题
+        </button>
+        <button class="danger-action" type="button" @click="deleteTopic(selectedTopic.id)">
+          删除主题
+        </button>
+      </div>
+    </header>
 
     <div v-if="selectedTopic" class="topic-workspace-grid">
       <div class="stack">
@@ -464,61 +462,31 @@ async function runSaving(task: () => Promise<void>) {
             </button>
 
             <div v-for="node in topicNodes" :key="node.id" class="node-editor">
-              <template v-if="editingNodes[node.id]">
-                <form class="edit-form" @submit.prevent="updateTopicNode(node.id)">
-                  <label>
-                    标题
-                    <input v-model="editingNodes[node.id].title" />
-                  </label>
-                  <label>
-                    父子主题
-                    <select v-model="editingNodes[node.id].parentId">
-                      <option value="">无</option>
-                      <option
-                        v-for="parent in selectableParents(node.id)"
-                        :key="parent.id"
-                        :value="parent.id"
-                      >
-                        {{ nodeLabel(parent) }}
-                      </option>
-                    </select>
-                  </label>
-                  <label>
-                    摘要
-                    <textarea v-model="editingNodes[node.id].summary" rows="3" />
-                  </label>
-                  <div class="action-row">
-                    <button class="primary-action" type="submit">保存</button>
-                    <button
-                      class="secondary-action"
-                      type="button"
-                      @click="cancelEditingNode(node.id)"
-                    >
-                      取消
-                    </button>
-                  </div>
-                </form>
-              </template>
-
-              <template v-else>
-                <button
-                  class="node-selector"
-                  :class="{ active: node.id === selectedNodeId }"
-                  @click="selectedNodeId = node.id"
-                >
-                  {{ nodeLabel(node) }}
-                </button>
-                <p v-if="node.summary" class="reflection">{{ node.summary }}</p>
-                <div class="action-row">
-                  <button class="secondary-action" type="button" @click="startEditingNode(node)">
-                    编辑
-                  </button>
-                  <button class="danger-action" type="button" @click="deleteTopicNode(node.id)">
-                    删除
-                  </button>
-                </div>
-              </template>
+              <button
+                class="node-selector"
+                :class="{ active: node.id === selectedNodeId }"
+                @click="selectedNodeId = node.id"
+              >
+                {{ nodeLabel(node) }}
+              </button>
             </div>
+          </div>
+        </div>
+
+        <div v-if="selectedNode" class="topic-card selected-node-card">
+          <div class="card-header">
+            <div>
+              <h3>{{ selectedNode.title }}</h3>
+              <p v-if="selectedNode.summary" class="subtle-text">{{ selectedNode.summary }}</p>
+            </div>
+          </div>
+          <div class="action-row">
+            <button class="secondary-action" type="button" @click="startEditingNode(selectedNode)">
+              编辑子主题
+            </button>
+            <button class="danger-action" type="button" @click="deleteTopicNode(selectedNode.id)">
+              删除子主题
+            </button>
           </div>
         </div>
 
@@ -536,10 +504,10 @@ async function runSaving(task: () => Promise<void>) {
       </div>
 
       <div class="stack">
-        <div class="topic-card">
+        <div class="topic-card context-card">
           <h3>{{ selectedNode?.title || "全部摘抄" }}</h3>
-          <p v-if="selectedTopic.researchQuestion" class="reflection">
-            {{ selectedTopic.researchQuestion }}
+          <p class="subtle-text">
+            {{ visibleTopicExcerpts.length }} 条材料
           </p>
         </div>
 
@@ -548,88 +516,47 @@ async function runSaving(task: () => Promise<void>) {
           :key="topicExcerpt.id"
           class="excerpt-card"
         >
-          <template v-if="editingTopicExcerpts[topicExcerpt.id]">
-            <form class="edit-form" @submit.prevent="updateTopicExcerpt(topicExcerpt.id)">
-              <label>
-                子主题
-                <select v-model="editingTopicExcerpts[topicExcerpt.id].nodeId">
-                  <option value="">未分类</option>
-                  <option v-for="node in topicNodes" :key="node.id" :value="node.id">
-                    {{ nodeLabel(node) }}
-                  </option>
-                </select>
-              </label>
-              <label>
-                收录理由
-                <textarea v-model="editingTopicExcerpts[topicExcerpt.id].reason" rows="3" />
-              </label>
-              <label>
-                主题理解
-                <textarea
-                  v-model="editingTopicExcerpts[topicExcerpt.id].topicReflection"
-                  rows="4"
-                />
-              </label>
-              <div class="action-row">
-                <button class="primary-action" type="submit">保存</button>
-                <button
-                  class="secondary-action"
-                  type="button"
-                  @click="cancelEditingTopicExcerpt(topicExcerpt.id)"
-                >
-                  取消
-                </button>
-              </div>
-            </form>
-          </template>
-
-          <template v-else>
-            <blockquote>{{ topicExcerpt.excerpt.quote }}</blockquote>
-            <p
-              v-if="topicExcerpt.excerpt.bookTitle || topicExcerpt.excerpt.chapterTitle"
-              class="source-line"
+          <blockquote>{{ topicExcerpt.excerpt.quote }}</blockquote>
+          <p
+            v-if="topicExcerpt.excerpt.bookTitle || topicExcerpt.excerpt.chapterTitle"
+            class="source-line"
+          >
+            <span v-if="topicExcerpt.excerpt.bookTitle">
+              《{{ topicExcerpt.excerpt.bookTitle }}》
+            </span>
+            <span v-if="topicExcerpt.excerpt.bookTitle && topicExcerpt.excerpt.chapterTitle">
+              /
+            </span>
+            <span v-if="topicExcerpt.excerpt.chapterTitle">
+              {{ topicExcerpt.excerpt.chapterTitle }}
+            </span>
+          </p>
+          <p v-if="topicExcerpt.reason" class="reflection">
+            收录理由：{{ topicExcerpt.reason }}
+          </p>
+          <p v-if="topicExcerpt.topicReflection" class="reflection">
+            主题理解：{{ topicExcerpt.topicReflection }}
+          </p>
+          <div v-if="topicExcerpt.excerpt.tags.length > 0" class="tag-row">
+            <span v-for="tag in topicExcerpt.excerpt.tags" :key="tag.id" class="tag-pill">
+              #{{ tag.name }}
+            </span>
+          </div>
+          <footer>
+            <span>{{ new Date(topicExcerpt.addedAt).toLocaleString() }}</span>
+          </footer>
+          <div class="action-row">
+            <button
+              class="secondary-action"
+              type="button"
+              @click="startEditingTopicExcerpt(topicExcerpt)"
             >
-              <span v-if="topicExcerpt.excerpt.bookTitle">
-                《{{ topicExcerpt.excerpt.bookTitle }}》
-              </span>
-              <span v-if="topicExcerpt.excerpt.bookTitle && topicExcerpt.excerpt.chapterTitle">
-                /
-              </span>
-              <span v-if="topicExcerpt.excerpt.chapterTitle">
-                {{ topicExcerpt.excerpt.chapterTitle }}
-              </span>
-            </p>
-            <p v-if="topicExcerpt.reason" class="reflection">
-              收录理由：{{ topicExcerpt.reason }}
-            </p>
-            <p v-if="topicExcerpt.topicReflection" class="reflection">
-              主题理解：{{ topicExcerpt.topicReflection }}
-            </p>
-            <div v-if="topicExcerpt.excerpt.tags.length > 0" class="tag-row">
-              <span v-for="tag in topicExcerpt.excerpt.tags" :key="tag.id" class="tag-pill">
-                #{{ tag.name }}
-              </span>
-            </div>
-            <footer>
-              <span>{{ new Date(topicExcerpt.addedAt).toLocaleString() }}</span>
-            </footer>
-            <div class="action-row">
-              <button
-                class="secondary-action"
-                type="button"
-                @click="startEditingTopicExcerpt(topicExcerpt)"
-              >
-                编辑
-              </button>
-              <button
-                class="danger-action"
-                type="button"
-                @click="removeTopicExcerpt(topicExcerpt.id)"
-              >
-                移除
-              </button>
-            </div>
-          </template>
+              编辑
+            </button>
+            <button class="danger-action" type="button" @click="removeTopicExcerpt(topicExcerpt.id)">
+              移除
+            </button>
+          </div>
         </article>
 
         <p v-if="visibleTopicExcerpts.length === 0" class="empty-state">
@@ -713,6 +640,115 @@ async function runSaving(task: () => Promise<void>) {
           取消
         </button>
         <button class="primary-action" :disabled="isSaving" type="submit">保存</button>
+      </div>
+    </form>
+  </BaseModal>
+
+  <BaseModal :open="editTopicModalOpen" title="编辑主题" @close="cancelEditingTopic(editingTopicId)">
+    <form
+      v-if="editingTopicId && editingTopics[editingTopicId]"
+      class="modal-form"
+      @submit.prevent="updateTopic(editingTopicId)"
+    >
+      <label>
+        标题
+        <input v-model="editingTopics[editingTopicId].title" />
+      </label>
+      <label>
+        研究问题
+        <textarea v-model="editingTopics[editingTopicId].researchQuestion" rows="4" />
+      </label>
+      <label>
+        状态
+        <select v-model="editingTopics[editingTopicId].status">
+          <option value="collecting">collecting</option>
+          <option value="organizing">organizing</option>
+          <option value="drafting">drafting</option>
+          <option value="finished">finished</option>
+          <option value="paused">paused</option>
+        </select>
+      </label>
+      <div class="modal-actions">
+        <button class="secondary-action" type="button" @click="cancelEditingTopic(editingTopicId)">
+          取消
+        </button>
+        <button class="primary-action" type="submit">保存</button>
+      </div>
+    </form>
+  </BaseModal>
+
+  <BaseModal :open="editNodeModalOpen" title="编辑子主题" @close="cancelEditingNode(editingNodeId)">
+    <form
+      v-if="editingNodeId && editingNodes[editingNodeId]"
+      class="modal-form"
+      @submit.prevent="updateTopicNode(editingNodeId)"
+    >
+      <label>
+        标题
+        <input v-model="editingNodes[editingNodeId].title" />
+      </label>
+      <label>
+        父子主题
+        <select v-model="editingNodes[editingNodeId].parentId">
+          <option value="">无</option>
+          <option
+            v-for="parent in selectableParents(editingNodeId)"
+            :key="parent.id"
+            :value="parent.id"
+          >
+            {{ nodeLabel(parent) }}
+          </option>
+        </select>
+      </label>
+      <label>
+        摘要
+        <textarea v-model="editingNodes[editingNodeId].summary" rows="4" />
+      </label>
+      <div class="modal-actions">
+        <button class="secondary-action" type="button" @click="cancelEditingNode(editingNodeId)">
+          取消
+        </button>
+        <button class="primary-action" type="submit">保存</button>
+      </div>
+    </form>
+  </BaseModal>
+
+  <BaseModal
+    :open="editTopicExcerptModalOpen"
+    title="编辑收录"
+    @close="cancelEditingTopicExcerpt(editingTopicExcerptId)"
+  >
+    <form
+      v-if="editingTopicExcerptId && editingTopicExcerpts[editingTopicExcerptId]"
+      class="modal-form"
+      @submit.prevent="updateTopicExcerpt(editingTopicExcerptId)"
+    >
+      <label>
+        子主题
+        <select v-model="editingTopicExcerpts[editingTopicExcerptId].nodeId">
+          <option value="">未分类</option>
+          <option v-for="node in topicNodes" :key="node.id" :value="node.id">
+            {{ nodeLabel(node) }}
+          </option>
+        </select>
+      </label>
+      <label>
+        收录理由
+        <textarea v-model="editingTopicExcerpts[editingTopicExcerptId].reason" rows="3" />
+      </label>
+      <label>
+        主题理解
+        <textarea v-model="editingTopicExcerpts[editingTopicExcerptId].topicReflection" rows="5" />
+      </label>
+      <div class="modal-actions">
+        <button
+          class="secondary-action"
+          type="button"
+          @click="cancelEditingTopicExcerpt(editingTopicExcerptId)"
+        >
+          取消
+        </button>
+        <button class="primary-action" type="submit">保存</button>
       </div>
     </form>
   </BaseModal>
