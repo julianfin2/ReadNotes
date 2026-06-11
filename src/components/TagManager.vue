@@ -1,12 +1,16 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from "vue";
 import { invoke } from "@tauri-apps/api/core";
+import BaseModal from "./BaseModal.vue";
 import type { Excerpt } from "../types/excerpt";
 import type { TagWithCount } from "../types/tag";
 
 const tags = ref<TagWithCount[]>([]);
 const excerpts = ref<Excerpt[]>([]);
 const selectedTagName = ref("");
+const createModalOpen = ref(false);
+const editModalOpen = ref(false);
+const editingTagId = ref("");
 const newTagName = ref("");
 const newTagParentId = ref("");
 const newTagColor = ref("");
@@ -57,6 +61,7 @@ async function createTag() {
     newTagName.value = "";
     newTagParentId.value = "";
     newTagColor.value = "";
+    createModalOpen.value = false;
     await loadTags();
   });
 }
@@ -78,6 +83,8 @@ async function updateTag(tagId: string) {
     });
 
     delete editingTags[tagId];
+    editingTagId.value = "";
+    editModalOpen.value = false;
     const previousSelection = selectedTagName.value;
     await loadTags();
     if (previousSelection) {
@@ -105,15 +112,19 @@ async function deleteTag(tagId: string) {
 }
 
 function startEditing(tag: TagWithCount) {
+  editingTagId.value = tag.id;
   editingTags[tag.id] = {
     name: tag.name,
     parentId: tag.parentId || "",
     color: tag.color || "",
   };
+  editModalOpen.value = true;
 }
 
 function cancelEditing(tagId: string) {
   delete editingTags[tagId];
+  editingTagId.value = "";
+  editModalOpen.value = false;
 }
 
 function parentLabel(tag: TagWithCount) {
@@ -141,34 +152,16 @@ async function runSaving(task: () => Promise<void>) {
 
 <template>
   <section class="topic-panel">
-    <div class="section-heading">
-      <p class="eyebrow">Tags</p>
-      <h2>标签</h2>
-    </div>
-
-    <form @submit.prevent="createTag">
-      <label>
-        标签名
-        <input v-model="newTagName" placeholder="例如：写作素材" />
-      </label>
-
-      <label>
-        父标签
-        <select v-model="newTagParentId">
-          <option value="">无</option>
-          <option v-for="tag in tags" :key="tag.id" :value="tag.id">
-            #{{ tag.name }}
-          </option>
-        </select>
-      </label>
-
-      <label>
-        颜色
-        <input v-model="newTagColor" placeholder="#2e6f62，可选" />
-      </label>
-
-      <button class="primary-action" :disabled="isSaving" type="submit">创建标签</button>
-    </form>
+    <header class="page-header">
+      <div>
+        <p class="eyebrow">Tags</p>
+        <h2>标签</h2>
+        <p class="subtle-text">{{ tags.length }} 个标签</p>
+      </div>
+      <button class="primary-action" type="button" @click="createModalOpen = true">
+        新建标签
+      </button>
+    </header>
 
     <div class="topic-list">
       <div
@@ -177,53 +170,19 @@ async function runSaving(task: () => Promise<void>) {
         class="topic-selector topic-selector-block"
         :class="{ active: tag.name === selectedTagName }"
       >
-        <template v-if="editingTags[tag.id]">
-          <form class="edit-form" @submit.prevent="updateTag(tag.id)">
-            <label>
-              标签名
-              <input v-model="editingTags[tag.id].name" />
-            </label>
-            <label>
-              父标签
-              <select v-model="editingTags[tag.id].parentId">
-                <option value="">无</option>
-                <option
-                  v-for="parent in selectableParents(tag.id)"
-                  :key="parent.id"
-                  :value="parent.id"
-                >
-                  #{{ parent.name }}
-                </option>
-              </select>
-            </label>
-            <label>
-              颜色
-              <input v-model="editingTags[tag.id].color" />
-            </label>
-            <div class="action-row">
-              <button class="primary-action" type="submit">保存</button>
-              <button class="secondary-action" type="button" @click="cancelEditing(tag.id)">
-                取消
-              </button>
-            </div>
-          </form>
-        </template>
-
-        <template v-else>
-          <button class="plain-selector" type="button" @click="loadExcerptsForTag(tag.name)">
-            <span>#{{ tag.name }}</span>
-            <small>{{ tag.excerptCount }} 条</small>
+        <button class="plain-selector" type="button" @click="loadExcerptsForTag(tag.name)">
+          <span>#{{ tag.name }}</span>
+          <small>{{ tag.excerptCount }} 条</small>
+        </button>
+        <p v-if="tag.parentId" class="reflection">父标签：#{{ parentLabel(tag) }}</p>
+        <div class="action-row">
+          <button class="secondary-action" type="button" @click="startEditing(tag)">
+            编辑
           </button>
-          <p v-if="tag.parentId" class="reflection">父标签：#{{ parentLabel(tag) }}</p>
-          <div class="action-row">
-            <button class="secondary-action" type="button" @click="startEditing(tag)">
-              编辑
-            </button>
-            <button class="danger-action" type="button" @click="deleteTag(tag.id)">
-              删除
-            </button>
-          </div>
-        </template>
+          <button class="danger-action" type="button" @click="deleteTag(tag.id)">
+            删除
+          </button>
+        </div>
       </div>
     </div>
 
@@ -264,4 +223,66 @@ async function runSaving(task: () => Promise<void>) {
       <p v-if="!selectedTagName" class="empty-state">选择一个标签查看摘抄。</p>
     </div>
   </section>
+
+  <BaseModal :open="createModalOpen" title="新建标签" @close="createModalOpen = false">
+    <form class="modal-form" @submit.prevent="createTag">
+      <label>
+        标签名
+        <input v-model="newTagName" placeholder="例如：写作素材" />
+      </label>
+      <label>
+        父标签
+        <select v-model="newTagParentId">
+          <option value="">无</option>
+          <option v-for="tag in tags" :key="tag.id" :value="tag.id">#{{ tag.name }}</option>
+        </select>
+      </label>
+      <label>
+        颜色
+        <input v-model="newTagColor" placeholder="#2e6f62，可选" />
+      </label>
+      <div class="modal-actions">
+        <button class="secondary-action" type="button" @click="createModalOpen = false">
+          取消
+        </button>
+        <button class="primary-action" :disabled="isSaving" type="submit">保存</button>
+      </div>
+    </form>
+  </BaseModal>
+
+  <BaseModal :open="editModalOpen" title="编辑标签" @close="cancelEditing(editingTagId)">
+    <form
+      v-if="editingTagId && editingTags[editingTagId]"
+      class="modal-form"
+      @submit.prevent="updateTag(editingTagId)"
+    >
+      <label>
+        标签名
+        <input v-model="editingTags[editingTagId].name" />
+      </label>
+      <label>
+        父标签
+        <select v-model="editingTags[editingTagId].parentId">
+          <option value="">无</option>
+          <option
+            v-for="parent in selectableParents(editingTagId)"
+            :key="parent.id"
+            :value="parent.id"
+          >
+            #{{ parent.name }}
+          </option>
+        </select>
+      </label>
+      <label>
+        颜色
+        <input v-model="editingTags[editingTagId].color" />
+      </label>
+      <div class="modal-actions">
+        <button class="secondary-action" type="button" @click="cancelEditing(editingTagId)">
+          取消
+        </button>
+        <button class="primary-action" type="submit">保存</button>
+      </div>
+    </form>
+  </BaseModal>
 </template>

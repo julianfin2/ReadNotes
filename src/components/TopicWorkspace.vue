@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from "vue";
 import { invoke } from "@tauri-apps/api/core";
+import BaseModal from "./BaseModal.vue";
 import type { Excerpt } from "../types/excerpt";
 import type { Topic, TopicExcerpt, TopicNode, TopicStatus } from "../types/topic";
 
@@ -13,6 +14,9 @@ const topicNodes = ref<TopicNode[]>([]);
 const topicExcerpts = ref<TopicExcerpt[]>([]);
 const selectedTopicId = ref("");
 const selectedNodeId = ref("");
+const topicModalOpen = ref(false);
+const nodeModalOpen = ref(false);
+const addExcerptModalOpen = ref(false);
 const topicTitle = ref("");
 const topicQuestion = ref("");
 const nodeTitle = ref("");
@@ -120,6 +124,7 @@ async function createTopic() {
 
     topicTitle.value = "";
     topicQuestion.value = "";
+    topicModalOpen.value = false;
     await loadTopics();
     selectedTopicId.value = topic.id;
   });
@@ -179,6 +184,7 @@ async function createTopicNode() {
     nodeTitle.value = "";
     nodeSummary.value = "";
     nodeParentId.value = "";
+    nodeModalOpen.value = false;
     await loadTopicNodes(selectedTopicId.value);
   });
 }
@@ -247,6 +253,7 @@ async function addExcerptToTopic() {
     excerptIdToAdd.value = "";
     reason.value = "";
     topicReflection.value = "";
+    addExcerptModalOpen.value = false;
     await loadTopicExcerpts(selectedTopicId.value);
   });
 }
@@ -364,24 +371,16 @@ async function runSaving(task: () => Promise<void>) {
 
 <template>
   <section class="topic-panel">
-    <div class="section-heading">
-      <p class="eyebrow">Topics</p>
-      <h2>主题</h2>
-    </div>
-
-    <form @submit.prevent="createTopic">
-      <label>
-        主题标题
-        <input v-model="topicTitle" placeholder="例如：现代人的焦虑来源" />
-      </label>
-
-      <label>
-        研究问题
-        <textarea v-model="topicQuestion" rows="3" placeholder="这个主题想回答什么？" />
-      </label>
-
-      <button class="primary-action" :disabled="isSaving" type="submit">创建主题</button>
-    </form>
+    <header class="page-header">
+      <div>
+        <p class="eyebrow">Topics</p>
+        <h2>主题</h2>
+        <p class="subtle-text">{{ topics.length }} 个主题</p>
+      </div>
+      <button class="primary-action" type="button" @click="topicModalOpen = true">
+        新建主题
+      </button>
+    </header>
 
     <div class="topic-list">
       <div
@@ -448,29 +447,12 @@ async function runSaving(task: () => Promise<void>) {
     <div v-if="selectedTopic" class="topic-workspace-grid">
       <div class="stack">
         <div class="topic-card">
-          <h3>子主题</h3>
-          <form @submit.prevent="createTopicNode">
-            <label>
-              子主题标题
-              <input v-model="nodeTitle" placeholder="例如：比较心理" />
-            </label>
-            <label>
-              父子主题
-              <select v-model="nodeParentId">
-                <option value="">无</option>
-                <option v-for="node in topicNodes" :key="node.id" :value="node.id">
-                  {{ nodeLabel(node) }}
-                </option>
-              </select>
-            </label>
-            <label>
-              摘要
-              <textarea v-model="nodeSummary" rows="3" placeholder="这个子主题目前怎么理解？" />
-            </label>
-            <button class="secondary-action" :disabled="isSaving" type="submit">
-              添加子主题
+          <div class="card-header">
+            <h3>子主题</h3>
+            <button class="secondary-action" type="button" @click="nodeModalOpen = true">
+              添加
             </button>
-          </form>
+          </div>
 
           <div class="node-list">
             <button
@@ -541,36 +523,15 @@ async function runSaving(task: () => Promise<void>) {
         </div>
 
         <div class="topic-card">
-          <h3>收录摘抄</h3>
-          <form @submit.prevent="addExcerptToTopic">
-            <label>
-              选择摘抄
-              <select v-model="excerptIdToAdd">
-                <option value="">请选择</option>
-                <option v-for="excerpt in props.excerpts" :key="excerpt.id" :value="excerpt.id">
-                  {{ excerpt.quote.slice(0, 48) }}
-                </option>
-              </select>
-            </label>
-
-            <label>
-              收录理由
-              <textarea v-model="reason" rows="3" placeholder="为什么把它放进这个主题？" />
-            </label>
-
-            <label>
-              主题内理解
-              <textarea
-                v-model="topicReflection"
-                rows="4"
-                placeholder="这条摘抄在当前主题下意味着什么？"
-              />
-            </label>
-
-            <button class="primary-action" :disabled="isSaving" type="submit">
-              加入主题
+          <div class="card-header">
+            <div>
+              <h3>收录摘抄</h3>
+              <p class="subtle-text">{{ topicExcerpts.length }} 条材料</p>
+            </div>
+            <button class="primary-action" type="button" @click="addExcerptModalOpen = true">
+              收录
             </button>
-          </form>
+          </div>
         </div>
       </div>
 
@@ -680,4 +641,79 @@ async function runSaving(task: () => Promise<void>) {
     <p v-else class="empty-state">先创建一个主题。</p>
     <p v-if="errorMessage" class="error-message">{{ errorMessage }}</p>
   </section>
+
+  <BaseModal :open="topicModalOpen" title="新建主题" @close="topicModalOpen = false">
+    <form class="modal-form" @submit.prevent="createTopic">
+      <label>
+        主题标题
+        <input v-model="topicTitle" placeholder="例如：现代人的焦虑来源" />
+      </label>
+      <label>
+        研究问题
+        <textarea v-model="topicQuestion" rows="4" placeholder="这个主题想回答什么？" />
+      </label>
+      <div class="modal-actions">
+        <button class="secondary-action" type="button" @click="topicModalOpen = false">取消</button>
+        <button class="primary-action" :disabled="isSaving" type="submit">保存</button>
+      </div>
+    </form>
+  </BaseModal>
+
+  <BaseModal :open="nodeModalOpen" title="添加子主题" @close="nodeModalOpen = false">
+    <form class="modal-form" @submit.prevent="createTopicNode">
+      <label>
+        子主题标题
+        <input v-model="nodeTitle" placeholder="例如：比较心理" />
+      </label>
+      <label>
+        父子主题
+        <select v-model="nodeParentId">
+          <option value="">无</option>
+          <option v-for="node in topicNodes" :key="node.id" :value="node.id">
+            {{ nodeLabel(node) }}
+          </option>
+        </select>
+      </label>
+      <label>
+        摘要
+        <textarea v-model="nodeSummary" rows="4" placeholder="这个子主题目前怎么理解？" />
+      </label>
+      <div class="modal-actions">
+        <button class="secondary-action" type="button" @click="nodeModalOpen = false">取消</button>
+        <button class="primary-action" :disabled="isSaving" type="submit">保存</button>
+      </div>
+    </form>
+  </BaseModal>
+
+  <BaseModal :open="addExcerptModalOpen" title="收录摘抄" @close="addExcerptModalOpen = false">
+    <form class="modal-form" @submit.prevent="addExcerptToTopic">
+      <label>
+        选择摘抄
+        <select v-model="excerptIdToAdd">
+          <option value="">请选择</option>
+          <option v-for="excerpt in props.excerpts" :key="excerpt.id" :value="excerpt.id">
+            {{ excerpt.quote.slice(0, 64) }}
+          </option>
+        </select>
+      </label>
+      <label>
+        收录理由
+        <textarea v-model="reason" rows="3" placeholder="为什么把它放进这个主题？" />
+      </label>
+      <label>
+        主题内理解
+        <textarea
+          v-model="topicReflection"
+          rows="5"
+          placeholder="这条摘抄在当前主题下意味着什么？"
+        />
+      </label>
+      <div class="modal-actions">
+        <button class="secondary-action" type="button" @click="addExcerptModalOpen = false">
+          取消
+        </button>
+        <button class="primary-action" :disabled="isSaving" type="submit">保存</button>
+      </div>
+    </form>
+  </BaseModal>
 </template>

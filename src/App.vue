@@ -2,7 +2,6 @@
 import { onMounted, ref } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import AppSidebar from "./components/AppSidebar.vue";
-import ExcerptCapture from "./components/ExcerptCapture.vue";
 import ExcerptList from "./components/ExcerptList.vue";
 import TagManager from "./components/TagManager.vue";
 import TimelineView from "./components/TimelineView.vue";
@@ -111,18 +110,14 @@ function toExcerptQuery(filters: ExcerptFilters) {
     <AppSidebar :active-view="activeView" @select-view="activeView = $event" />
 
     <template v-if="activeView === 'excerpts'">
-      <ExcerptCapture
-        :database-path="databasePath"
-        :error-message="errorMessage"
-        :is-saving="isSaving"
-        @create-excerpt="createExcerpt"
-      />
       <p v-if="errorMessage" class="app-error">{{ errorMessage }}</p>
       <ExcerptList
         :excerpts="excerpts"
+        :is-saving="isSaving"
         :tags="tags"
         @apply-filters="loadExcerpts"
         @archive-excerpt="archiveExcerpt"
+        @create-excerpt="createExcerpt"
         @delete-excerpt="deleteExcerpt"
         @update-excerpt="updateExcerpt"
       />
@@ -176,7 +171,7 @@ button {
 .app-shell {
   display: grid;
   min-height: 100vh;
-  grid-template-columns: 220px minmax(320px, 440px) minmax(0, 1fr);
+  grid-template-columns: 232px minmax(300px, 380px) minmax(0, 1fr);
 }
 
 .sidebar {
@@ -245,22 +240,49 @@ nav {
   opacity: 0.45;
 }
 
-.capture-panel,
 .library-panel,
 .topic-panel,
 .workspace-panel {
   padding: 28px;
 }
 
-.capture-panel {
-  border-right: 1px solid #d9d3c7;
-  background: #fbf8f1;
-}
-
 .library-panel,
 .topic-panel,
 .workspace-panel {
   background: #f4f1ea;
+}
+
+.page-panel {
+  grid-column: 2 / -1;
+  min-width: 0;
+}
+
+.page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 22px;
+}
+
+.toolbar,
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.subtle-text {
+  margin: 4px 0 0;
+  color: #6e7678;
+  font-size: 0.9rem;
 }
 
 .topic-panel {
@@ -275,6 +297,11 @@ nav {
 form,
 .excerpt-list,
 .stack {
+  display: grid;
+  gap: 16px;
+}
+
+.modal-form {
   display: grid;
   gap: 16px;
 }
@@ -385,6 +412,52 @@ select:focus {
   background: #fff8f6;
   color: #a23b32;
   box-shadow: 0 8px 18px rgba(38, 35, 30, 0.12);
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(29, 37, 40, 0.46);
+}
+
+.modal-panel {
+  width: min(760px, 100%);
+  max-height: min(860px, calc(100vh - 48px));
+  overflow: hidden;
+  border: 1px solid #d6cfc2;
+  border-radius: 8px;
+  background: #fbf8f1;
+  box-shadow: 0 24px 70px rgba(24, 25, 23, 0.24);
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 20px;
+  border-bottom: 1px solid #ded7ca;
+}
+
+.modal-body {
+  max-height: calc(100vh - 138px);
+  overflow: auto;
+  padding: 20px;
+}
+
+.icon-button {
+  width: 34px;
+  height: 34px;
+  border-radius: 6px;
+  background: #efe8da;
+  color: #2d3a3f;
+  cursor: pointer;
+  font-size: 1.35rem;
+  line-height: 1;
 }
 
 .database-path {
@@ -585,18 +658,23 @@ footer,
     grid-template-columns: 1fr;
   }
 
-  .sidebar {
-    border-right: 0;
+  .page-panel {
+    grid-column: auto;
   }
 
-  .capture-panel {
+  .sidebar {
     border-right: 0;
-    border-bottom: 1px solid #d9d3c7;
   }
 
   .topic-panel {
     border-right: 0;
     border-bottom: 1px solid #d9d3c7;
+  }
+
+  .page-header,
+  .toolbar {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .topic-workspace-grid {
