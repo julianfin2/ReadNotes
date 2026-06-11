@@ -316,7 +316,7 @@ form,
 
 .filter-bar .primary-action,
 .filter-bar .secondary-action {
-  min-height: 40px;
+  min-height: 34px;
 }
 
 label {
@@ -364,10 +364,12 @@ select:focus {
 .primary-action,
 .secondary-action,
 .danger-action {
-  min-height: 42px;
+  min-height: 34px;
+  padding: 0 14px;
   border-radius: 6px;
   cursor: pointer;
   font-weight: 700;
+  line-height: 1;
 }
 
 .primary-action {
@@ -510,7 +512,7 @@ select:focus {
 .action-row .primary-action,
 .action-row .secondary-action,
 .action-row .danger-action {
-  min-height: 36px;
+  min-height: 32px;
   padding: 0 12px;
 }
 
