@@ -13,8 +13,7 @@ defineEmits<{
 <template>
   <aside class="sidebar">
     <div>
-      <p class="eyebrow">ReadNotes</p>
-      <h1>{{ activeView === "topics" ? "主题" : "摘抄库" }}</h1>
+      <h1>摘抄库</h1>
     </div>
 
     <nav>
