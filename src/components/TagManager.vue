@@ -5,7 +5,7 @@ import BaseModal from "./BaseModal.vue";
 import CustomSelect from "./CustomSelect.vue";
 import TagColorField from "./TagColorField.vue";
 import type { TagWithCount } from "../types/tag";
-import { formatDateTime } from "../utils/date";
+import { formatDateOnly, formatDateTime } from "../utils/date";
 
 defineProps<{
   embedded?: boolean;
@@ -228,7 +228,9 @@ async function runSaving(task: () => Promise<void>) {
             </span>
             <span>{{ parentLabel(tag) }}</span>
             <span>{{ tag.excerptCount }}</span>
-            <span>{{ formatDateTime(tag.createdAt) }}</span>
+            <span :title="formatDateTime(tag.createdAt)">
+              {{ formatDateOnly(tag.createdAt) }}
+            </span>
             <span class="table-actions">
               <button class="secondary-action" type="button" @click="startEditing(tag)">
                 编辑

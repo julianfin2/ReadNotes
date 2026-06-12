@@ -6,7 +6,7 @@ import EditableCombobox from "./EditableCombobox.vue";
 import type { Book } from "../types/book";
 import type { Excerpt, ExcerptFilters, UpdateExcerptInput } from "../types/excerpt";
 import type { Tag } from "../types/tag";
-import { formatDateTime } from "../utils/date";
+import { formatDateOnly, formatDateTime } from "../utils/date";
 
 const props = defineProps<{
   excerpts: Excerpt[];
@@ -674,7 +674,9 @@ function cancelDiscardEditor() {
                 +{{ excerpt.tags.length - 2 }}
               </span>
             </span>
-            <span class="item-meta">{{ formatDateTime(excerpt.createdAt) }}</span>
+            <span class="item-meta" :title="formatDateTime(excerpt.createdAt)">
+              {{ formatDateOnly(excerpt.createdAt) }}
+            </span>
             <span class="row-actions" @click.stop>
               <button class="secondary-action" type="button" @click="startEditing(excerpt)">
                 编辑

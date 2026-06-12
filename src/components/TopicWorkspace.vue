@@ -877,7 +877,9 @@ async function runSaving(task: () => Promise<void>) {
             </span>
             <span class="table-source">{{ topic.researchQuestion || "未记录" }}</span>
             <span class="topic-status">{{ topicStatusLabel(topic.status) }}</span>
-            <span class="item-meta">{{ formatDateTime(topic.updatedAt) }}</span>
+            <span class="item-meta" :title="formatDateTime(topic.updatedAt)">
+              {{ formatDateOnly(topic.updatedAt) }}
+            </span>
             <span class="row-actions" @click.stop>
               <button class="secondary-action" type="button" @click="openTopicWorkspace(topic)">
                 打开
