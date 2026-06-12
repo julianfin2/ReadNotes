@@ -140,6 +140,30 @@ const canSaveTopicExcerptEdit = computed(() => {
   return isTopicExcerptEditDirty.value && !isSaving.value;
 });
 
+const isCreateTopicDirty = computed(() => {
+  return Boolean(topicTitle.value.trim() || topicQuestion.value.trim());
+});
+
+const isTopicEditDirty = computed(() => {
+  if (viewMode.value !== "edit" || !editingTopicId.value) {
+    return false;
+  }
+
+  return isTopicDraftDirty(editingTopicId.value);
+});
+
+const canSaveTopicCreate = computed(() => {
+  return topicTitle.value.trim().length > 0 && !isSaving.value;
+});
+
+const canSaveTopicEdit = computed(() => {
+  return (
+    Boolean(editingTopicId.value && editingTopics[editingTopicId.value]?.title.trim()) &&
+    isTopicEditDirty.value &&
+    !isSaving.value
+  );
+});
+
 const topicStatusOptions = [
   { value: "collecting", label: "collecting" },
   { value: "organizing", label: "organizing" },
@@ -251,6 +275,10 @@ async function reloadSelectedTopic() {
 }
 
 async function createTopic() {
+  if (!canSaveTopicCreate.value) {
+    return;
+  }
+
   await runSaving(async () => {
     await invoke<Topic>("create_topic", {
       input: {
@@ -268,7 +296,7 @@ async function createTopic() {
 
 async function updateTopic(topicId: string) {
   const draft = editingTopics[topicId];
-  if (!draft) {
+  if (!draft || !canSaveTopicEdit.value) {
     return;
   }
 
@@ -470,10 +498,8 @@ function startEditingTopicExcerpt(topicExcerpt: TopicExcerpt) {
   };
 }
 
-function cancelEditingTopic(topicId: string) {
-  delete editingTopics[topicId];
-  editingTopicId.value = "";
-  viewMode.value = "list";
+function cancelEditingTopic() {
+  returnToTopicList();
 }
 
 function startCreatingTopic() {
@@ -490,15 +516,13 @@ function openTopicWorkspace(topic: Topic) {
 }
 
 function returnToTopicList() {
-  runAfterTopicExcerptDiscard(() => {
-    clearEditingState();
-    for (const key of Object.keys(editingTopics)) {
-      delete editingTopics[key];
-    }
-    editingTopicId.value = "";
-    topicTitle.value = "";
-    topicQuestion.value = "";
-    viewMode.value = "list";
+  runAfterTopicEditorDiscard(() => {
+    runAfterTopicExcerptDiscard(() => {
+      clearEditingState();
+      topicTitle.value = "";
+      topicQuestion.value = "";
+      viewMode.value = "list";
+    });
   });
 }
 
@@ -617,6 +641,8 @@ function clearEditingState() {
   for (const key of Object.keys(editingTopicExcerpts)) {
     delete editingTopicExcerpts[key];
   }
+  editingTopicId.value = "";
+  editingNodeId.value = "";
   editingTopicExcerptId.value = "";
 }
 
@@ -627,6 +653,45 @@ function clearTopicExcerptEditing() {
 
   delete editingTopicExcerpts[editingTopicExcerptId.value];
   editingTopicExcerptId.value = "";
+}
+
+function isTopicDraftDirty(topicId: string) {
+  const topic = topics.value.find((candidate) => candidate.id === topicId);
+  const draft = editingTopics[topicId];
+
+  if (!topic || !draft) {
+    return false;
+  }
+
+  return (
+    draft.title !== topic.title ||
+    draft.description !== (topic.description || "") ||
+    draft.researchQuestion !== (topic.researchQuestion || "") ||
+    draft.status !== topic.status
+  );
+}
+
+function topicEditorDiscardMessage() {
+  if (viewMode.value === "create" && isCreateTopicDirty.value) {
+    return "当前新建主题还没有保存，确定放弃这些修改并离开吗？";
+  }
+
+  if (viewMode.value === "edit" && isTopicEditDirty.value) {
+    return "当前主题有未保存修改，确定放弃吗？";
+  }
+
+  return "";
+}
+
+function runAfterTopicEditorDiscard(action: ConfirmAction) {
+  const message = topicEditorDiscardMessage();
+
+  if (!message) {
+    void action();
+    return;
+  }
+
+  requestConfirmation("放弃更改", message, action, "放弃更改");
 }
 
 function runAfterTopicExcerptDiscard(action: ConfirmAction) {
@@ -847,7 +912,7 @@ async function runSaving(task: () => Promise<void>) {
       </section>
       <div class="editor-actions">
         <button class="secondary-action" type="button" @click="returnToTopicList">取消</button>
-        <button class="primary-action" :disabled="isSaving || !topicTitle.trim()" type="submit">
+        <button class="primary-action" :disabled="!canSaveTopicCreate" type="submit">
           保存
         </button>
       </div>
@@ -876,10 +941,10 @@ async function runSaving(task: () => Promise<void>) {
         </label>
       </section>
       <div class="editor-actions">
-        <button class="secondary-action" type="button" @click="cancelEditingTopic(editingTopicId)">
+        <button class="secondary-action" type="button" @click="cancelEditingTopic">
           取消
         </button>
-        <button class="primary-action" type="submit">保存</button>
+        <button class="primary-action" :disabled="!canSaveTopicEdit" type="submit">保存</button>
       </div>
     </form>
 
