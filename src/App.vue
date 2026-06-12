@@ -309,10 +309,11 @@ nav {
 }
 
 .topic-toolbar {
-  align-items: flex-start;
+  align-items: center;
 }
 
 .topic-switcher {
+  min-height: 40px;
   width: min(260px, 100%);
 }
 
@@ -552,7 +553,7 @@ select:focus {
 .primary-action,
 .secondary-action,
 .danger-action {
-  min-height: 34px;
+  min-height: 40px;
   padding: 0 14px;
   border-radius: 6px;
   cursor: pointer;
