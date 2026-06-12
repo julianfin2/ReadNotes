@@ -5,7 +5,7 @@ use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 use uuid::Uuid;
 
 use crate::book::ensure_book_candidate;
-use crate::db::AppState;
+use crate::db::{rebuild_excerpt_search_index, AppState};
 use crate::tag::{list_tags_for_excerpt, replace_excerpt_tags, Tag};
 
 #[derive(Debug, Serialize)]
@@ -59,11 +59,11 @@ pub fn create_excerpt(
     state: State<'_, AppState>,
     input: CreateExcerptRequest,
 ) -> Result<Excerpt, String> {
-    let quote = normalize_required_text(input.quote, "quote")?;
-    let reflection = empty_to_none(input.reflection);
-    let source_work_id = empty_to_none(input.source_work_id);
-    let book_title = empty_to_none(input.book_title);
-    let chapter_title = empty_to_none(input.chapter_title);
+    let quote = normalize_required_text(input.quote.clone(), "quote")?;
+    let reflection = empty_to_none(input.reflection.clone());
+    let source_work_id = empty_to_none(input.source_work_id.clone());
+    let book_title = empty_to_none(input.book_title.clone());
+    let chapter_title = empty_to_none(input.chapter_title.clone());
     let tag_names = input.tag_names.unwrap_or_default();
     let now = now_rfc3339()?;
     let id = Uuid::new_v4().to_string();
@@ -99,7 +99,11 @@ pub fn create_excerpt(
         )
         .map_err(|error| format!("failed to create excerpt: {error}"))?;
 
-    ensure_book_candidate(&transaction, book_title.as_deref(), chapter_title.as_deref())?;
+    ensure_book_candidate(
+        &transaction,
+        book_title.as_deref(),
+        chapter_title.as_deref(),
+    )?;
     replace_excerpt_tags(&transaction, &id, tag_names)?;
 
     transaction
@@ -203,17 +207,31 @@ pub fn update_excerpt(
     state: State<'_, AppState>,
     input: UpdateExcerptRequest,
 ) -> Result<Excerpt, String> {
-    let quote = normalize_required_text(input.quote, "quote")?;
-    let reflection = empty_to_none(input.reflection);
-    let source_work_id = empty_to_none(input.source_work_id);
-    let book_title = empty_to_none(input.book_title);
-    let chapter_title = empty_to_none(input.chapter_title);
-    let now = now_rfc3339()?;
-
     let mut connection = state
         .db
         .lock()
         .map_err(|_| "database lock was poisoned".to_string())?;
+
+    match update_excerpt_inner(&mut connection, &input) {
+        Ok(excerpt) => Ok(excerpt),
+        Err(error) if is_malformed_database_error(&error) => {
+            rebuild_excerpt_search_index(&connection)?;
+            update_excerpt_inner(&mut connection, &input)
+        }
+        Err(error) => Err(error),
+    }
+}
+
+fn update_excerpt_inner(
+    connection: &mut Connection,
+    input: &UpdateExcerptRequest,
+) -> Result<Excerpt, String> {
+    let quote = normalize_required_text(input.quote.clone(), "quote")?;
+    let reflection = empty_to_none(input.reflection.clone());
+    let source_work_id = empty_to_none(input.source_work_id.clone());
+    let book_title = empty_to_none(input.book_title.clone());
+    let chapter_title = empty_to_none(input.chapter_title.clone());
+    let now = now_rfc3339()?;
 
     let transaction = connection
         .transaction()
@@ -233,7 +251,7 @@ pub fn update_excerpt(
             WHERE id = ?1
             ",
             params![
-                input.id,
+                input.id.as_str(),
                 quote,
                 reflection.as_deref(),
                 source_work_id.as_deref(),
@@ -248,9 +266,13 @@ pub fn update_excerpt(
         return Err("excerpt not found".to_string());
     }
 
-    ensure_book_candidate(&transaction, book_title.as_deref(), chapter_title.as_deref())?;
+    ensure_book_candidate(
+        &transaction,
+        book_title.as_deref(),
+        chapter_title.as_deref(),
+    )?;
 
-    if let Some(tag_names) = input.tag_names {
+    if let Some(tag_names) = input.tag_names.clone() {
         replace_excerpt_tags(&transaction, &input.id, tag_names)?;
     }
 
@@ -259,6 +281,12 @@ pub fn update_excerpt(
         .map_err(|error| format!("failed to save excerpt update: {error}"))?;
 
     get_excerpt_by_id(&connection, &input.id)
+}
+
+fn is_malformed_database_error(error: &str) -> bool {
+    error
+        .to_lowercase()
+        .contains("database disk image is malformed")
 }
 
 #[tauri::command]

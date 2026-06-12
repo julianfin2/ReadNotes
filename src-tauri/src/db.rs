@@ -157,6 +157,12 @@ fn run_migrations(connection: &Connection) -> Result<(), String> {
     migrate_excerpts_without_removed_fields(connection)?;
     backfill_books_from_excerpts(connection)?;
 
+    rebuild_excerpt_search_index(connection)?;
+
+    Ok(())
+}
+
+pub fn rebuild_excerpt_search_index(connection: &Connection) -> Result<(), String> {
     connection
         .execute_batch(
             "
@@ -165,7 +171,7 @@ fn run_migrations(connection: &Connection) -> Result<(), String> {
             DROP TRIGGER IF EXISTS excerpts_au;
             DROP TABLE IF EXISTS excerpt_search;
 
-            CREATE VIRTUAL TABLE IF NOT EXISTS excerpt_search USING fts5(
+            CREATE VIRTUAL TABLE excerpt_search USING fts5(
               quote,
               reflection,
               book_title,
@@ -174,46 +180,37 @@ fn run_migrations(connection: &Connection) -> Result<(), String> {
               content_rowid='rowid'
             );
 
-            CREATE TRIGGER IF NOT EXISTS excerpts_ai AFTER INSERT ON excerpts BEGIN
-              INSERT INTO excerpt_search(rowid, quote, reflection, book_title, chapter_title)
-              VALUES (new.rowid, new.quote, new.reflection, new.book_title, new.chapter_title);
-            END;
-
-            CREATE TRIGGER IF NOT EXISTS excerpts_ad AFTER DELETE ON excerpts BEGIN
-              INSERT INTO excerpt_search(
-                excerpt_search, rowid, quote, reflection, book_title, chapter_title
-              )
-              VALUES (
-                'delete', old.rowid, old.quote, old.reflection, old.book_title, old.chapter_title
-              );
-            END;
-
-            CREATE TRIGGER IF NOT EXISTS excerpts_au AFTER UPDATE ON excerpts BEGIN
-              INSERT INTO excerpt_search(
-                excerpt_search, rowid, quote, reflection, book_title, chapter_title
-              )
-              VALUES (
-                'delete', old.rowid, old.quote, old.reflection, old.book_title, old.chapter_title
-              );
-              INSERT INTO excerpt_search(rowid, quote, reflection, book_title, chapter_title)
-              VALUES (new.rowid, new.quote, new.reflection, new.book_title, new.chapter_title);
-            END;
-            ",
-        )
-        .map_err(|error| format!("failed to rebuild excerpt search index: {error}"))?;
-
-    connection
-        .execute_batch(
-            "
             INSERT INTO excerpt_search(rowid, quote, reflection, book_title, chapter_title)
             SELECT rowid, quote, reflection, book_title, chapter_title
-            FROM excerpts
-            WHERE rowid NOT IN (SELECT rowid FROM excerpt_search);
+            FROM excerpts;
+
+            CREATE TRIGGER excerpts_ai AFTER INSERT ON excerpts BEGIN
+              INSERT INTO excerpt_search(rowid, quote, reflection, book_title, chapter_title)
+              VALUES (new.rowid, new.quote, new.reflection, new.book_title, new.chapter_title);
+            END;
+
+            CREATE TRIGGER excerpts_ad AFTER DELETE ON excerpts BEGIN
+              INSERT INTO excerpt_search(
+                excerpt_search, rowid, quote, reflection, book_title, chapter_title
+              )
+              VALUES (
+                'delete', old.rowid, old.quote, old.reflection, old.book_title, old.chapter_title
+              );
+            END;
+
+            CREATE TRIGGER excerpts_au AFTER UPDATE ON excerpts BEGIN
+              INSERT INTO excerpt_search(
+                excerpt_search, rowid, quote, reflection, book_title, chapter_title
+              )
+              VALUES (
+                'delete', old.rowid, old.quote, old.reflection, old.book_title, old.chapter_title
+              );
+              INSERT INTO excerpt_search(rowid, quote, reflection, book_title, chapter_title)
+              VALUES (new.rowid, new.quote, new.reflection, new.book_title, new.chapter_title);
+            END;
             ",
         )
-        .map_err(|error| format!("failed to backfill excerpt search index: {error}"))?;
-
-    Ok(())
+        .map_err(|error| format!("failed to rebuild excerpt search index: {error}"))
 }
 
 fn backfill_books_from_excerpts(connection: &Connection) -> Result<(), String> {
