@@ -1,9 +1,8 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref, watch } from "vue";
+import { computed, onMounted, reactive, ref } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import BaseModal from "./BaseModal.vue";
 import CustomSelect from "./CustomSelect.vue";
-import type { Excerpt } from "../types/excerpt";
 import type { TagWithCount } from "../types/tag";
 
 defineProps<{
@@ -11,9 +10,7 @@ defineProps<{
 }>();
 
 const tags = ref<TagWithCount[]>([]);
-const excerpts = ref<Excerpt[]>([]);
-const selectedTagName = ref("");
-const selectedExcerptId = ref("");
+const search = ref("");
 const createModalOpen = ref(false);
 const editModalOpen = ref(false);
 const deleteModalOpen = ref(false);
@@ -29,37 +26,24 @@ const editingTags = reactive<
   Record<string, { name: string; parentId: string; color: string }>
 >({});
 
-const selectedTag = computed(() =>
-  tags.value.find((tag) => tag.name === selectedTagName.value),
-);
+const filteredTags = computed(() => {
+  const query = search.value.trim().toLowerCase();
+  if (!query) {
+    return tags.value;
+  }
 
-const selectedExcerpt = computed(() =>
-  excerpts.value.find((excerpt) => excerpt.id === selectedExcerptId.value) || null,
-);
-
-const tagSwitchOptions = computed(() =>
-  tags.value.map((tag) => ({ value: tag.name, label: `#${tag.name}` })),
-);
+  return tags.value.filter((tag) => {
+    return (
+      tag.name.toLowerCase().includes(query) ||
+      parentLabel(tag).toLowerCase().includes(query)
+    );
+  });
+});
 
 const parentTagOptions = computed(() => [
   { value: "", label: "无" },
   ...tags.value.map((tag) => ({ value: tag.id, label: `#${tag.name}` })),
 ]);
-
-watch(
-  excerpts,
-  (items) => {
-    if (items.length === 0) {
-      selectedExcerptId.value = "";
-      return;
-    }
-
-    if (!items.some((excerpt) => excerpt.id === selectedExcerptId.value)) {
-      selectedExcerptId.value = items[0].id;
-    }
-  },
-  { immediate: true },
-);
 
 onMounted(async () => {
   await loadTags();
@@ -67,25 +51,6 @@ onMounted(async () => {
 
 async function loadTags() {
   tags.value = await invoke<TagWithCount[]>("list_tags_with_counts");
-  if (!selectedTagName.value && tags.value.length > 0) {
-    selectedTagName.value = tags.value[0].name;
-    await loadExcerptsForTag(selectedTagName.value);
-  }
-}
-
-async function loadExcerptsForTag(tagName: string) {
-  selectedTagName.value = tagName;
-  excerpts.value = await invoke<Excerpt[]>("list_excerpts", {
-    input: {
-      tagName,
-      sortBy: "createdAt",
-      sortDirection: "desc",
-    },
-  });
-}
-
-function selectExcerpt(excerptId: string) {
-  selectedExcerptId.value = excerptId;
 }
 
 async function createTag() {
@@ -94,7 +59,7 @@ async function createTag() {
       input: {
         name: newTagName.value,
         parentId: newTagParentId.value || null,
-        color: newTagColor.value || null,
+        color: normalizeColor(newTagColor.value),
       },
     });
 
@@ -118,36 +83,21 @@ async function updateTag(tagId: string) {
         id: tagId,
         name: draft.name,
         parentId: draft.parentId || null,
-        color: draft.color || null,
+        color: normalizeColor(draft.color),
       },
     });
 
     delete editingTags[tagId];
     editingTagId.value = "";
     editModalOpen.value = false;
-    const previousSelection = selectedTagName.value;
     await loadTags();
-    if (previousSelection) {
-      const updated = tags.value.find((tag) => tag.id === tagId);
-      if (updated) {
-        await loadExcerptsForTag(updated.name);
-      }
-    }
   });
 }
 
 async function deleteTag(tagId: string) {
   await runSaving(async () => {
     await invoke("delete_tag", { id: tagId });
-    const deletedSelected = selectedTag.value?.id === tagId;
     await loadTags();
-    if (deletedSelected) {
-      selectedTagName.value = tags.value[0]?.name || "";
-      excerpts.value = [];
-      if (selectedTagName.value) {
-        await loadExcerptsForTag(selectedTagName.value);
-      }
-    }
   });
 }
 
@@ -190,7 +140,7 @@ function cancelEditing(tagId: string) {
 
 function parentLabel(tag: TagWithCount) {
   const parent = tags.value.find((candidate) => candidate.id === tag.parentId);
-  return parent ? parent.name : "";
+  return parent ? `#${parent.name}` : "无";
 }
 
 function selectableParents(tagId?: string) {
@@ -202,6 +152,11 @@ function parentTagEditOptions(tagId: string) {
     { value: "", label: "无" },
     ...selectableParents(tagId).map((tag) => ({ value: tag.id, label: `#${tag.name}` })),
   ];
+}
+
+function normalizeColor(color: string) {
+  const trimmed = color.trim();
+  return trimmed || null;
 }
 
 async function runSaving(task: () => Promise<void>) {
@@ -220,114 +175,62 @@ async function runSaving(task: () => Promise<void>) {
 
 <template>
   <section class="workspace-panel desktop-view tag-page" :class="{ embedded }">
-    <header class="page-header">
-      <div>
-        <h2>{{ selectedTagName ? `#${selectedTagName}` : "标签管理" }}</h2>
-        <p v-if="selectedTag" class="subtle-text">
-          {{ selectedTag.excerptCount }} 条摘抄
-          <span v-if="selectedTag.parentId"> / 父标签 #{{ parentLabel(selectedTag) }}</span>
-        </p>
-        <p v-else class="subtle-text">{{ tags.length }} 个标签</p>
+    <header class="page-header list-toolbar-header">
+      <div class="page-title-block">
+        <h2>标签管理</h2>
+        <p class="subtle-text">{{ tags.length }} 个标签</p>
       </div>
 
-      <div class="toolbar topic-toolbar">
-        <CustomSelect
-          v-if="tags.length > 0"
-          v-model="selectedTagName"
-          :options="tagSwitchOptions"
-          class="topic-switcher"
-          @change="loadExcerptsForTag"
+      <div class="toolbar list-toolbar">
+        <input
+          v-model="search"
+          class="toolbar-search"
+          placeholder="搜索标签或父标签"
+          type="search"
         />
         <button class="primary-action" type="button" @click="createModalOpen = true">
           新建标签
         </button>
-        <button
-          v-if="selectedTag"
-          class="secondary-action"
-          type="button"
-          @click="startEditing(selectedTag)"
-        >
-          编辑标签
-        </button>
-        <button
-          v-if="selectedTag"
-          class="danger-action"
-          type="button"
-          @click="requestDeleteTag(selectedTag.id)"
-        >
-          删除标签
-        </button>
       </div>
     </header>
 
-    <div v-if="selectedTag" class="split-workspace tag-workspace-grid">
-      <aside class="list-pane">
-        <div class="list-scroll">
-          <button
-            v-for="excerpt in excerpts"
-            :key="excerpt.id"
-            class="excerpt-list-item"
-            :class="{ active: excerpt.id === selectedExcerptId }"
-            type="button"
-            @click="selectExcerpt(excerpt.id)"
-          >
-            <span class="item-title">{{ excerpt.quote }}</span>
-            <span v-if="excerpt.bookTitle || excerpt.chapterTitle" class="item-meta">
-              <span v-if="excerpt.bookTitle">《{{ excerpt.bookTitle }}》</span>
-              <span v-if="excerpt.bookTitle && excerpt.chapterTitle"> / </span>
-              <span v-if="excerpt.chapterTitle">{{ excerpt.chapterTitle }}</span>
-            </span>
-            <span class="item-meta">
-              {{ new Date(excerpt.createdAt).toLocaleDateString() }}
-            </span>
-          </button>
-
-          <p v-if="selectedTagName && excerpts.length === 0" class="empty-state">
-            这个标签下还没有摘抄。
-          </p>
-          <p v-if="!selectedTagName" class="empty-state">选择一个标签查看摘抄。</p>
+    <div class="tag-table-page">
+      <div class="tag-table">
+        <div class="tag-table-head">
+          <span>标签</span>
+          <span>颜色</span>
+          <span>父标签</span>
+          <span>摘抄数</span>
+          <span>创建时间</span>
+          <span>操作</span>
         </div>
-      </aside>
 
-      <article v-if="selectedExcerpt" class="detail-pane excerpt-detail-pane">
-        <div class="detail-scroll">
-          <header class="detail-header">
-            <div>
-              <p v-if="selectedExcerpt.bookTitle || selectedExcerpt.chapterTitle" class="source-line">
-                <span v-if="selectedExcerpt.bookTitle">《{{ selectedExcerpt.bookTitle }}》</span>
-                <span v-if="selectedExcerpt.bookTitle && selectedExcerpt.chapterTitle"> / </span>
-                <span v-if="selectedExcerpt.chapterTitle">{{ selectedExcerpt.chapterTitle }}</span>
-              </p>
-              <footer>
-                <span>{{ new Date(selectedExcerpt.createdAt).toLocaleString() }}</span>
-              </footer>
-            </div>
-          </header>
-
-          <div class="reading-body">
-            <blockquote>{{ selectedExcerpt.quote }}</blockquote>
-            <p v-if="selectedExcerpt.reflection" class="reflection">
-              {{ selectedExcerpt.reflection }}
-            </p>
-            <div v-if="selectedExcerpt.tags.length > 0" class="tag-row">
-              <span v-for="tag in selectedExcerpt.tags" :key="tag.id" class="tag-pill">
-                #{{ tag.name }}
-              </span>
-            </div>
-          </div>
+        <div v-for="tag in filteredTags" :key="tag.id" class="tag-table-row">
+          <span class="tag-name-cell">#{{ tag.name }}</span>
+          <span>
+            <span
+              class="tag-color-swatch"
+              :style="{ backgroundColor: tag.color || '#e8eee6' }"
+            />
+            <span class="subtle-inline">{{ tag.color || "未设置" }}</span>
+          </span>
+          <span>{{ parentLabel(tag) }}</span>
+          <span>{{ tag.excerptCount }}</span>
+          <span>{{ new Date(tag.createdAt).toLocaleDateString() }}</span>
+          <span class="table-actions">
+            <button class="secondary-action" type="button" @click="startEditing(tag)">
+              编辑
+            </button>
+            <button class="danger-action" type="button" @click="requestDeleteTag(tag.id)">
+              删除
+            </button>
+          </span>
         </div>
-      </article>
 
-      <section v-else class="detail-pane empty-detail">
-        <p class="empty-state">选择一条摘抄查看详情。</p>
-      </section>
-    </div>
-
-    <div v-else class="empty-detail tag-empty-state">
-      <p class="empty-state">先创建一个标签。</p>
-      <button class="primary-action" type="button" @click="createModalOpen = true">
-        新建标签
-      </button>
+        <p v-if="filteredTags.length === 0" class="empty-state">
+          {{ search ? "没有匹配的标签。" : "先创建一个标签。" }}
+        </p>
+      </div>
     </div>
 
     <p v-if="errorMessage" class="error-message">{{ errorMessage }}</p>
