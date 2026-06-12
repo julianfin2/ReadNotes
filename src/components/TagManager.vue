@@ -228,7 +228,7 @@ async function runSaving(task: () => Promise<void>) {
             </span>
           </div>
 
-          <p v-if="filteredTags.length === 0" class="empty-state">
+          <p v-if="filteredTags.length === 0" class="empty-state table-empty">
             {{ search ? "没有匹配的标签。" : "先创建一个标签。" }}
           </p>
         </div>
