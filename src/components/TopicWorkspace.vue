@@ -663,6 +663,7 @@ async function runSaving(task: () => Promise<void>) {
           :model-value="selectedTopicId"
           class="topic-switcher"
           :options="topicSwitcherOptions"
+          fit-content
           placeholder="选择主题"
           @change="selectTopic"
         />

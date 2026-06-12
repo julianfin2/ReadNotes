@@ -10,9 +10,13 @@ const props = withDefaults(
     }>;
     placeholder?: string;
     minMenuWidth?: number;
+    maxMenuWidth?: number;
+    fitContent?: boolean;
   }>(),
   {
     minMenuWidth: 180,
+    maxMenuWidth: 420,
+    fitContent: false,
   },
 );
 
@@ -70,13 +74,37 @@ function updateMenuPosition() {
   const shouldOpenUp = availableBelow < 160 && availableAbove > availableBelow;
   const availableSpace = shouldOpenUp ? availableAbove : availableBelow;
   const maxHeight = Math.max(120, Math.min(preferredHeight, availableSpace));
+  const availableWidth = window.innerWidth - viewportPadding * 2;
+  const contentWidth = props.fitContent ? getPreferredMenuWidth() : 0;
+  const preferredWidth = Math.min(
+    props.maxMenuWidth,
+    Math.max(rect.width, props.minMenuWidth, contentWidth),
+  );
+  const menuWidth = Math.min(preferredWidth, availableWidth);
+  const maxLeft = Math.max(viewportPadding, window.innerWidth - viewportPadding - menuWidth);
+  const left = Math.min(Math.max(viewportPadding, rect.left), maxLeft);
 
   menuRect.value = {
-    left: rect.left,
+    left,
     top: shouldOpenUp ? rect.top - gap - maxHeight : rect.bottom + gap,
-    width: Math.max(rect.width, props.minMenuWidth),
+    width: menuWidth,
     maxHeight,
   };
+}
+
+function getPreferredMenuWidth() {
+  const widestOption = Math.max(
+    0,
+    ...props.options.map((option) => getTextVisualLength(option.label)),
+  );
+
+  return Math.ceil(widestOption * 15 + 52);
+}
+
+function getTextVisualLength(value: string) {
+  return Array.from(value).reduce((total, char) => {
+    return total + (char.charCodeAt(0) > 255 ? 1 : 0.58);
+  }, 0);
 }
 
 function handleDocumentPointerDown(event: PointerEvent) {
