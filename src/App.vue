@@ -571,6 +571,7 @@ form,
 
 .excerpt-list-item {
   display: grid;
+  flex: 0 0 auto;
   gap: 5px;
   width: 100%;
   min-height: 72px;
@@ -947,6 +948,7 @@ select:focus {
 .material-list-scroll {
   display: grid;
   align-content: start;
+  grid-auto-rows: max-content;
   gap: 8px;
   min-height: 0;
   overflow: auto;
@@ -1100,12 +1102,14 @@ select:focus {
 .excerpt-picker-list {
   display: grid;
   align-content: start;
+  grid-auto-rows: max-content;
   gap: 8px;
   padding: 10px;
 }
 
 .excerpt-picker-item {
   display: grid;
+  flex: 0 0 auto;
   gap: 6px;
   width: 100%;
   padding: 10px 12px;
@@ -1169,6 +1173,8 @@ select:focus {
 
 .timeline-list {
   display: grid;
+  align-content: start;
+  grid-auto-rows: max-content;
   gap: 14px;
   min-height: 0;
   overflow: auto;
@@ -1176,6 +1182,7 @@ select:focus {
 
 .timeline-card {
   display: grid;
+  flex: 0 0 auto;
   grid-template-columns: 64px minmax(0, 1fr);
   gap: 14px;
 }
