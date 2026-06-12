@@ -120,15 +120,6 @@ fn run_migrations(connection: &Connection) -> Result<(), String> {
               FOREIGN KEY (node_id) REFERENCES topic_nodes(id) ON DELETE SET NULL
             );
 
-            CREATE TABLE IF NOT EXISTS notes (
-              id TEXT PRIMARY KEY,
-              target_type TEXT NOT NULL,
-              target_id TEXT NOT NULL,
-              content TEXT NOT NULL,
-              created_at TEXT NOT NULL,
-              updated_at TEXT NOT NULL
-            );
-
             CREATE INDEX IF NOT EXISTS idx_excerpts_created_at ON excerpts(created_at);
             CREATE INDEX IF NOT EXISTS idx_excerpts_updated_at ON excerpts(updated_at);
             CREATE UNIQUE INDEX IF NOT EXISTS idx_tags_name_nocase ON tags(name COLLATE NOCASE);
@@ -136,8 +127,6 @@ fn run_migrations(connection: &Connection) -> Result<(), String> {
             CREATE INDEX IF NOT EXISTS idx_topic_nodes_topic_id ON topic_nodes(topic_id);
             CREATE INDEX IF NOT EXISTS idx_topic_excerpts_topic_id ON topic_excerpts(topic_id);
             CREATE INDEX IF NOT EXISTS idx_topic_excerpts_excerpt_id ON topic_excerpts(excerpt_id);
-            CREATE INDEX IF NOT EXISTS idx_notes_target ON notes(target_type, target_id);
-            CREATE INDEX IF NOT EXISTS idx_notes_created_at ON notes(created_at);
             ",
         )
         .map_err(|error| format!("failed to run database migrations: {error}"))?;

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-type ViewKey = "excerpts" | "topics" | "tags" | "timeline";
+type ViewKey = "excerpts" | "topics" | "tags";
 
 defineProps<{
   activeView: ViewKey;
@@ -38,13 +38,6 @@ defineEmits<{
         @click="$emit('selectView', 'tags')"
       >
         标签
-      </button>
-      <button
-        class="nav-item"
-        :class="{ active: activeView === 'timeline' }"
-        @click="$emit('selectView', 'timeline')"
-      >
-        时间线
       </button>
     </nav>
   </aside>

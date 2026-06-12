@@ -4,12 +4,11 @@ import { invoke } from "@tauri-apps/api/core";
 import AppSidebar from "./components/AppSidebar.vue";
 import ExcerptList from "./components/ExcerptList.vue";
 import TagManager from "./components/TagManager.vue";
-import TimelineView from "./components/TimelineView.vue";
 import TopicWorkspace from "./components/TopicWorkspace.vue";
 import type { Excerpt, ExcerptFilters, UpdateExcerptInput } from "./types/excerpt";
 import type { Tag } from "./types/tag";
 
-type ViewKey = "excerpts" | "topics" | "tags" | "timeline";
+type ViewKey = "excerpts" | "topics" | "tags";
 
 const activeView = ref<ViewKey>("excerpts");
 const excerpts = ref<Excerpt[]>([]);
@@ -114,8 +113,6 @@ function toExcerptQuery(filters: ExcerptFilters) {
       <TopicWorkspace v-else-if="activeView === 'topics'" :excerpts="excerpts" />
 
       <TagManager v-else-if="activeView === 'tags'" />
-
-      <TimelineView v-else-if="activeView === 'timeline'" :excerpts="excerpts" />
 
       <section v-else class="workspace-panel">
         <p class="empty-state">这个视图还没有实现。</p>
@@ -305,8 +302,7 @@ nav {
 
 .desktop-view > .split-workspace,
 .desktop-view > .topic-workspace-grid,
-.desktop-view > .excerpt-list,
-.desktop-view > .timeline-list {
+.desktop-view > .excerpt-list {
   flex: 1 1 auto;
   min-height: 0;
 }
@@ -919,8 +915,7 @@ select:focus {
 
 .topic-workspace-grid > .stack,
 .topic-context-pane,
-.workspace-panel > .excerpt-list,
-.workspace-panel > .timeline-list {
+.workspace-panel > .excerpt-list {
   overflow: auto;
   padding-right: 2px;
 }
@@ -1163,50 +1158,6 @@ select:focus {
   min-height: 240px;
 }
 
-.timeline-filter {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(160px, 1fr)) 96px 96px;
-  gap: 12px;
-  align-items: end;
-  margin-bottom: 20px;
-}
-
-.timeline-list {
-  display: grid;
-  align-content: start;
-  grid-auto-rows: max-content;
-  gap: 14px;
-  min-height: 0;
-  overflow: auto;
-}
-
-.timeline-card {
-  display: grid;
-  flex: 0 0 auto;
-  grid-template-columns: 64px minmax(0, 1fr);
-  gap: 14px;
-}
-
-.timeline-marker {
-  align-self: start;
-  padding: 5px 8px;
-  border-radius: 999px;
-  background: #e8eee6;
-  color: #2e6f62;
-  font-size: 0.78rem;
-  font-weight: 700;
-  text-align: center;
-}
-
-.timeline-content {
-  display: grid;
-  gap: 10px;
-  padding: 16px;
-  border: 1px solid #ded7ca;
-  border-radius: 8px;
-  background: #fffdf9;
-}
-
 blockquote {
   margin: 0;
   padding-left: 14px;
@@ -1306,9 +1257,7 @@ footer,
   .detail-pane,
   .desktop-side-pane .topic-list,
   .topic-workspace-grid > .stack,
-  .workspace-panel > .excerpt-list,
-  .workspace-panel > .timeline-list,
-  .timeline-list {
+  .workspace-panel > .excerpt-list {
     overflow: visible;
   }
 
@@ -1316,8 +1265,6 @@ footer,
     grid-template-columns: 1fr;
   }
 
-  .timeline-filter,
-  .timeline-card,
   .edit-grid,
   .source-grid {
     grid-template-columns: 1fr;

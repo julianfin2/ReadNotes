@@ -30,7 +30,7 @@ Primary responsibilities:
 - Store the user's initial reflection.
 - Support global tags.
 - Support optional book title and chapter title.
-- Preserve created and updated timestamps for timeline review.
+- Preserve created and updated timestamps for sorting and future review.
 
 ### Tag
 
@@ -62,7 +62,7 @@ A topic should support:
 - A status, such as collecting, organizing, drafting, finished, or paused.
 - Nested subtopics.
 - Linked excerpts.
-- Topic-level notes and summaries.
+- Topic-level summaries and draft material.
 
 ### Topic Node
 
@@ -107,19 +107,6 @@ The product does not need to support PDF, web clipping, Kindle import, or source
 
 - Book title
 - Chapter title
-
-### Note
-
-A note records time-based thinking attached to another object.
-
-Notes can attach to:
-
-- Excerpt
-- Topic
-- Topic node
-- Topic excerpt link
-
-This allows the app to preserve the user's understanding over time instead of overwriting older thoughts.
 
 ## Data Model
 
@@ -182,14 +169,6 @@ type TopicExcerpt = {
   updatedAt: string
 }
 
-type Note = {
-  id: string
-  targetType: "excerpt" | "topic" | "topicNode" | "topicExcerpt"
-  targetId: string
-  content: string
-  createdAt: string
-  updatedAt: string
-}
 ```
 
 ### SQLite Schema Draft
@@ -260,17 +239,7 @@ CREATE TABLE topic_excerpts (
   FOREIGN KEY (node_id) REFERENCES topic_nodes(id) ON DELETE SET NULL
 );
 
-CREATE TABLE notes (
-  id TEXT PRIMARY KEY,
-  target_type TEXT NOT NULL,
-  target_id TEXT NOT NULL,
-  content TEXT NOT NULL,
-  created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL
-);
 ```
-
-The `notes.target_id` field is intentionally polymorphic. Application logic must validate that `target_id` exists for the selected `target_type`.
 
 ## First-Version Product Scope
 
@@ -285,8 +254,6 @@ The `notes.target_id` field is intentionally polymorphic. Application logic must
 - Add excerpts to topics.
 - Assign topic excerpts to topic nodes.
 - Add topic-specific reasons and reflections.
-- Show a global timeline of excerpt and note creation.
-- Show a topic-specific timeline for collected excerpts and topic notes.
 
 ### Should Have
 
@@ -349,7 +316,7 @@ Suggested layout:
 Left: topic tree and nested subtopics
 Center: excerpts collected under the selected topic or subtopic
 Right: selected excerpt details, reason, and topic-specific reflection
-Bottom or side panel: topic summary or draft notes
+Bottom or side panel: topic summary or draft material
 ```
 
 ### Tag Browser
@@ -362,21 +329,11 @@ Capabilities:
 - Show matching excerpts.
 - Support selecting multiple tags.
 
-### Timeline
-
-Purpose: review reading and thinking over time.
-
-Modes:
-
-- Global timeline across all excerpts and notes.
-- Topic timeline for one topic.
-- Excerpt timeline for notes attached to one excerpt.
-
 ## Implementation Notes
 
 - Prefer local-first storage.
 - SQLite is the recommended first storage layer.
-- Use SQLite FTS for excerpt and note search when implementing search.
+- Use SQLite FTS for excerpt search.
 - Keep the model source-agnostic. Manual entry is the primary input path.
 - Avoid making tags and topic nodes share the same table unless a clear need emerges. Their product meaning is different.
 - Preserve timestamps on link objects, not only on main records, because "when this excerpt entered this topic" matters.
@@ -392,8 +349,6 @@ Modes:
 - The frontend is split into focused components under `src/components` and shared types under `src/types`.
 - A minimal topic workspace exists for creating topics, creating first-level topic nodes, and collecting existing excerpts into topics.
 - Excerpt library search and filtering is implemented with SQLite FTS for quote/reflection search, tag filtering, and configurable time sorting.
-- Note CRUD is implemented for excerpt, topic, topic node, and topic excerpt targets.
-- A minimal timeline view is implemented. It aggregates excerpt creation, topic excerpt collection, and note creation, with topic/excerpt filters.
 - Excerpt maintenance is implemented in the frontend: edit quote/reflection/book title/chapter title/tags and delete excerpts.
 - Topic workspace maintenance is implemented in the frontend: edit/delete topics, edit/delete nested topic nodes, and edit/remove topic excerpt links.
 - Tag management is implemented in the frontend: create/edit/delete tags, assign parent tags, show excerpt counts, and browse excerpts by selected tag.

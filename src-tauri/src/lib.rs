@@ -1,6 +1,5 @@
 mod db;
 mod excerpt;
-mod note;
 mod tag;
 mod topic;
 
@@ -21,11 +20,6 @@ pub fn run() {
             excerpt::get_database_path,
             excerpt::list_excerpts,
             excerpt::update_excerpt,
-            note::create_note,
-            note::delete_note,
-            note::list_notes,
-            note::list_timeline,
-            note::update_note,
             tag::create_tag,
             tag::delete_tag,
             tag::list_excerpt_tags,
