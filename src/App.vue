@@ -1350,6 +1350,14 @@ select:focus {
   background: #fbfdf9;
 }
 
+.document-detail-pane.is-editing .document-header {
+  align-items: center;
+}
+
+.document-detail-pane.is-editing .document-header .action-row {
+  align-items: center;
+}
+
 .document-detail-pane.is-editing .document-scroll {
   border-color: #bfd0c8;
   background: #fbfdf9;

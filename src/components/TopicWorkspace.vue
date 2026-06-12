@@ -937,11 +937,7 @@ async function runSaving(task: () => Promise<void>) {
         >
           <header class="detail-header document-header">
             <div>
-              <p class="eyebrow">Editing</p>
               <h3>编辑收录</h3>
-              <footer>
-                <span>调整这条材料在当前主题中的归类、收录理由和主题理解</span>
-              </footer>
             </div>
             <div class="action-row">
               <button
