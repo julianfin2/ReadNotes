@@ -1537,7 +1537,7 @@ select:focus {
 
 .excerpt-picker {
   display: grid;
-  grid-template-columns: minmax(260px, 0.9fr) minmax(280px, 1fr);
+  grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
   gap: 12px;
   min-height: 0;
 }
