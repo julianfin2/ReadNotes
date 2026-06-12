@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, nextTick, onBeforeUnmount, ref } from "vue";
 
 const props = defineProps<{
   modelValue: string;
@@ -13,6 +13,8 @@ const emit = defineEmits<{
 }>();
 
 const isOpen = ref(false);
+const inputEl = ref<HTMLInputElement | null>(null);
+const menuStyle = ref<Record<string, string>>({});
 
 const visibleOptions = computed(() => {
   const query = props.modelValue.trim().toLowerCase();
@@ -28,7 +30,7 @@ const visibleOptions = computed(() => {
 
 function updateValue(value: string) {
   emit("update:modelValue", value);
-  isOpen.value = true;
+  openMenu();
 }
 
 function selectOption(value: string) {
@@ -42,29 +44,65 @@ function closeLater() {
     isOpen.value = false;
   }, 120);
 }
+
+function openMenu() {
+  isOpen.value = true;
+  void nextTick(updateMenuPosition);
+}
+
+function updateMenuPosition() {
+  if (!inputEl.value) {
+    return;
+  }
+
+  const rect = inputEl.value.getBoundingClientRect();
+  const gap = 6;
+  const maxHeight = Math.min(220, window.innerHeight - rect.bottom - gap - 12);
+  menuStyle.value = {
+    left: `${rect.left}px`,
+    top: `${rect.bottom + gap}px`,
+    width: `${rect.width}px`,
+    maxHeight: `${Math.max(120, maxHeight)}px`,
+  };
+}
+
+window.addEventListener("resize", updateMenuPosition);
+window.addEventListener("scroll", updateMenuPosition, true);
+
+onBeforeUnmount(() => {
+  window.removeEventListener("resize", updateMenuPosition);
+  window.removeEventListener("scroll", updateMenuPosition, true);
+});
 </script>
 
 <template>
   <div class="editable-combobox">
     <input
+      ref="inputEl"
       :value="modelValue"
       :placeholder="placeholder"
       autocomplete="off"
       @blur="closeLater"
-      @focus="isOpen = true"
+      @focus="openMenu"
       @input="updateValue(($event.target as HTMLInputElement).value)"
     />
 
-    <div v-if="isOpen && visibleOptions.length > 0" class="editable-combobox-menu">
-      <button
-        v-for="option in visibleOptions"
-        :key="option"
-        class="editable-combobox-option"
-        type="button"
-        @mousedown.prevent="selectOption(option)"
+    <Teleport to="body">
+      <div
+        v-if="isOpen && visibleOptions.length > 0"
+        class="editable-combobox-menu"
+        :style="menuStyle"
       >
-        {{ option }}
-      </button>
-    </div>
+        <button
+          v-for="option in visibleOptions"
+          :key="option"
+          class="editable-combobox-option"
+          type="button"
+          @mousedown.prevent="selectOption(option)"
+        >
+          {{ option }}
+        </button>
+      </div>
+    </Teleport>
   </div>
 </template>

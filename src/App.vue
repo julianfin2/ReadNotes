@@ -505,14 +505,10 @@ nav {
 }
 
 .editable-combobox-menu {
-  position: absolute;
-  z-index: 20;
-  right: 0;
-  left: 0;
+  position: fixed;
+  z-index: 40;
   display: grid;
   gap: 4px;
-  max-height: 220px;
-  margin-top: 6px;
   padding: 6px;
   border: 1px solid #d6cfc2;
   border-radius: 8px;
