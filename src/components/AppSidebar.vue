@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import appIcon from "../assets/icon.png";
+import packageJson from "../../package.json";
+
 type ViewKey = "excerpts" | "topics" | "tags";
 
 defineProps<{
@@ -8,11 +11,14 @@ defineProps<{
 defineEmits<{
   selectView: [view: ViewKey];
 }>();
+
+const appVersion = packageJson.version;
 </script>
 
 <template>
   <aside class="sidebar">
-    <div>
+    <div class="sidebar-brand">
+      <img class="sidebar-brand-icon" :src="appIcon" alt="" aria-hidden="true" />
       <h1>摘抄库</h1>
     </div>
 
@@ -39,5 +45,7 @@ defineEmits<{
         标签
       </button>
     </nav>
+
+    <p class="sidebar-version">v{{ appVersion }}</p>
   </aside>
 </template>

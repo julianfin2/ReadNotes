@@ -232,6 +232,26 @@ button {
   color: #d6b39d;
 }
 
+.sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.sidebar-brand-icon {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  border-radius: 8px;
+}
+
+.sidebar-version {
+  margin: auto 0 0;
+  color: rgba(249, 245, 237, 0.58);
+  font-size: 0.78rem;
+}
+
 h1,
 h2,
 h3 {

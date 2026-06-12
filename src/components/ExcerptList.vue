@@ -122,7 +122,7 @@ const pageTitle = computed(() => {
     return "阅读摘抄";
   }
 
-  return "摘抄库";
+  return "摘抄";
 });
 
 const canSaveCreate = computed(() => {
