@@ -27,7 +27,7 @@ pub fn open_database(app: &AppHandle) -> Result<AppState, String> {
         .execute_batch(
             "
             PRAGMA foreign_keys = ON;
-            PRAGMA journal_mode = WAL;
+            PRAGMA journal_mode = DELETE;
             ",
         )
         .map_err(|error| format!("failed to configure database: {error}"))?;
