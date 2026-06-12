@@ -3,6 +3,7 @@ import { computed, onMounted, reactive, ref } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import BaseModal from "./BaseModal.vue";
 import CustomSelect from "./CustomSelect.vue";
+import TagColorField from "./TagColorField.vue";
 import type { TagWithCount } from "../types/tag";
 
 defineProps<{
@@ -257,10 +258,10 @@ async function runSaving(task: () => Promise<void>) {
         父标签
         <CustomSelect v-model="newTagParentId" :options="parentTagOptions" />
       </label>
-      <label>
-        颜色
-        <input v-model="newTagColor" placeholder="#2e6f62，可选" />
-      </label>
+      <div class="form-field">
+        <span class="field-label">颜色</span>
+        <TagColorField v-model="newTagColor" />
+      </div>
       <div class="modal-actions">
         <button class="secondary-action" type="button" @click="createModalOpen = false">
           取消
@@ -287,10 +288,10 @@ async function runSaving(task: () => Promise<void>) {
           :options="parentTagEditOptions(editingTagId)"
         />
       </label>
-      <label>
-        颜色
-        <input v-model="editingTags[editingTagId].color" />
-      </label>
+      <div class="form-field">
+        <span class="field-label">颜色</span>
+        <TagColorField v-model="editingTags[editingTagId].color" />
+      </div>
       <div class="modal-actions">
         <button class="secondary-action" type="button" @click="cancelEditing(editingTagId)">
           取消

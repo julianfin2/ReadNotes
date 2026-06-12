@@ -1053,6 +1053,79 @@ label {
   font-weight: 700;
 }
 
+.form-field {
+  display: grid;
+  gap: 7px;
+  color: #405055;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.field-label {
+  line-height: 1.4;
+}
+
+.tag-color-field {
+  display: grid;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid #d6cfc2;
+  border-radius: 6px;
+  background: #fffdf9;
+}
+
+.tag-color-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.tag-color-preset {
+  width: 30px;
+  height: 30px;
+  border: 2px solid #fffdf9;
+  border-radius: 999px;
+  box-shadow: 0 0 0 1px rgba(37, 50, 56, 0.18);
+  cursor: pointer;
+}
+
+.tag-color-preset:hover,
+.tag-color-preset.active {
+  box-shadow:
+    0 0 0 2px #2e6f62,
+    0 0 0 4px #fffdf9;
+}
+
+.tag-color-custom-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.tag-color-custom-picker {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #405055;
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
+.tag-color-custom-picker input[type="color"] {
+  width: 38px;
+  height: 30px;
+  min-height: 30px;
+  padding: 2px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.tag-color-value {
+  color: #6e7678;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
 textarea,
 input,
 select {
