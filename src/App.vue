@@ -302,7 +302,9 @@ nav {
 
 .desktop-view > .split-workspace,
 .desktop-view > .topic-workspace-grid,
-.desktop-view > .excerpt-list {
+.desktop-view > .excerpt-list,
+.desktop-view > .table-page,
+.desktop-view > .editor-page {
   flex: 1 1 auto;
   min-height: 0;
 }
@@ -584,6 +586,136 @@ form,
 .excerpt-list-item.active {
   border-color: #bfd0c8;
   background: #e8eee6;
+}
+
+.table-page {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.excerpt-table {
+  min-height: 0;
+  height: 100%;
+  border: 1px solid #ded7ca;
+  border-radius: 8px;
+  background: #fffdf9;
+  overflow: auto;
+}
+
+.excerpt-table-head,
+.excerpt-table-row {
+  display: grid;
+  grid-template-columns: minmax(280px, 1.8fr) minmax(180px, 0.9fr) minmax(180px, 0.8fr) 120px 150px;
+  gap: 14px;
+  align-items: center;
+}
+
+.excerpt-table-head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  min-height: 42px;
+  padding: 0 16px;
+  border-bottom: 1px solid #ded7ca;
+  background: #fbf8f1;
+  color: #6e7678;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.excerpt-table-row {
+  width: 100%;
+  min-height: 76px;
+  padding: 12px 16px;
+  border-bottom: 1px solid #eee7da;
+  background: transparent;
+  color: #1d2528;
+  cursor: pointer;
+  text-align: left;
+}
+
+.excerpt-table-row:hover {
+  background: #f6f2ea;
+}
+
+.excerpt-table-row:focus-visible {
+  outline: 2px solid #2e6f62;
+  outline-offset: -2px;
+}
+
+.excerpt-table-row:last-of-type {
+  border-bottom: 0;
+}
+
+.table-quote,
+.table-source,
+.table-tags {
+  min-width: 0;
+}
+
+.table-quote {
+  display: grid;
+  gap: 4px;
+}
+
+.table-quote strong,
+.table-quote small,
+.table-source {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.table-quote small {
+  color: #6e7678;
+  font-size: 0.82rem;
+}
+
+.table-source {
+  color: #4c5b60;
+  font-size: 0.88rem;
+}
+
+.table-tags,
+.row-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.row-actions {
+  justify-content: flex-end;
+}
+
+.table-empty {
+  padding: 18px;
+}
+
+.editor-page {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-height: 0;
+}
+
+.editor-surface {
+  display: grid;
+  align-content: start;
+  gap: 16px;
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 20px;
+  border: 1px solid #ded7ca;
+  border-radius: 8px;
+  background: #fffdf9;
+  overflow: auto;
+}
+
+.editor-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  flex: 0 0 auto;
 }
 
 .item-title {
@@ -1263,6 +1395,19 @@ footer,
 
   .filter-bar {
     grid-template-columns: 1fr;
+  }
+
+  .excerpt-table-head {
+    display: none;
+  }
+
+  .excerpt-table-row {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .row-actions {
+    justify-content: flex-start;
   }
 
   .edit-grid,

@@ -26,11 +26,9 @@ const emit = defineEmits<{
   updateExcerpt: [input: UpdateExcerptInput];
 }>();
 
-const createModalOpen = ref(false);
 const filterModalOpen = ref(false);
 const deleteModalOpen = ref(false);
-const editingId = ref("");
-const selectedExcerptId = ref("");
+const viewMode = ref<"list" | "create" | "edit">("list");
 const deletingExcerptId = ref("");
 
 const filters = reactive<ExcerptFilters>({
@@ -102,16 +100,38 @@ const sortDirectionOptions = [
   { value: "asc", label: "升序" },
 ];
 
-const selectedExcerpt = computed(() => {
-  return props.excerpts.find((excerpt) => excerpt.id === selectedExcerptId.value) || null;
+const editingExcerpt = computed(() => {
+  return props.excerpts.find((excerpt) => excerpt.id === editDraft.id) || null;
 });
 
-const isEditingSelected = computed(() => {
-  return Boolean(selectedExcerpt.value && selectedExcerpt.value.id === editingId.value);
+const pageTitle = computed(() => {
+  if (viewMode.value === "create") {
+    return "新增摘抄";
+  }
+
+  if (viewMode.value === "edit") {
+    return "编辑摘抄";
+  }
+
+  return "摘抄库";
+});
+
+const canSaveCreate = computed(() => {
+  return createDraft.quote.trim().length > 0 && !props.isSaving;
+});
+
+const isCreateDirty = computed(() => {
+  return Boolean(
+    createDraft.quote.trim() ||
+      createDraft.reflection.trim() ||
+      createDraft.bookTitle.trim() ||
+      createDraft.chapterTitle.trim() ||
+      createDraft.tagInput.trim(),
+  );
 });
 
 const isEditDirty = computed(() => {
-  const excerpt = selectedExcerpt.value;
+  const excerpt = editingExcerpt.value;
 
   if (!excerpt || editDraft.id !== excerpt.id) {
     return false;
@@ -137,23 +157,18 @@ const canSaveEdit = computed(() => {
 watch(
   () => props.excerpts,
   (excerpts) => {
-    if (excerpts.length === 0) {
-      selectedExcerptId.value = "";
-      return;
-    }
-
-    if (!excerpts.some((excerpt) => excerpt.id === selectedExcerptId.value)) {
-      selectedExcerptId.value = excerpts[0].id;
-    }
-
-    if (editingId.value && !excerpts.some((excerpt) => excerpt.id === editingId.value)) {
-      editingId.value = "";
+    if (viewMode.value === "edit" && !excerpts.some((excerpt) => excerpt.id === editDraft.id)) {
+      goToList();
     }
   },
   { immediate: true },
 );
 
 function submitCreate() {
+  if (!canSaveCreate.value) {
+    return;
+  }
+
   emit("createExcerpt", {
     quote: createDraft.quote,
     reflection: createDraft.reflection,
@@ -162,11 +177,14 @@ function submitCreate() {
     tagNames: parseTagInput(createDraft.tagInput),
   });
   resetCreateDraft();
-  createModalOpen.value = false;
+  viewMode.value = "list";
 }
 
 function startEditing(excerpt: Excerpt) {
-  editingId.value = excerpt.id;
+  if (!confirmLeaveEditor()) {
+    return;
+  }
+
   editDraft.id = excerpt.id;
   editDraft.quote = excerpt.quote;
   editDraft.reflection = excerpt.reflection || "";
@@ -175,18 +193,7 @@ function startEditing(excerpt: Excerpt) {
   editDraft.chapterTitle = excerpt.chapterTitle || "";
   editDraft.tagNames = excerpt.tags.map((tag) => tag.name);
   editDraft.tagInput = excerpt.tags.map((tag) => `#${tag.name}`).join(" ");
-}
-
-function selectExcerpt(id: string) {
-  if (id === selectedExcerptId.value) {
-    return;
-  }
-
-  if (!discardEditing()) {
-    return;
-  }
-
-  selectedExcerptId.value = id;
+  viewMode.value = "edit";
 }
 
 function requestDeleteExcerpt(id: string) {
@@ -223,11 +230,29 @@ function submitEdit() {
     chapterTitle: editDraft.chapterTitle,
     tagNames: parseTagInput(editDraft.tagInput),
   });
-  editingId.value = "";
+  resetEditDraft();
+  viewMode.value = "list";
 }
 
-function cancelEditing() {
-  discardEditing();
+function startCreate() {
+  if (!confirmLeaveEditor()) {
+    return;
+  }
+
+  resetCreateDraft();
+  viewMode.value = "create";
+}
+
+function goToList() {
+  resetCreateDraft();
+  resetEditDraft();
+  viewMode.value = "list";
+}
+
+function cancelEditor() {
+  if (confirmLeaveEditor()) {
+    goToList();
+  }
 }
 
 function applyFilters() {
@@ -251,6 +276,17 @@ function resetCreateDraft() {
   createDraft.tagInput = "";
 }
 
+function resetEditDraft() {
+  editDraft.id = "";
+  editDraft.quote = "";
+  editDraft.reflection = "";
+  editDraft.sourceWorkId = null;
+  editDraft.bookTitle = "";
+  editDraft.chapterTitle = "";
+  editDraft.tagNames = [];
+  editDraft.tagInput = "";
+}
+
 function parseTagInput(value: string) {
   return value
     .split(/[\s,，#]+/)
@@ -262,8 +298,28 @@ function normalizeOptionalText(value: string | null | undefined) {
   return value || "";
 }
 
-function discardEditing() {
-  if (!editingId.value) {
+function formatDate(value: string) {
+  return new Date(value).toLocaleDateString();
+}
+
+function excerptSource(excerpt: Excerpt) {
+  if (excerpt.bookTitle && excerpt.chapterTitle) {
+    return `《${excerpt.bookTitle}》 / ${excerpt.chapterTitle}`;
+  }
+
+  if (excerpt.bookTitle) {
+    return `《${excerpt.bookTitle}》`;
+  }
+
+  return excerpt.chapterTitle || "未记录";
+}
+
+function confirmLeaveEditor() {
+  if (viewMode.value === "create" && isCreateDirty.value) {
+    return window.confirm("当前新增摘抄还没有保存，确定离开吗？");
+  }
+
+  if (viewMode.value !== "edit") {
     return true;
   }
 
@@ -271,7 +327,6 @@ function discardEditing() {
     return false;
   }
 
-  editingId.value = "";
   return true;
 }
 </script>
@@ -281,187 +336,142 @@ function discardEditing() {
     <header class="page-header desktop-toolbar">
       <div>
         <p class="eyebrow">Library</p>
-        <h2>摘抄库</h2>
-        <p class="subtle-text">{{ props.excerpts.length }} 条摘抄</p>
+        <h2>{{ pageTitle }}</h2>
+        <p class="subtle-text">
+          <template v-if="viewMode === 'list'">{{ props.excerpts.length }} 条摘抄</template>
+          <template v-else>保存或取消后返回摘抄列表</template>
+        </p>
       </div>
 
-      <div class="toolbar">
+      <div v-if="viewMode === 'list'" class="toolbar">
         <button class="secondary-action" type="button" @click="filterModalOpen = true">
           筛选{{ activeFilterCount ? ` (${activeFilterCount})` : "" }}
         </button>
-        <button class="primary-action" type="button" @click="createModalOpen = true">
+        <button class="primary-action" type="button" @click="startCreate">
           新增摘抄
         </button>
       </div>
+      <div v-else class="toolbar">
+        <button class="secondary-action" type="button" @click="cancelEditor">返回列表</button>
+      </div>
     </header>
 
-    <div v-if="activeFilterLabels.length > 0" class="filter-chip-row">
+    <div v-if="viewMode === 'list' && activeFilterLabels.length > 0" class="filter-chip-row">
       <span v-for="label in activeFilterLabels" :key="label" class="filter-chip">
         {{ label }}
       </span>
       <button class="text-action" type="button" @click="resetFilters">清空筛选</button>
     </div>
 
-    <div class="split-workspace">
-      <aside class="list-pane">
-        <div class="list-scroll">
-          <button
-            v-for="excerpt in props.excerpts"
-            :key="excerpt.id"
-            class="excerpt-list-item"
-            :class="{ active: excerpt.id === selectedExcerpt?.id }"
-            type="button"
-            @click="selectExcerpt(excerpt.id)"
-          >
-            <span class="item-title">{{ excerpt.quote }}</span>
-            <span v-if="excerpt.bookTitle || excerpt.chapterTitle" class="item-meta">
-              <span v-if="excerpt.bookTitle">《{{ excerpt.bookTitle }}》</span>
-              <span v-if="excerpt.bookTitle && excerpt.chapterTitle"> / </span>
-              <span v-if="excerpt.chapterTitle">{{ excerpt.chapterTitle }}</span>
-            </span>
-            <span class="item-meta">
-              {{ new Date(excerpt.createdAt).toLocaleDateString() }}
-            </span>
-          </button>
-
-          <p v-if="props.excerpts.length === 0" class="empty-state">还没有摘抄。</p>
+    <div v-if="viewMode === 'list'" class="table-page">
+      <div class="excerpt-table">
+        <div class="excerpt-table-head">
+          <span>摘抄</span>
+          <span>来源</span>
+          <span>标签</span>
+          <span>创建时间</span>
+          <span>操作</span>
         </div>
-      </aside>
 
-      <article
-        v-if="selectedExcerpt"
-        class="detail-pane excerpt-detail-pane library-detail-pane document-detail-pane"
-        :class="{ 'is-editing': isEditingSelected }"
-      >
-        <form v-if="isEditingSelected" class="detail-document edit-document" @submit.prevent="submitEdit">
-          <header class="detail-header document-header">
-            <div>
-              <p class="eyebrow">Editing</p>
-              <h3>编辑摘抄</h3>
-              <footer>
-                <span>原地修改当前选中的摘抄</span>
-                <span>{{ new Date(selectedExcerpt.createdAt).toLocaleString() }}</span>
-              </footer>
-            </div>
-            <div class="action-row">
-              <button class="secondary-action" type="button" @click="cancelEditing">取消</button>
-              <button
-                class="primary-action"
-                :disabled="!canSaveEdit"
-                type="submit"
-              >
-                保存
-              </button>
-            </div>
-          </header>
-
-          <div class="detail-scroll document-scroll">
-            <div class="inline-editor-body">
-              <label>
-                摘抄原文
-                <textarea v-model="editDraft.quote" rows="9" />
-              </label>
-              <label>
-                阅读笔记
-                <textarea v-model="editDraft.reflection" rows="7" />
-              </label>
-              <div class="source-grid">
-                <label>
-                  书籍名
-                  <input v-model="editDraft.bookTitle" />
-                </label>
-                <label>
-                  章节名
-                  <input v-model="editDraft.chapterTitle" />
-                </label>
-              </div>
-              <label>
-                标签
-                <input v-model="editDraft.tagInput" />
-              </label>
-            </div>
-          </div>
-        </form>
-
-        <div v-else class="detail-document">
-          <header class="detail-header document-header">
-            <div>
-              <p v-if="selectedExcerpt.bookTitle || selectedExcerpt.chapterTitle" class="source-line">
-                <span v-if="selectedExcerpt.bookTitle">《{{ selectedExcerpt.bookTitle }}》</span>
-                <span v-if="selectedExcerpt.bookTitle && selectedExcerpt.chapterTitle"> / </span>
-                <span v-if="selectedExcerpt.chapterTitle">{{ selectedExcerpt.chapterTitle }}</span>
-              </p>
-              <p v-else class="source-line">未记录书籍与章节</p>
-              <footer>
-                <span>{{ new Date(selectedExcerpt.createdAt).toLocaleString() }}</span>
-              </footer>
-            </div>
-            <div class="action-row">
-              <button class="secondary-action" type="button" @click="startEditing(selectedExcerpt)">
-                编辑
-              </button>
-              <button
-                class="danger-action"
-                type="button"
-                @click="requestDeleteExcerpt(selectedExcerpt.id)"
-              >
-                删除
-              </button>
-            </div>
-          </header>
-
-          <div class="detail-scroll document-scroll">
-            <section class="reading-body document-body">
-              <blockquote>{{ selectedExcerpt.quote }}</blockquote>
-              <p v-if="selectedExcerpt.reflection" class="reflection">
-                {{ selectedExcerpt.reflection }}
-              </p>
-              <p v-else class="empty-state">还没有记录阅读笔记。</p>
-              <div v-if="selectedExcerpt.tags.length > 0" class="tag-row">
-                <span v-for="tag in selectedExcerpt.tags" :key="tag.id" class="tag-pill">
-                  #{{ tag.name }}
-                </span>
-              </div>
-            </section>
-          </div>
+        <div
+          v-for="excerpt in props.excerpts"
+          :key="excerpt.id"
+          class="excerpt-table-row"
+          role="button"
+          tabindex="0"
+          @click="startEditing(excerpt)"
+          @keydown.enter="startEditing(excerpt)"
+        >
+          <span class="table-quote">
+            <strong>{{ excerpt.quote }}</strong>
+            <small v-if="excerpt.reflection">{{ excerpt.reflection }}</small>
+          </span>
+          <span class="table-source">{{ excerptSource(excerpt) }}</span>
+          <span class="table-tags">
+            <span v-for="tag in excerpt.tags.slice(0, 3)" :key="tag.id" class="tag-pill">
+              #{{ tag.name }}
+            </span>
+            <span v-if="excerpt.tags.length > 3" class="item-meta">
+              +{{ excerpt.tags.length - 3 }}
+            </span>
+          </span>
+          <span class="item-meta">{{ formatDate(excerpt.createdAt) }}</span>
+          <span class="row-actions" @click.stop>
+            <button class="secondary-action" type="button" @click="startEditing(excerpt)">
+              编辑
+            </button>
+            <button class="danger-action" type="button" @click="requestDeleteExcerpt(excerpt.id)">
+              删除
+            </button>
+          </span>
         </div>
-      </article>
-      <section v-else class="detail-pane empty-detail">
-        <p class="empty-state">选择一条摘抄查看详情。</p>
-      </section>
-    </div>
-  </section>
 
-  <BaseModal :open="createModalOpen" title="新增摘抄" @close="createModalOpen = false">
-    <form class="modal-form" @submit.prevent="submitCreate">
-      <label>
-        原文
-        <textarea v-model="createDraft.quote" rows="7" placeholder="输入摘抄原文" />
-      </label>
-      <label>
-        初始理解
-        <textarea v-model="createDraft.reflection" rows="5" placeholder="写下此刻的理解" />
-      </label>
-      <div class="source-grid">
-        <label>
-          书籍名
-          <input v-model="createDraft.bookTitle" placeholder="例如：置身事内" />
-        </label>
-        <label>
-          章节名
-          <input v-model="createDraft.chapterTitle" placeholder="例如：地方政府的权力与事务" />
-        </label>
+        <p v-if="props.excerpts.length === 0" class="empty-state table-empty">还没有摘抄。</p>
       </div>
-      <label>
-        标签
-        <input v-model="createDraft.tagInput" placeholder="例如：人性 写作素材 #焦虑" />
-      </label>
-      <div class="modal-actions">
-        <button class="secondary-action" type="button" @click="createModalOpen = false">取消</button>
-        <button class="primary-action" :disabled="props.isSaving" type="submit">保存</button>
+    </div>
+
+    <form v-else-if="viewMode === 'create'" class="editor-page" @submit.prevent="submitCreate">
+      <section class="editor-surface">
+        <label>
+          摘抄原文
+          <textarea v-model="createDraft.quote" rows="10" placeholder="输入摘抄原文" />
+        </label>
+        <label>
+          阅读笔记
+          <textarea v-model="createDraft.reflection" rows="8" placeholder="写下此刻的理解" />
+        </label>
+        <div class="source-grid">
+          <label>
+            书籍名
+            <input v-model="createDraft.bookTitle" placeholder="例如：置身事内" />
+          </label>
+          <label>
+            章节名
+            <input v-model="createDraft.chapterTitle" placeholder="例如：地方政府的权力与事务" />
+          </label>
+        </div>
+        <label>
+          标签
+          <input v-model="createDraft.tagInput" placeholder="例如：人性 写作素材 #焦虑" />
+        </label>
+      </section>
+      <div class="editor-actions">
+        <button class="secondary-action" type="button" @click="cancelEditor">取消</button>
+        <button class="primary-action" :disabled="!canSaveCreate" type="submit">保存</button>
       </div>
     </form>
-  </BaseModal>
+
+    <form v-else-if="viewMode === 'edit'" class="editor-page" @submit.prevent="submitEdit">
+      <section class="editor-surface">
+        <label>
+          摘抄原文
+          <textarea v-model="editDraft.quote" rows="10" />
+        </label>
+        <label>
+          阅读笔记
+          <textarea v-model="editDraft.reflection" rows="8" />
+        </label>
+        <div class="source-grid">
+          <label>
+            书籍名
+            <input v-model="editDraft.bookTitle" />
+          </label>
+          <label>
+            章节名
+            <input v-model="editDraft.chapterTitle" />
+          </label>
+        </div>
+        <label>
+          标签
+          <input v-model="editDraft.tagInput" />
+        </label>
+      </section>
+      <div class="editor-actions">
+        <button class="secondary-action" type="button" @click="cancelEditor">取消</button>
+        <button class="primary-action" :disabled="!canSaveEdit" type="submit">保存</button>
+      </div>
+    </form>
+  </section>
 
   <BaseModal :open="deleteModalOpen" title="删除摘抄" @close="cancelDeleteExcerpt">
     <div class="modal-form">
