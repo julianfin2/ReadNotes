@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from "vue";
 import BaseModal from "./BaseModal.vue";
+import CustomSelect from "./CustomSelect.vue";
 import type { Excerpt, ExcerptFilters, UpdateExcerptInput } from "../types/excerpt";
 import type { Tag } from "../types/tag";
 
@@ -85,6 +86,21 @@ const activeFilterLabels = computed(() => {
 
   return labels;
 });
+
+const tagFilterOptions = computed(() => [
+  { value: "", label: "全部标签" },
+  ...props.tags.map((tag) => ({ value: tag.name, label: `#${tag.name}` })),
+]);
+
+const sortByOptions = [
+  { value: "createdAt", label: "创建时间" },
+  { value: "updatedAt", label: "更新时间" },
+];
+
+const sortDirectionOptions = [
+  { value: "desc", label: "降序" },
+  { value: "asc", label: "升序" },
+];
 
 const selectedExcerpt = computed(() => {
   return props.excerpts.find((excerpt) => excerpt.id === selectedExcerptId.value) || null;
@@ -465,25 +481,16 @@ function discardEditing() {
       </label>
       <label>
         标签
-        <select v-model="filters.tagName">
-          <option value="">全部标签</option>
-          <option v-for="tag in props.tags" :key="tag.id" :value="tag.name">#{{ tag.name }}</option>
-        </select>
+        <CustomSelect v-model="filters.tagName" :options="tagFilterOptions" />
       </label>
       <div class="source-grid">
         <label>
           排序
-          <select v-model="filters.sortBy">
-            <option value="createdAt">创建时间</option>
-            <option value="updatedAt">更新时间</option>
-          </select>
+          <CustomSelect v-model="filters.sortBy" :options="sortByOptions" />
         </label>
         <label>
           方向
-          <select v-model="filters.sortDirection">
-            <option value="desc">降序</option>
-            <option value="asc">升序</option>
-          </select>
+          <CustomSelect v-model="filters.sortDirection" :options="sortDirectionOptions" />
         </label>
       </div>
       <div class="modal-actions">

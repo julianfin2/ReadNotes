@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import BaseModal from "./BaseModal.vue";
+import CustomSelect from "./CustomSelect.vue";
 import type { Excerpt } from "../types/excerpt";
 import type { TimelineEntry } from "../types/note";
 import type { Topic } from "../types/topic";
@@ -14,7 +15,7 @@ const topics = ref<Topic[]>([]);
 const entries = ref<TimelineEntry[]>([]);
 const noteModalOpen = ref(false);
 const filterModalOpen = ref(false);
-const targetKind = ref<"excerpt" | "topic">("excerpt");
+const targetKind = ref("excerpt");
 const targetId = ref("");
 const topicFilterId = ref("");
 const excerptFilterId = ref("");
@@ -35,6 +36,24 @@ const targetOptions = computed(() => {
     label: excerpt.quote.slice(0, 64),
   }));
 });
+
+const targetKindOptions = [
+  { value: "excerpt", label: "摘抄" },
+  { value: "topic", label: "主题" },
+];
+
+const topicFilterOptions = computed(() => [
+  { value: "", label: "全部主题" },
+  ...topics.value.map((topic) => ({ value: topic.id, label: topic.title })),
+]);
+
+const excerptFilterOptions = computed(() => [
+  { value: "", label: "全部摘抄" },
+  ...props.excerpts.map((excerpt) => ({
+    value: excerpt.id,
+    label: excerpt.quote.slice(0, 48),
+  })),
+]);
 
 const activeFilterCount = computed(() =>
   [topicFilterId.value, excerptFilterId.value].filter(Boolean).length,
@@ -171,19 +190,18 @@ function kindLabel(kind: TimelineEntry["kind"]) {
     <form class="modal-form" @submit.prevent="createNote">
       <label>
         对象类型
-        <select v-model="targetKind" @change="targetId = ''">
-          <option value="excerpt">摘抄</option>
-          <option value="topic">主题</option>
-        </select>
+        <CustomSelect
+          v-model="targetKind"
+          :options="targetKindOptions"
+          @change="targetId = ''"
+        />
       </label>
       <label>
         对象
-        <select v-model="targetId">
-          <option value="">请选择</option>
-          <option v-for="option in targetOptions" :key="option.id" :value="option.id">
-            {{ option.label }}
-          </option>
-        </select>
+        <CustomSelect
+          v-model="targetId"
+          :options="[{ value: '', label: '请选择' }, ...targetOptions.map((option) => ({ value: option.id, label: option.label }))]"
+        />
       </label>
       <label>
         笔记内容
@@ -200,21 +218,11 @@ function kindLabel(kind: TimelineEntry["kind"]) {
     <form class="modal-form" @submit.prevent="applyFilters">
       <label>
         主题筛选
-        <select v-model="topicFilterId">
-          <option value="">全部主题</option>
-          <option v-for="topic in topics" :key="topic.id" :value="topic.id">
-            {{ topic.title }}
-          </option>
-        </select>
+        <CustomSelect v-model="topicFilterId" :options="topicFilterOptions" />
       </label>
       <label>
         摘抄筛选
-        <select v-model="excerptFilterId">
-          <option value="">全部摘抄</option>
-          <option v-for="excerpt in props.excerpts" :key="excerpt.id" :value="excerpt.id">
-            {{ excerpt.quote.slice(0, 48) }}
-          </option>
-        </select>
+        <CustomSelect v-model="excerptFilterId" :options="excerptFilterOptions" />
       </label>
       <div class="modal-actions">
         <button class="secondary-action" type="button" @click="resetFilters">清空</button>

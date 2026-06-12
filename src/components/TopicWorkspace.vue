@@ -2,6 +2,7 @@
 import { computed, onMounted, reactive, ref, shallowRef, watch } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import BaseModal from "./BaseModal.vue";
+import CustomSelect from "./CustomSelect.vue";
 import type { Excerpt } from "../types/excerpt";
 import type { Topic, TopicExcerpt, TopicNode, TopicStatus } from "../types/topic";
 
@@ -122,6 +123,24 @@ const isTopicExcerptEditDirty = computed(() => {
 const canSaveTopicExcerptEdit = computed(() => {
   return isTopicExcerptEditDirty.value && !isSaving.value;
 });
+
+const topicStatusOptions = [
+  { value: "collecting", label: "collecting" },
+  { value: "organizing", label: "organizing" },
+  { value: "drafting", label: "drafting" },
+  { value: "finished", label: "finished" },
+  { value: "paused", label: "paused" },
+];
+
+const topicNodeOptions = computed(() => [
+  { value: "", label: "未分类" },
+  ...topicNodes.value.map((node) => ({ value: node.id, label: nodeLabel(node) })),
+]);
+
+const nodeParentOptions = computed(() => [
+  { value: "", label: "无" },
+  ...topicNodes.value.map((node) => ({ value: node.id, label: nodeLabel(node) })),
+]);
 
 const availableExcerptsToCollect = computed(() => {
   const collectedExcerptIds = new Set(
@@ -604,6 +623,13 @@ function selectableParents(nodeId?: string) {
   return topicNodes.value.filter((node) => node.id !== nodeId);
 }
 
+function nodeParentEditOptions(nodeId: string) {
+  return [
+    { value: "", label: "无" },
+    ...selectableParents(nodeId).map((node) => ({ value: node.id, label: nodeLabel(node) })),
+  ];
+}
+
 function excerptSourceLabel(excerpt: Excerpt) {
   if (excerpt.bookTitle && excerpt.chapterTitle) {
     return `《${excerpt.bookTitle}》 / ${excerpt.chapterTitle}`;
@@ -862,12 +888,10 @@ async function runSaving(task: () => Promise<void>) {
 
               <label>
                 子主题
-                <select v-model="editingTopicExcerpts[editingTopicExcerptId].nodeId">
-                  <option value="">未分类</option>
-                  <option v-for="node in topicNodes" :key="node.id" :value="node.id">
-                    {{ nodeLabel(node) }}
-                  </option>
-                </select>
+                <CustomSelect
+                  v-model="editingTopicExcerpts[editingTopicExcerptId].nodeId"
+                  :options="topicNodeOptions"
+                />
               </label>
               <label>
                 收录理由
@@ -999,12 +1023,7 @@ async function runSaving(task: () => Promise<void>) {
       </label>
       <label>
         父子主题
-        <select v-model="nodeParentId">
-          <option value="">无</option>
-          <option v-for="node in topicNodes" :key="node.id" :value="node.id">
-            {{ nodeLabel(node) }}
-          </option>
-        </select>
+        <CustomSelect v-model="nodeParentId" :options="nodeParentOptions" />
       </label>
       <label>
         摘要
@@ -1111,13 +1130,10 @@ async function runSaving(task: () => Promise<void>) {
       </label>
       <label>
         状态
-        <select v-model="editingTopics[editingTopicId].status">
-          <option value="collecting">collecting</option>
-          <option value="organizing">organizing</option>
-          <option value="drafting">drafting</option>
-          <option value="finished">finished</option>
-          <option value="paused">paused</option>
-        </select>
+        <CustomSelect
+          v-model="editingTopics[editingTopicId].status"
+          :options="topicStatusOptions"
+        />
       </label>
       <div class="modal-actions">
         <button class="secondary-action" type="button" @click="cancelEditingTopic(editingTopicId)">
@@ -1140,16 +1156,10 @@ async function runSaving(task: () => Promise<void>) {
       </label>
       <label>
         父子主题
-        <select v-model="editingNodes[editingNodeId].parentId">
-          <option value="">无</option>
-          <option
-            v-for="parent in selectableParents(editingNodeId)"
-            :key="parent.id"
-            :value="parent.id"
-          >
-            {{ nodeLabel(parent) }}
-          </option>
-        </select>
+        <CustomSelect
+          v-model="editingNodes[editingNodeId].parentId"
+          :options="nodeParentEditOptions(editingNodeId)"
+        />
       </label>
       <label>
         摘要

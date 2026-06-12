@@ -2,6 +2,7 @@
 import { computed, onMounted, reactive, ref, watch } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import BaseModal from "./BaseModal.vue";
+import CustomSelect from "./CustomSelect.vue";
 import type { Excerpt } from "../types/excerpt";
 import type { TagWithCount } from "../types/tag";
 
@@ -31,6 +32,15 @@ const selectedTag = computed(() =>
 const selectedExcerpt = computed(() =>
   excerpts.value.find((excerpt) => excerpt.id === selectedExcerptId.value) || null,
 );
+
+const tagSwitchOptions = computed(() =>
+  tags.value.map((tag) => ({ value: tag.name, label: `#${tag.name}` })),
+);
+
+const parentTagOptions = computed(() => [
+  { value: "", label: "无" },
+  ...tags.value.map((tag) => ({ value: tag.id, label: `#${tag.name}` })),
+]);
 
 watch(
   excerpts,
@@ -183,6 +193,13 @@ function selectableParents(tagId?: string) {
   return tags.value.filter((tag) => tag.id !== tagId);
 }
 
+function parentTagEditOptions(tagId: string) {
+  return [
+    { value: "", label: "无" },
+    ...selectableParents(tagId).map((tag) => ({ value: tag.id, label: `#${tag.name}` })),
+  ];
+}
+
 async function runSaving(task: () => Promise<void>) {
   errorMessage.value = "";
   isSaving.value = true;
@@ -211,17 +228,13 @@ async function runSaving(task: () => Promise<void>) {
       </div>
 
       <div class="toolbar topic-toolbar">
-        <select
+        <CustomSelect
           v-if="tags.length > 0"
           v-model="selectedTagName"
+          :options="tagSwitchOptions"
           class="topic-switcher"
-          aria-label="切换标签"
-          @change="loadExcerptsForTag(selectedTagName)"
-        >
-          <option v-for="tag in tags" :key="tag.id" :value="tag.name">
-            #{{ tag.name }}
-          </option>
-        </select>
+          @change="loadExcerptsForTag"
+        />
         <button class="primary-action" type="button" @click="createModalOpen = true">
           新建标签
         </button>
@@ -325,10 +338,7 @@ async function runSaving(task: () => Promise<void>) {
       </label>
       <label>
         父标签
-        <select v-model="newTagParentId">
-          <option value="">无</option>
-          <option v-for="tag in tags" :key="tag.id" :value="tag.id">#{{ tag.name }}</option>
-        </select>
+        <CustomSelect v-model="newTagParentId" :options="parentTagOptions" />
       </label>
       <label>
         颜色
@@ -355,16 +365,10 @@ async function runSaving(task: () => Promise<void>) {
       </label>
       <label>
         父标签
-        <select v-model="editingTags[editingTagId].parentId">
-          <option value="">无</option>
-          <option
-            v-for="parent in selectableParents(editingTagId)"
-            :key="parent.id"
-            :value="parent.id"
-          >
-            #{{ parent.name }}
-          </option>
-        </select>
+        <CustomSelect
+          v-model="editingTags[editingTagId].parentId"
+          :options="parentTagEditOptions(editingTagId)"
+        />
       </label>
       <label>
         颜色
