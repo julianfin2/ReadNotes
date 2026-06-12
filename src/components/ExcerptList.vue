@@ -369,9 +369,8 @@ function confirmLeaveEditor() {
 
 <template>
   <section class="page-panel desktop-view library-workbench">
-    <header class="page-header desktop-toolbar">
-      <div>
-        <p class="eyebrow">Library</p>
+    <header class="page-header desktop-toolbar" :class="{ 'list-toolbar-header': viewMode === 'list' }">
+      <div class="page-title-block">
         <h2>{{ pageTitle }}</h2>
         <p class="subtle-text">
           <template v-if="viewMode === 'list'">{{ props.excerpts.length }} 条摘抄</template>
@@ -382,14 +381,19 @@ function confirmLeaveEditor() {
         </p>
       </div>
 
-      <div v-if="viewMode === 'list'" class="toolbar">
+      <form v-if="viewMode === 'list'" class="toolbar list-toolbar" @submit.prevent="applyFilters">
+        <input
+          v-model="filters.search"
+          class="toolbar-search"
+          placeholder="搜索原文、笔记、书籍或章节"
+        />
         <button class="secondary-action" type="button" @click="filterModalOpen = true">
           筛选{{ activeFilterCount ? ` (${activeFilterCount})` : "" }}
         </button>
         <button class="primary-action" type="button" @click="startCreate">
           新增摘抄
         </button>
-      </div>
+      </form>
       <div v-else-if="viewMode === 'detail' && activeExcerpt" class="toolbar">
         <button class="secondary-action" type="button" @click="goToList">返回列表</button>
         <button class="secondary-action" type="button" @click="startEditing(activeExcerpt)">

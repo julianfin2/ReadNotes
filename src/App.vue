@@ -331,6 +331,15 @@ nav {
   margin-bottom: 22px;
 }
 
+.list-toolbar-header {
+  align-items: center;
+  margin-bottom: 18px;
+}
+
+.page-title-block {
+  min-width: 0;
+}
+
 .desktop-toolbar {
   margin-bottom: 16px;
 }
@@ -344,6 +353,15 @@ nav {
 
 .topic-toolbar {
   align-items: center;
+}
+
+.list-toolbar {
+  align-items: center;
+  flex: 1 1 auto;
+}
+
+.toolbar-search {
+  width: min(420px, 42vw);
 }
 
 .topic-switcher {
