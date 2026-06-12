@@ -5,8 +5,6 @@ use std::sync::Mutex;
 use rusqlite::Connection;
 use tauri::{AppHandle, Manager};
 
-const SCHEMA_VERSION: i64 = 2;
-
 pub struct AppState {
     pub db: Mutex<Connection>,
     pub db_path: PathBuf,
@@ -43,48 +41,10 @@ pub fn open_database(app: &AppHandle) -> Result<AppState, String> {
 }
 
 fn initialize_schema(connection: &Connection) -> Result<(), String> {
-    let current_version = connection
-        .query_row("PRAGMA user_version", [], |row| row.get::<_, i64>(0))
-        .map_err(|error| format!("failed to read schema version: {error}"))?;
-
-    if current_version != SCHEMA_VERSION {
-        reset_schema(connection)?;
-    }
-
     create_schema(connection)?;
     ensure_excerpt_search_index(connection)?;
 
-    connection
-        .pragma_update(None, "user_version", SCHEMA_VERSION)
-        .map_err(|error| format!("failed to update schema version: {error}"))?;
-
     Ok(())
-}
-
-fn reset_schema(connection: &Connection) -> Result<(), String> {
-    connection
-        .execute_batch(
-            "
-            PRAGMA foreign_keys = OFF;
-
-            DROP TRIGGER IF EXISTS excerpts_ai;
-            DROP TRIGGER IF EXISTS excerpts_ad;
-            DROP TRIGGER IF EXISTS excerpts_au;
-            DROP TABLE IF EXISTS excerpt_search;
-            DROP TABLE IF EXISTS topic_excerpts;
-            DROP TABLE IF EXISTS topic_nodes;
-            DROP TABLE IF EXISTS topics;
-            DROP TABLE IF EXISTS excerpt_tags;
-            DROP TABLE IF EXISTS tags;
-            DROP TABLE IF EXISTS excerpts;
-            DROP TABLE IF EXISTS book_chapters;
-            DROP TABLE IF EXISTS books;
-            DROP TABLE IF EXISTS works;
-
-            PRAGMA foreign_keys = ON;
-            ",
-        )
-        .map_err(|error| format!("failed to reset database schema: {error}"))
 }
 
 fn create_schema(connection: &Connection) -> Result<(), String> {
