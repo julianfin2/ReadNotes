@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, reactive, ref, shallowRef, watch } from "vue";
+import { computed, onBeforeUnmount, reactive, ref, shallowRef, watch } from "vue";
 import BaseModal from "./BaseModal.vue";
 import CustomSelect from "./CustomSelect.vue";
 import EditableCombobox from "./EditableCombobox.vue";
@@ -40,14 +40,18 @@ const viewMode = ref<"list" | "detail" | "create" | "edit">("list");
 const activeExcerptId = ref("");
 const deletingExcerptId = ref("");
 const discardModalMessage = ref("");
+const toolbarSearch = ref("");
 const pendingEditorAction = shallowRef<PendingEditorAction | null>(null);
+let searchDebounceTimer: number | undefined;
 
-const filters = reactive<ExcerptFilters>({
+const appliedFilters = reactive<ExcerptFilters>({
   search: "",
   tagName: "",
   sortBy: "createdAt",
   sortDirection: "desc",
 });
+
+const filterDraft = reactive<ExcerptFilters>(createDefaultFilters());
 
 const createDraft = reactive({
   quote: "",
@@ -71,26 +75,26 @@ const editDraft = reactive<UpdateExcerptInput & { tagInput: string }>({
 
 const activeFilterCount = computed(() => {
   return [
-    filters.search,
-    filters.tagName,
-    filters.sortBy !== "createdAt" ? filters.sortBy : "",
-    filters.sortDirection !== "desc" ? filters.sortDirection : "",
+    appliedFilters.search,
+    appliedFilters.tagName,
+    appliedFilters.sortBy !== "createdAt" ? appliedFilters.sortBy : "",
+    appliedFilters.sortDirection !== "desc" ? appliedFilters.sortDirection : "",
   ].filter(Boolean).length;
 });
 
 const activeFilterLabels = computed(() => {
   const labels: string[] = [];
 
-  if (filters.search) {
-    labels.push(`搜索：${filters.search}`);
+  if (appliedFilters.search) {
+    labels.push(`搜索：${appliedFilters.search}`);
   }
-  if (filters.tagName) {
-    labels.push(`标签：#${filters.tagName}`);
+  if (appliedFilters.tagName) {
+    labels.push(`标签：#${appliedFilters.tagName}`);
   }
-  if (filters.sortBy !== "createdAt") {
-    labels.push(`排序：${filters.sortBy}`);
+  if (appliedFilters.sortBy !== "createdAt") {
+    labels.push(`排序：${appliedFilters.sortBy === "updatedAt" ? "更新时间" : "创建时间"}`);
   }
-  if (filters.sortDirection !== "desc") {
+  if (appliedFilters.sortDirection !== "desc") {
     labels.push("升序");
   }
 
@@ -198,6 +202,27 @@ watch(
   },
   { immediate: true },
 );
+
+watch(toolbarSearch, (search) => {
+  if (search === appliedFilters.search) {
+    return;
+  }
+
+  if (searchDebounceTimer) {
+    window.clearTimeout(searchDebounceTimer);
+  }
+
+  searchDebounceTimer = window.setTimeout(() => {
+    searchDebounceTimer = undefined;
+    applyToolbarSearch();
+  }, 300);
+});
+
+onBeforeUnmount(() => {
+  if (searchDebounceTimer) {
+    window.clearTimeout(searchDebounceTimer);
+  }
+});
 
 function submitCreate() {
   if (!canSaveCreate.value) {
@@ -321,17 +346,71 @@ function cancelEditor() {
   runAfterEditorDiscard(goToList);
 }
 
+function openFilterModal() {
+  applyToolbarSearch();
+  copyFilters(appliedFilters, filterDraft);
+  filterModalOpen.value = true;
+}
+
 function applyFilters() {
-  emit("applyFilters", { ...filters });
+  if (searchDebounceTimer) {
+    window.clearTimeout(searchDebounceTimer);
+    searchDebounceTimer = undefined;
+  }
+
+  copyFilters(filterDraft, appliedFilters);
+  toolbarSearch.value = appliedFilters.search;
+  emitAppliedFilters();
   filterModalOpen.value = false;
 }
 
-function resetFilters() {
-  filters.search = "";
-  filters.tagName = "";
-  filters.sortBy = "createdAt";
-  filters.sortDirection = "desc";
-  applyFilters();
+function applyToolbarSearch() {
+  if (searchDebounceTimer) {
+    window.clearTimeout(searchDebounceTimer);
+    searchDebounceTimer = undefined;
+  }
+
+  if (toolbarSearch.value === appliedFilters.search) {
+    return;
+  }
+
+  appliedFilters.search = toolbarSearch.value;
+  emitAppliedFilters();
+}
+
+function resetAppliedFilters() {
+  if (searchDebounceTimer) {
+    window.clearTimeout(searchDebounceTimer);
+    searchDebounceTimer = undefined;
+  }
+
+  copyFilters(createDefaultFilters(), appliedFilters);
+  toolbarSearch.value = "";
+  emitAppliedFilters();
+}
+
+function resetFilterDraft() {
+  copyFilters(createDefaultFilters(), filterDraft);
+}
+
+function emitAppliedFilters() {
+  emit("applyFilters", { ...appliedFilters });
+}
+
+function createDefaultFilters(): ExcerptFilters {
+  return {
+    search: "",
+    tagName: "",
+    sortBy: "createdAt",
+    sortDirection: "desc",
+  };
+}
+
+function copyFilters(source: ExcerptFilters, target: ExcerptFilters) {
+  target.search = source.search;
+  target.tagName = source.tagName;
+  target.sortBy = source.sortBy;
+  target.sortDirection = source.sortDirection;
 }
 
 function resetCreateDraft() {
@@ -492,13 +571,17 @@ function cancelDiscardEditor() {
         </p>
       </div>
 
-      <form v-if="viewMode === 'list'" class="toolbar list-toolbar" @submit.prevent="applyFilters">
+      <form
+        v-if="viewMode === 'list'"
+        class="toolbar list-toolbar"
+        @submit.prevent="applyToolbarSearch"
+      >
         <input
-          v-model="filters.search"
+          v-model="toolbarSearch"
           class="toolbar-search"
           placeholder="搜索原文、笔记、书籍或章节"
         />
-        <button class="secondary-action" type="button" @click="filterModalOpen = true">
+        <button class="secondary-action" type="button" @click="openFilterModal">
           筛选{{ activeFilterCount ? ` (${activeFilterCount})` : "" }}
         </button>
         <button class="primary-action" type="button" @click="startCreate">
@@ -527,7 +610,7 @@ function cancelDiscardEditor() {
       <span v-for="label in activeFilterLabels" :key="label" class="filter-chip">
         {{ label }}
       </span>
-      <button class="text-action" type="button" @click="resetFilters">清空筛选</button>
+      <button class="text-action" type="button" @click="resetAppliedFilters">清空筛选</button>
     </div>
 
     <div v-if="viewMode === 'list'" class="table-page">
@@ -726,24 +809,24 @@ function cancelDiscardEditor() {
     <form class="modal-form" @submit.prevent="applyFilters">
       <label>
         搜索
-        <input v-model="filters.search" placeholder="搜索原文、理解、书籍或章节" />
+        <input v-model="filterDraft.search" placeholder="搜索原文、理解、书籍或章节" />
       </label>
       <label>
         标签
-        <CustomSelect v-model="filters.tagName" :options="tagFilterOptions" />
+        <CustomSelect v-model="filterDraft.tagName" :options="tagFilterOptions" />
       </label>
       <div class="source-grid">
         <label>
           排序
-          <CustomSelect v-model="filters.sortBy" :options="sortByOptions" />
+          <CustomSelect v-model="filterDraft.sortBy" :options="sortByOptions" />
         </label>
         <label>
           方向
-          <CustomSelect v-model="filters.sortDirection" :options="sortDirectionOptions" />
+          <CustomSelect v-model="filterDraft.sortDirection" :options="sortDirectionOptions" />
         </label>
       </div>
       <div class="modal-actions">
-        <button class="secondary-action" type="button" @click="resetFilters">清空</button>
+        <button class="secondary-action" type="button" @click="resetFilterDraft">清空</button>
         <button class="primary-action" type="submit">应用</button>
       </div>
     </form>
