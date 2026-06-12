@@ -1,14 +1,20 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from "vue";
 
-defineProps<{
-  modelValue: string;
-  options: Array<{
-    value: string;
-    label: string;
-  }>;
-  placeholder?: string;
-}>();
+const props = withDefaults(
+  defineProps<{
+    modelValue: string;
+    options: Array<{
+      value: string;
+      label: string;
+    }>;
+    placeholder?: string;
+    minMenuWidth?: number;
+  }>(),
+  {
+    minMenuWidth: 180,
+  },
+);
 
 const emit = defineEmits<{
   "update:modelValue": [value: string];
@@ -68,7 +74,7 @@ function updateMenuPosition() {
   menuRect.value = {
     left: rect.left,
     top: shouldOpenUp ? rect.top - gap - maxHeight : rect.bottom + gap,
-    width: rect.width,
+    width: Math.max(rect.width, props.minMenuWidth),
     maxHeight,
   };
 }

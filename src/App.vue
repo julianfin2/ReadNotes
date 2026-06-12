@@ -335,7 +335,8 @@ nav {
   background: #fffdf9;
   color: #1d2528;
   cursor: pointer;
-  font-weight: 700;
+  font-size: 0.92rem;
+  font-weight: 500;
   text-align: left;
 }
 
@@ -374,13 +375,14 @@ nav {
 }
 
 .custom-select-option {
-  min-height: 34px;
+  min-height: 32px;
   padding: 0 10px;
   border-radius: 6px;
   background: transparent;
   color: #1d2528;
   cursor: pointer;
-  font-weight: 700;
+  font-size: 0.9rem;
+  font-weight: 500;
   overflow: hidden;
   text-align: left;
   text-overflow: ellipsis;
