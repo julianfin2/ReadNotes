@@ -304,7 +304,8 @@ nav {
 .desktop-view > .topic-workspace-grid,
 .desktop-view > .excerpt-list,
 .desktop-view > .table-page,
-.desktop-view > .editor-page {
+.desktop-view > .editor-page,
+.desktop-view > .reader-page {
   flex: 1 1 auto;
   min-height: 0;
 }
@@ -743,6 +744,36 @@ form,
   justify-content: flex-end;
   gap: 10px;
   flex: 0 0 auto;
+}
+
+.reader-page {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.reader-surface {
+  display: grid;
+  align-content: start;
+  gap: 22px;
+  height: 100%;
+  min-height: 0;
+  padding: 24px 28px;
+  border: 1px solid #ded7ca;
+  border-radius: 8px;
+  background: #fffdf9;
+  overflow: auto;
+}
+
+.reader-meta {
+  display: grid;
+  gap: 6px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid #eee7da;
+}
+
+.reader-section {
+  display: grid;
+  gap: 10px;
 }
 
 .item-title {

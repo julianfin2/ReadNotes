@@ -28,7 +28,8 @@ const emit = defineEmits<{
 
 const filterModalOpen = ref(false);
 const deleteModalOpen = ref(false);
-const viewMode = ref<"list" | "create" | "edit">("list");
+const viewMode = ref<"list" | "detail" | "create" | "edit">("list");
+const activeExcerptId = ref("");
 const deletingExcerptId = ref("");
 
 const filters = reactive<ExcerptFilters>({
@@ -104,6 +105,10 @@ const editingExcerpt = computed(() => {
   return props.excerpts.find((excerpt) => excerpt.id === editDraft.id) || null;
 });
 
+const activeExcerpt = computed(() => {
+  return props.excerpts.find((excerpt) => excerpt.id === activeExcerptId.value) || null;
+});
+
 const pageTitle = computed(() => {
   if (viewMode.value === "create") {
     return "新增摘抄";
@@ -111,6 +116,10 @@ const pageTitle = computed(() => {
 
   if (viewMode.value === "edit") {
     return "编辑摘抄";
+  }
+
+  if (viewMode.value === "detail") {
+    return "阅读摘抄";
   }
 
   return "摘抄库";
@@ -160,6 +169,14 @@ watch(
     if (viewMode.value === "edit" && !excerpts.some((excerpt) => excerpt.id === editDraft.id)) {
       goToList();
     }
+
+    if (
+      viewMode.value === "detail" &&
+      activeExcerptId.value &&
+      !excerpts.some((excerpt) => excerpt.id === activeExcerptId.value)
+    ) {
+      goToList();
+    }
   },
   { immediate: true },
 );
@@ -185,6 +202,7 @@ function startEditing(excerpt: Excerpt) {
     return;
   }
 
+  activeExcerptId.value = excerpt.id;
   editDraft.id = excerpt.id;
   editDraft.quote = excerpt.quote;
   editDraft.reflection = excerpt.reflection || "";
@@ -194,6 +212,16 @@ function startEditing(excerpt: Excerpt) {
   editDraft.tagNames = excerpt.tags.map((tag) => tag.name);
   editDraft.tagInput = excerpt.tags.map((tag) => `#${tag.name}`).join(" ");
   viewMode.value = "edit";
+}
+
+function openDetail(excerpt: Excerpt) {
+  if (!confirmLeaveEditor()) {
+    return;
+  }
+
+  activeExcerptId.value = excerpt.id;
+  resetEditDraft();
+  viewMode.value = "detail";
 }
 
 function requestDeleteExcerpt(id: string) {
@@ -206,9 +234,15 @@ function confirmDeleteExcerpt() {
     return;
   }
 
+  const deletedCurrentExcerpt = deletingExcerptId.value === activeExcerptId.value;
+
   emit("deleteExcerpt", deletingExcerptId.value);
   deletingExcerptId.value = "";
   deleteModalOpen.value = false;
+
+  if (deletedCurrentExcerpt) {
+    goToList();
+  }
 }
 
 function cancelDeleteExcerpt() {
@@ -230,8 +264,9 @@ function submitEdit() {
     chapterTitle: editDraft.chapterTitle,
     tagNames: parseTagInput(editDraft.tagInput),
   });
+  activeExcerptId.value = editDraft.id;
   resetEditDraft();
-  viewMode.value = "list";
+  viewMode.value = "detail";
 }
 
 function startCreate() {
@@ -246,6 +281,7 @@ function startCreate() {
 function goToList() {
   resetCreateDraft();
   resetEditDraft();
+  activeExcerptId.value = "";
   viewMode.value = "list";
 }
 
@@ -339,7 +375,10 @@ function confirmLeaveEditor() {
         <h2>{{ pageTitle }}</h2>
         <p class="subtle-text">
           <template v-if="viewMode === 'list'">{{ props.excerpts.length }} 条摘抄</template>
-          <template v-else>保存或取消后返回摘抄列表</template>
+          <template v-else-if="viewMode === 'detail'">
+            {{ activeExcerpt ? excerptSource(activeExcerpt) : "查看摘抄内容" }}
+          </template>
+          <template v-else>保存或取消后返回阅读页或列表</template>
         </p>
       </div>
 
@@ -349,6 +388,19 @@ function confirmLeaveEditor() {
         </button>
         <button class="primary-action" type="button" @click="startCreate">
           新增摘抄
+        </button>
+      </div>
+      <div v-else-if="viewMode === 'detail' && activeExcerpt" class="toolbar">
+        <button class="secondary-action" type="button" @click="goToList">返回列表</button>
+        <button class="secondary-action" type="button" @click="startEditing(activeExcerpt)">
+          编辑
+        </button>
+        <button
+          class="danger-action"
+          type="button"
+          @click="requestDeleteExcerpt(activeExcerpt.id)"
+        >
+          删除
         </button>
       </div>
       <div v-else class="toolbar">
@@ -379,8 +431,8 @@ function confirmLeaveEditor() {
           class="excerpt-table-row"
           role="button"
           tabindex="0"
-          @click="startEditing(excerpt)"
-          @keydown.enter="startEditing(excerpt)"
+          @click="openDetail(excerpt)"
+          @keydown.enter="openDetail(excerpt)"
         >
           <span class="table-quote">
             <strong>{{ excerpt.quote }}</strong>
@@ -412,6 +464,36 @@ function confirmLeaveEditor() {
         <p v-if="props.excerpts.length === 0" class="empty-state table-empty">还没有摘抄。</p>
       </div>
     </div>
+
+    <article v-else-if="viewMode === 'detail' && activeExcerpt" class="reader-page">
+      <section class="reader-surface">
+        <header class="reader-meta">
+          <p class="source-line">{{ excerptSource(activeExcerpt) }}</p>
+          <footer>
+            <span>创建于 {{ new Date(activeExcerpt.createdAt).toLocaleString() }}</span>
+            <span v-if="activeExcerpt.updatedAt !== activeExcerpt.createdAt">
+              更新于 {{ new Date(activeExcerpt.updatedAt).toLocaleString() }}
+            </span>
+          </footer>
+        </header>
+
+        <blockquote>{{ activeExcerpt.quote }}</blockquote>
+
+        <section class="reader-section">
+          <h3>阅读笔记</h3>
+          <p v-if="activeExcerpt.reflection" class="reflection">
+            {{ activeExcerpt.reflection }}
+          </p>
+          <p v-else class="empty-state">还没有记录阅读笔记。</p>
+        </section>
+
+        <div v-if="activeExcerpt.tags.length > 0" class="tag-row">
+          <span v-for="tag in activeExcerpt.tags" :key="tag.id" class="tag-pill">
+            #{{ tag.name }}
+          </span>
+        </div>
+      </section>
+    </article>
 
     <form v-else-if="viewMode === 'create'" class="editor-page" @submit.prevent="submitCreate">
       <section class="editor-surface">
