@@ -1127,6 +1127,7 @@ select:focus {
   grid-template-columns: minmax(280px, 320px) minmax(0, 1fr);
   gap: 18px;
   align-items: stretch;
+  flex: 1 1 auto;
   min-height: 0;
   overflow: hidden;
 }
@@ -1213,7 +1214,10 @@ select:focus {
 }
 
 .material-context-section {
+  display: flex;
+  flex-direction: column;
   width: 100%;
+  height: 100%;
   min-height: 0;
 }
 
@@ -1222,6 +1226,7 @@ select:focus {
   align-content: start;
   grid-auto-rows: max-content;
   gap: 8px;
+  flex: 1 1 auto;
   min-height: 0;
   overflow: auto;
 }
