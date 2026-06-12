@@ -889,8 +889,6 @@ async function runSaving(task: () => Promise<void>) {
               </button>
             </div>
 
-            <p class="context-caption">{{ selectedNode?.title || "全部摘抄" }}</p>
-
             <div class="material-list-scroll">
               <button
                 v-for="topicExcerpt in visibleTopicExcerpts"
