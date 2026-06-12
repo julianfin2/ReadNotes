@@ -4,7 +4,7 @@ use tauri::State;
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 use uuid::Uuid;
 
-use crate::book::ensure_book_candidate;
+use crate::book::{resolve_excerpt_source, ResolveExcerptSourceInput};
 use crate::db::{rebuild_excerpt_search_index, AppState};
 use crate::tag::{list_tags_for_excerpt, replace_excerpt_tags, Tag};
 
@@ -14,7 +14,8 @@ pub struct Excerpt {
     pub id: String,
     pub quote: String,
     pub reflection: Option<String>,
-    pub source_work_id: Option<String>,
+    pub book_id: Option<String>,
+    pub chapter_id: Option<String>,
     pub book_title: Option<String>,
     pub chapter_title: Option<String>,
     pub created_at: String,
@@ -27,7 +28,8 @@ pub struct Excerpt {
 pub struct CreateExcerptRequest {
     pub quote: String,
     pub reflection: Option<String>,
-    pub source_work_id: Option<String>,
+    pub book_id: Option<String>,
+    pub chapter_id: Option<String>,
     pub book_title: Option<String>,
     pub chapter_title: Option<String>,
     pub tag_names: Option<Vec<String>>,
@@ -39,7 +41,8 @@ pub struct UpdateExcerptRequest {
     pub id: String,
     pub quote: String,
     pub reflection: Option<String>,
-    pub source_work_id: Option<String>,
+    pub book_id: Option<String>,
+    pub chapter_id: Option<String>,
     pub book_title: Option<String>,
     pub chapter_title: Option<String>,
     pub tag_names: Option<Vec<String>>,
@@ -61,9 +64,6 @@ pub fn create_excerpt(
 ) -> Result<Excerpt, String> {
     let quote = normalize_required_text(input.quote.clone(), "quote")?;
     let reflection = empty_to_none(input.reflection.clone());
-    let source_work_id = empty_to_none(input.source_work_id.clone());
-    let book_title = empty_to_none(input.book_title.clone());
-    let chapter_title = empty_to_none(input.chapter_title.clone());
     let tag_names = input.tag_names.unwrap_or_default();
     let now = now_rfc3339()?;
     let id = Uuid::new_v4().to_string();
@@ -76,34 +76,36 @@ pub fn create_excerpt(
     let transaction = connection
         .transaction()
         .map_err(|error| format!("failed to start excerpt transaction: {error}"))?;
+    let (book_id, chapter_id) = resolve_excerpt_source(
+        &transaction,
+        ResolveExcerptSourceInput {
+            book_id: empty_to_none(input.book_id).as_deref(),
+            chapter_id: empty_to_none(input.chapter_id).as_deref(),
+            book_title: empty_to_none(input.book_title).as_deref(),
+            chapter_title: empty_to_none(input.chapter_title).as_deref(),
+        },
+    )?;
 
     transaction
         .execute(
             "
             INSERT INTO excerpts (
-              id, quote, reflection, source_work_id, book_title, chapter_title,
-              created_at, updated_at
+              id, quote, reflection, book_id, chapter_id, created_at, updated_at
             )
-            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
+            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
             ",
             params![
                 id,
                 quote,
                 reflection.as_deref(),
-                source_work_id.as_deref(),
-                book_title.as_deref(),
-                chapter_title.as_deref(),
+                book_id.as_deref(),
+                chapter_id.as_deref(),
                 now,
                 now
             ],
         )
         .map_err(|error| format!("failed to create excerpt: {error}"))?;
 
-    ensure_book_candidate(
-        &transaction,
-        book_title.as_deref(),
-        chapter_title.as_deref(),
-    )?;
     replace_excerpt_tags(&transaction, &id, tag_names)?;
 
     transaction
@@ -128,12 +130,18 @@ pub fn list_excerpts(
 
     if let Some(search) = normalize_optional_text(input.search) {
         clauses.push(
-            "excerpts.rowid IN (
-                SELECT rowid FROM excerpt_search WHERE excerpt_search MATCH ?
+            "(
+                excerpts.rowid IN (
+                    SELECT rowid FROM excerpt_search WHERE excerpt_search MATCH ?
+                )
+                OR lower(COALESCE(books.title, '')) LIKE lower(?)
+                OR lower(COALESCE(book_chapters.title, '')) LIKE lower(?)
             )"
             .to_string(),
         );
         parameter_values.push(to_fts_query(&search));
+        parameter_values.push(format!("%{search}%"));
+        parameter_values.push(format!("%{search}%"));
     }
 
     if let Some(tag_name) = normalize_optional_text(input.tag_name) {
@@ -160,9 +168,18 @@ pub fn list_excerpts(
     let query = format!(
         "
         SELECT
-          id, quote, reflection, source_work_id,
-          book_title, chapter_title, created_at, updated_at
+          excerpts.id,
+          excerpts.quote,
+          excerpts.reflection,
+          excerpts.book_id,
+          excerpts.chapter_id,
+          books.title AS book_title,
+          book_chapters.title AS chapter_title,
+          excerpts.created_at,
+          excerpts.updated_at
         FROM excerpts
+        LEFT JOIN books ON books.id = excerpts.book_id
+        LEFT JOIN book_chapters ON book_chapters.id = excerpts.chapter_id
         {where_clause}
         {order_clause}
         "
@@ -228,14 +245,20 @@ fn update_excerpt_inner(
 ) -> Result<Excerpt, String> {
     let quote = normalize_required_text(input.quote.clone(), "quote")?;
     let reflection = empty_to_none(input.reflection.clone());
-    let source_work_id = empty_to_none(input.source_work_id.clone());
-    let book_title = empty_to_none(input.book_title.clone());
-    let chapter_title = empty_to_none(input.chapter_title.clone());
     let now = now_rfc3339()?;
 
     let transaction = connection
         .transaction()
         .map_err(|error| format!("failed to start excerpt update transaction: {error}"))?;
+    let (book_id, chapter_id) = resolve_excerpt_source(
+        &transaction,
+        ResolveExcerptSourceInput {
+            book_id: empty_to_none(input.book_id.clone()).as_deref(),
+            chapter_id: empty_to_none(input.chapter_id.clone()).as_deref(),
+            book_title: empty_to_none(input.book_title.clone()).as_deref(),
+            chapter_title: empty_to_none(input.chapter_title.clone()).as_deref(),
+        },
+    )?;
 
     let changed = transaction
         .execute(
@@ -244,19 +267,17 @@ fn update_excerpt_inner(
             SET
               quote = ?2,
               reflection = ?3,
-              source_work_id = ?4,
-              book_title = ?5,
-              chapter_title = ?6,
-              updated_at = ?7
+              book_id = ?4,
+              chapter_id = ?5,
+              updated_at = ?6
             WHERE id = ?1
             ",
             params![
                 input.id.as_str(),
                 quote,
                 reflection.as_deref(),
-                source_work_id.as_deref(),
-                book_title.as_deref(),
-                chapter_title.as_deref(),
+                book_id.as_deref(),
+                chapter_id.as_deref(),
                 now
             ],
         )
@@ -266,12 +287,6 @@ fn update_excerpt_inner(
         return Err("excerpt not found".to_string());
     }
 
-    ensure_book_candidate(
-        &transaction,
-        book_title.as_deref(),
-        chapter_title.as_deref(),
-    )?;
-
     if let Some(tag_names) = input.tag_names.clone() {
         replace_excerpt_tags(&transaction, &input.id, tag_names)?;
     }
@@ -280,7 +295,7 @@ fn update_excerpt_inner(
         .commit()
         .map_err(|error| format!("failed to save excerpt update: {error}"))?;
 
-    get_excerpt_by_id(&connection, &input.id)
+    get_excerpt_by_id(connection, &input.id)
 }
 
 fn is_malformed_database_error(error: &str) -> bool {
@@ -317,10 +332,19 @@ pub fn get_excerpt_by_id(connection: &Connection, id: &str) -> Result<Excerpt, S
         .query_row(
             "
             SELECT
-              id, quote, reflection, source_work_id,
-              book_title, chapter_title, created_at, updated_at
+              excerpts.id,
+              excerpts.quote,
+              excerpts.reflection,
+              excerpts.book_id,
+              excerpts.chapter_id,
+              books.title AS book_title,
+              book_chapters.title AS chapter_title,
+              excerpts.created_at,
+              excerpts.updated_at
             FROM excerpts
-            WHERE id = ?1
+            LEFT JOIN books ON books.id = excerpts.book_id
+            LEFT JOIN book_chapters ON book_chapters.id = excerpts.chapter_id
+            WHERE excerpts.id = ?1
             ",
             params![id],
             map_excerpt_row,
@@ -336,11 +360,12 @@ fn map_excerpt_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Excerpt> {
         id: row.get(0)?,
         quote: row.get(1)?,
         reflection: row.get(2)?,
-        source_work_id: row.get(3)?,
-        book_title: row.get(4)?,
-        chapter_title: row.get(5)?,
-        created_at: row.get(6)?,
-        updated_at: row.get(7)?,
+        book_id: row.get(3)?,
+        chapter_id: row.get(4)?,
+        book_title: row.get(5)?,
+        chapter_title: row.get(6)?,
+        created_at: row.get(7)?,
+        updated_at: row.get(8)?,
         tags: Vec::new(),
     })
 }
@@ -366,14 +391,7 @@ fn empty_to_none(value: Option<String>) -> Option<String> {
 }
 
 fn normalize_optional_text(value: Option<String>) -> Option<String> {
-    value.and_then(|text| {
-        let trimmed = text.trim().to_string();
-        if trimmed.is_empty() {
-            None
-        } else {
-            Some(trimmed)
-        }
-    })
+    empty_to_none(value)
 }
 
 fn build_order_clause(
@@ -381,8 +399,8 @@ fn build_order_clause(
     sort_direction: Option<&str>,
 ) -> Result<String, String> {
     let column = match sort_by.unwrap_or("createdAt") {
-        "createdAt" => "created_at",
-        "updatedAt" => "updated_at",
+        "createdAt" => "excerpts.created_at",
+        "updatedAt" => "excerpts.updated_at",
         _ => return Err("sortBy must be createdAt or updatedAt".to_string()),
     };
     let direction = match sort_direction.unwrap_or("desc") {
@@ -391,7 +409,9 @@ fn build_order_clause(
         _ => return Err("sortDirection must be asc or desc".to_string()),
     };
 
-    Ok(format!("ORDER BY {column} {direction}, created_at DESC"))
+    Ok(format!(
+        "ORDER BY {column} {direction}, excerpts.created_at DESC"
+    ))
 }
 
 fn to_fts_query(value: &str) -> String {

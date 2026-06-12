@@ -4,6 +4,7 @@ export type Tag = {
   parentId?: string | null;
   color?: string | null;
   createdAt: string;
+  updatedAt: string;
 };
 
 export type TagWithCount = Tag & {

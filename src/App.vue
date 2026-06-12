@@ -69,9 +69,15 @@ async function loadBooks() {
   books.value = await invoke<Book[]>("list_books");
 }
 
+async function handleBooksChanged() {
+  await Promise.all([loadBooks(), loadExcerpts(lastFilters.value)]);
+}
+
 async function createExcerpt(input: {
   quote: string;
   reflection: string;
+  bookId?: string | null;
+  chapterId?: string | null;
   bookTitle: string;
   chapterTitle: string;
   tagNames: string[];
@@ -145,7 +151,10 @@ function toExcerptQuery(filters: ExcerptFilters) {
 
       <TopicWorkspace v-else-if="activeView === 'topics'" :excerpts="excerpts" />
 
-      <ManagementView v-else-if="activeView === 'management'" @books-changed="loadBooks" />
+      <ManagementView
+        v-else-if="activeView === 'management'"
+        @books-changed="handleBooksChanged"
+      />
 
       <section v-else class="workspace-panel">
         <p class="empty-state">这个视图还没有实现。</p>

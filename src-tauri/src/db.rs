@@ -5,6 +5,8 @@ use std::sync::Mutex;
 use rusqlite::Connection;
 use tauri::{AppHandle, Manager};
 
+const SCHEMA_VERSION: i64 = 2;
+
 pub struct AppState {
     pub db: Mutex<Connection>,
     pub db_path: PathBuf,
@@ -28,12 +30,11 @@ pub fn open_database(app: &AppHandle) -> Result<AppState, String> {
             "
             PRAGMA foreign_keys = ON;
             PRAGMA journal_mode = WAL;
-            PRAGMA user_version = 1;
             ",
         )
         .map_err(|error| format!("failed to configure database: {error}"))?;
 
-    run_migrations(&connection)?;
+    initialize_schema(&connection)?;
 
     Ok(AppState {
         db: Mutex::new(connection),
@@ -41,47 +42,55 @@ pub fn open_database(app: &AppHandle) -> Result<AppState, String> {
     })
 }
 
-fn run_migrations(connection: &Connection) -> Result<(), String> {
+fn initialize_schema(connection: &Connection) -> Result<(), String> {
+    let current_version = connection
+        .query_row("PRAGMA user_version", [], |row| row.get::<_, i64>(0))
+        .map_err(|error| format!("failed to read schema version: {error}"))?;
+
+    if current_version != SCHEMA_VERSION {
+        reset_schema(connection)?;
+    }
+
+    create_schema(connection)?;
+    ensure_excerpt_search_index(connection)?;
+
+    connection
+        .pragma_update(None, "user_version", SCHEMA_VERSION)
+        .map_err(|error| format!("failed to update schema version: {error}"))?;
+
+    Ok(())
+}
+
+fn reset_schema(connection: &Connection) -> Result<(), String> {
     connection
         .execute_batch(
             "
-            CREATE TABLE IF NOT EXISTS works (
-              id TEXT PRIMARY KEY,
-              title TEXT NOT NULL,
-              author TEXT,
-              type TEXT,
-              created_at TEXT NOT NULL
-            );
+            PRAGMA foreign_keys = OFF;
 
-            CREATE TABLE IF NOT EXISTS excerpts (
-              id TEXT PRIMARY KEY,
-              quote TEXT NOT NULL,
-              reflection TEXT,
-              source_work_id TEXT,
-              book_title TEXT,
-              chapter_title TEXT,
-              created_at TEXT NOT NULL,
-              updated_at TEXT NOT NULL,
-              FOREIGN KEY (source_work_id) REFERENCES works(id)
-            );
+            DROP TRIGGER IF EXISTS excerpts_ai;
+            DROP TRIGGER IF EXISTS excerpts_ad;
+            DROP TRIGGER IF EXISTS excerpts_au;
+            DROP TABLE IF EXISTS excerpt_search;
+            DROP TABLE IF EXISTS topic_excerpts;
+            DROP TABLE IF EXISTS topic_nodes;
+            DROP TABLE IF EXISTS topics;
+            DROP TABLE IF EXISTS excerpt_tags;
+            DROP TABLE IF EXISTS tags;
+            DROP TABLE IF EXISTS excerpts;
+            DROP TABLE IF EXISTS book_chapters;
+            DROP TABLE IF EXISTS books;
+            DROP TABLE IF EXISTS works;
 
-            CREATE TABLE IF NOT EXISTS tags (
-              id TEXT PRIMARY KEY,
-              name TEXT NOT NULL,
-              parent_id TEXT,
-              color TEXT,
-              created_at TEXT NOT NULL,
-              FOREIGN KEY (parent_id) REFERENCES tags(id)
-            );
+            PRAGMA foreign_keys = ON;
+            ",
+        )
+        .map_err(|error| format!("failed to reset database schema: {error}"))
+}
 
-            CREATE TABLE IF NOT EXISTS excerpt_tags (
-              excerpt_id TEXT NOT NULL,
-              tag_id TEXT NOT NULL,
-              PRIMARY KEY (excerpt_id, tag_id),
-              FOREIGN KEY (excerpt_id) REFERENCES excerpts(id) ON DELETE CASCADE,
-              FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE
-            );
-
+fn create_schema(connection: &Connection) -> Result<(), String> {
+    connection
+        .execute_batch(
+            "
             CREATE TABLE IF NOT EXISTS books (
               id TEXT PRIMARY KEY,
               title TEXT NOT NULL,
@@ -97,6 +106,36 @@ fn run_migrations(connection: &Connection) -> Result<(), String> {
               created_at TEXT NOT NULL,
               updated_at TEXT NOT NULL,
               FOREIGN KEY (book_id) REFERENCES books(id) ON DELETE CASCADE
+            );
+
+            CREATE TABLE IF NOT EXISTS excerpts (
+              id TEXT PRIMARY KEY,
+              quote TEXT NOT NULL,
+              reflection TEXT,
+              book_id TEXT,
+              chapter_id TEXT,
+              created_at TEXT NOT NULL,
+              updated_at TEXT NOT NULL,
+              FOREIGN KEY (book_id) REFERENCES books(id) ON DELETE SET NULL,
+              FOREIGN KEY (chapter_id) REFERENCES book_chapters(id) ON DELETE SET NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS tags (
+              id TEXT PRIMARY KEY,
+              name TEXT NOT NULL,
+              parent_id TEXT,
+              color TEXT,
+              created_at TEXT NOT NULL,
+              updated_at TEXT NOT NULL,
+              FOREIGN KEY (parent_id) REFERENCES tags(id) ON DELETE SET NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS excerpt_tags (
+              excerpt_id TEXT NOT NULL,
+              tag_id TEXT NOT NULL,
+              PRIMARY KEY (excerpt_id, tag_id),
+              FOREIGN KEY (excerpt_id) REFERENCES excerpts(id) ON DELETE CASCADE,
+              FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE
             );
 
             CREATE TABLE IF NOT EXISTS topics (
@@ -139,6 +178,8 @@ fn run_migrations(connection: &Connection) -> Result<(), String> {
 
             CREATE INDEX IF NOT EXISTS idx_excerpts_created_at ON excerpts(created_at);
             CREATE INDEX IF NOT EXISTS idx_excerpts_updated_at ON excerpts(updated_at);
+            CREATE INDEX IF NOT EXISTS idx_excerpts_book_id ON excerpts(book_id);
+            CREATE INDEX IF NOT EXISTS idx_excerpts_chapter_id ON excerpts(chapter_id);
             CREATE UNIQUE INDEX IF NOT EXISTS idx_tags_name_nocase ON tags(name COLLATE NOCASE);
             CREATE INDEX IF NOT EXISTS idx_tags_parent_id ON tags(parent_id);
             CREATE UNIQUE INDEX IF NOT EXISTS idx_books_title_nocase ON books(title COLLATE NOCASE);
@@ -150,16 +191,7 @@ fn run_migrations(connection: &Connection) -> Result<(), String> {
             CREATE INDEX IF NOT EXISTS idx_topic_excerpts_excerpt_id ON topic_excerpts(excerpt_id);
             ",
         )
-        .map_err(|error| format!("failed to run database migrations: {error}"))?;
-
-    add_column_if_missing(connection, "excerpts", "book_title", "TEXT")?;
-    add_column_if_missing(connection, "excerpts", "chapter_title", "TEXT")?;
-    migrate_excerpts_without_removed_fields(connection)?;
-    backfill_books_from_excerpts(connection)?;
-
-    ensure_excerpt_search_index(connection)?;
-
-    Ok(())
+        .map_err(|error| format!("failed to create database schema: {error}"))
 }
 
 fn ensure_excerpt_search_index(connection: &Connection) -> Result<(), String> {
@@ -169,14 +201,12 @@ fn ensure_excerpt_search_index(connection: &Connection) -> Result<(), String> {
             CREATE VIRTUAL TABLE IF NOT EXISTS excerpt_search USING fts5(
               quote,
               reflection,
-              book_title,
-              chapter_title,
               content='excerpts',
               content_rowid='rowid'
             );
 
-            INSERT INTO excerpt_search(rowid, quote, reflection, book_title, chapter_title)
-            SELECT rowid, quote, reflection, book_title, chapter_title
+            INSERT INTO excerpt_search(rowid, quote, reflection)
+            SELECT rowid, quote, reflection
             FROM excerpts
             WHERE rowid NOT IN (SELECT rowid FROM excerpt_search);
 
@@ -185,28 +215,20 @@ fn ensure_excerpt_search_index(connection: &Connection) -> Result<(), String> {
             DROP TRIGGER IF EXISTS excerpts_au;
 
             CREATE TRIGGER excerpts_ai AFTER INSERT ON excerpts BEGIN
-              INSERT INTO excerpt_search(rowid, quote, reflection, book_title, chapter_title)
-              VALUES (new.rowid, new.quote, new.reflection, new.book_title, new.chapter_title);
+              INSERT INTO excerpt_search(rowid, quote, reflection)
+              VALUES (new.rowid, new.quote, new.reflection);
             END;
 
             CREATE TRIGGER excerpts_ad AFTER DELETE ON excerpts BEGIN
-              INSERT INTO excerpt_search(
-                excerpt_search, rowid, quote, reflection, book_title, chapter_title
-              )
-              VALUES (
-                'delete', old.rowid, old.quote, old.reflection, old.book_title, old.chapter_title
-              );
+              INSERT INTO excerpt_search(excerpt_search, rowid, quote, reflection)
+              VALUES ('delete', old.rowid, old.quote, old.reflection);
             END;
 
             CREATE TRIGGER excerpts_au AFTER UPDATE ON excerpts BEGIN
-              INSERT INTO excerpt_search(
-                excerpt_search, rowid, quote, reflection, book_title, chapter_title
-              )
-              VALUES (
-                'delete', old.rowid, old.quote, old.reflection, old.book_title, old.chapter_title
-              );
-              INSERT INTO excerpt_search(rowid, quote, reflection, book_title, chapter_title)
-              VALUES (new.rowid, new.quote, new.reflection, new.book_title, new.chapter_title);
+              INSERT INTO excerpt_search(excerpt_search, rowid, quote, reflection)
+              VALUES ('delete', old.rowid, old.quote, old.reflection);
+              INSERT INTO excerpt_search(rowid, quote, reflection)
+              VALUES (new.rowid, new.quote, new.reflection);
             END;
             ",
         )
@@ -225,163 +247,31 @@ pub fn rebuild_excerpt_search_index(connection: &Connection) -> Result<(), Strin
             CREATE VIRTUAL TABLE excerpt_search USING fts5(
               quote,
               reflection,
-              book_title,
-              chapter_title,
               content='excerpts',
               content_rowid='rowid'
             );
 
-            INSERT INTO excerpt_search(rowid, quote, reflection, book_title, chapter_title)
-            SELECT rowid, quote, reflection, book_title, chapter_title
+            INSERT INTO excerpt_search(rowid, quote, reflection)
+            SELECT rowid, quote, reflection
             FROM excerpts;
 
             CREATE TRIGGER excerpts_ai AFTER INSERT ON excerpts BEGIN
-              INSERT INTO excerpt_search(rowid, quote, reflection, book_title, chapter_title)
-              VALUES (new.rowid, new.quote, new.reflection, new.book_title, new.chapter_title);
+              INSERT INTO excerpt_search(rowid, quote, reflection)
+              VALUES (new.rowid, new.quote, new.reflection);
             END;
 
             CREATE TRIGGER excerpts_ad AFTER DELETE ON excerpts BEGIN
-              INSERT INTO excerpt_search(
-                excerpt_search, rowid, quote, reflection, book_title, chapter_title
-              )
-              VALUES (
-                'delete', old.rowid, old.quote, old.reflection, old.book_title, old.chapter_title
-              );
+              INSERT INTO excerpt_search(excerpt_search, rowid, quote, reflection)
+              VALUES ('delete', old.rowid, old.quote, old.reflection);
             END;
 
             CREATE TRIGGER excerpts_au AFTER UPDATE ON excerpts BEGIN
-              INSERT INTO excerpt_search(
-                excerpt_search, rowid, quote, reflection, book_title, chapter_title
-              )
-              VALUES (
-                'delete', old.rowid, old.quote, old.reflection, old.book_title, old.chapter_title
-              );
-              INSERT INTO excerpt_search(rowid, quote, reflection, book_title, chapter_title)
-              VALUES (new.rowid, new.quote, new.reflection, new.book_title, new.chapter_title);
+              INSERT INTO excerpt_search(excerpt_search, rowid, quote, reflection)
+              VALUES ('delete', old.rowid, old.quote, old.reflection);
+              INSERT INTO excerpt_search(rowid, quote, reflection)
+              VALUES (new.rowid, new.quote, new.reflection);
             END;
             ",
         )
         .map_err(|error| format!("failed to rebuild excerpt search index: {error}"))
-}
-
-fn backfill_books_from_excerpts(connection: &Connection) -> Result<(), String> {
-    connection
-        .execute_batch(
-            "
-            INSERT OR IGNORE INTO books (id, title, created_at, updated_at)
-            SELECT lower(hex(randomblob(4))) || '-' || lower(hex(randomblob(2))) || '-'
-              || lower(hex(randomblob(2))) || '-' || lower(hex(randomblob(2))) || '-'
-              || lower(hex(randomblob(6))),
-              trim(book_title),
-              MIN(created_at),
-              MAX(updated_at)
-            FROM excerpts
-            WHERE book_title IS NOT NULL AND trim(book_title) != ''
-            GROUP BY lower(trim(book_title));
-
-            INSERT OR IGNORE INTO book_chapters (
-              id, book_id, title, sort_order, created_at, updated_at
-            )
-            SELECT lower(hex(randomblob(4))) || '-' || lower(hex(randomblob(2))) || '-'
-              || lower(hex(randomblob(2))) || '-' || lower(hex(randomblob(2))) || '-'
-              || lower(hex(randomblob(6))),
-              books.id,
-              trim(excerpts.chapter_title),
-              0,
-              MIN(excerpts.created_at),
-              MAX(excerpts.updated_at)
-            FROM excerpts
-            INNER JOIN books ON lower(books.title) = lower(trim(excerpts.book_title))
-            WHERE excerpts.book_title IS NOT NULL
-              AND trim(excerpts.book_title) != ''
-              AND excerpts.chapter_title IS NOT NULL
-              AND trim(excerpts.chapter_title) != ''
-            GROUP BY books.id, lower(trim(excerpts.chapter_title));
-            ",
-        )
-        .map_err(|error| format!("failed to backfill books from excerpts: {error}"))
-}
-
-fn migrate_excerpts_without_removed_fields(connection: &Connection) -> Result<(), String> {
-    let columns = table_columns(connection, "excerpts")?;
-    let has_removed_columns = ["location", "importance", "status"]
-        .iter()
-        .any(|column| columns.iter().any(|existing| existing == column));
-
-    if !has_removed_columns {
-        return Ok(());
-    }
-
-    connection
-        .execute_batch(
-            "
-            PRAGMA foreign_keys = OFF;
-            BEGIN;
-
-            DROP TRIGGER IF EXISTS excerpts_ai;
-            DROP TRIGGER IF EXISTS excerpts_ad;
-            DROP TRIGGER IF EXISTS excerpts_au;
-            DROP TABLE IF EXISTS excerpt_search;
-            DROP INDEX IF EXISTS idx_excerpts_importance;
-            DROP INDEX IF EXISTS idx_excerpts_status;
-
-            CREATE TABLE excerpts_new (
-              id TEXT PRIMARY KEY,
-              quote TEXT NOT NULL,
-              reflection TEXT,
-              source_work_id TEXT,
-              book_title TEXT,
-              chapter_title TEXT,
-              created_at TEXT NOT NULL,
-              updated_at TEXT NOT NULL,
-              FOREIGN KEY (source_work_id) REFERENCES works(id)
-            );
-
-            INSERT INTO excerpts_new (
-              id, quote, reflection, source_work_id, book_title, chapter_title,
-              created_at, updated_at
-            )
-            SELECT
-              id, quote, reflection, source_work_id, book_title, chapter_title,
-              created_at, updated_at
-            FROM excerpts;
-
-            DROP TABLE excerpts;
-            ALTER TABLE excerpts_new RENAME TO excerpts;
-
-            CREATE INDEX IF NOT EXISTS idx_excerpts_created_at ON excerpts(created_at);
-            CREATE INDEX IF NOT EXISTS idx_excerpts_updated_at ON excerpts(updated_at);
-
-            COMMIT;
-            PRAGMA foreign_keys = ON;
-            ",
-        )
-        .map_err(|error| format!("failed to migrate excerpt schema: {error}"))
-}
-
-fn table_columns(connection: &Connection, table: &str) -> Result<Vec<String>, String> {
-    let query = format!("PRAGMA table_info({table})");
-    let mut statement = connection
-        .prepare(&query)
-        .map_err(|error| format!("failed to inspect table {table}: {error}"))?;
-    let rows = statement
-        .query_map([], |row| row.get::<_, String>(1))
-        .map_err(|error| format!("failed to read table info for {table}: {error}"))?;
-
-    rows.collect::<Result<Vec<_>, _>>()
-        .map_err(|error| format!("failed to collect table columns for {table}: {error}"))
-}
-
-fn add_column_if_missing(
-    connection: &Connection,
-    table: &str,
-    column: &str,
-    column_type: &str,
-) -> Result<(), String> {
-    let query = format!("ALTER TABLE {table} ADD COLUMN {column} {column_type}");
-    match connection.execute(&query, []) {
-        Ok(_) => Ok(()),
-        Err(error) if error.to_string().contains("duplicate column name") => Ok(()),
-        Err(error) => Err(format!("failed to add column {table}.{column}: {error}")),
-    }
 }

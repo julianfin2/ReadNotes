@@ -4,7 +4,8 @@ export type Excerpt = {
   id: string;
   quote: string;
   reflection?: string | null;
-  sourceWorkId?: string | null;
+  bookId?: string | null;
+  chapterId?: string | null;
   bookTitle?: string | null;
   chapterTitle?: string | null;
   createdAt: string;
@@ -23,7 +24,8 @@ export type UpdateExcerptInput = {
   id: string;
   quote: string;
   reflection: string;
-  sourceWorkId?: string | null;
+  bookId?: string | null;
+  chapterId?: string | null;
   bookTitle: string;
   chapterTitle: string;
   tagNames: string[];

@@ -14,6 +14,7 @@ pub struct Tag {
     pub parent_id: Option<String>,
     pub color: Option<String>,
     pub created_at: String,
+    pub updated_at: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -24,6 +25,7 @@ pub struct TagWithCount {
     pub parent_id: Option<String>,
     pub color: Option<String>,
     pub created_at: String,
+    pub updated_at: String,
     pub excerpt_count: i64,
 }
 
@@ -92,6 +94,7 @@ pub fn list_tags_with_counts(state: State<'_, AppState>) -> Result<Vec<TagWithCo
               tags.parent_id,
               tags.color,
               tags.created_at,
+              tags.updated_at,
               COUNT(excerpt_tags.excerpt_id) AS excerpt_count
             FROM tags
             LEFT JOIN excerpt_tags ON excerpt_tags.tag_id = tags.id
@@ -112,6 +115,7 @@ pub fn list_tags_with_counts(state: State<'_, AppState>) -> Result<Vec<TagWithCo
 #[tauri::command]
 pub fn update_tag(state: State<'_, AppState>, input: UpdateTagRequest) -> Result<Tag, String> {
     let name = normalize_tag_name(input.name)?;
+    let now = now_rfc3339()?;
     let connection = state
         .db
         .lock()
@@ -134,14 +138,15 @@ pub fn update_tag(state: State<'_, AppState>, input: UpdateTagRequest) -> Result
         .execute(
             "
             UPDATE tags
-            SET name = ?2, parent_id = ?3, color = ?4
+            SET name = ?2, parent_id = ?3, color = ?4, updated_at = ?5
             WHERE id = ?1
             ",
             params![
                 input.id,
                 name,
                 empty_to_none(input.parent_id),
-                empty_to_none(input.color)
+                empty_to_none(input.color),
+                now
             ],
         )
         .map_err(|error| format!("failed to update tag: {error}"))?;
@@ -278,7 +283,7 @@ pub fn list_tags_for_excerpt(
     let mut statement = connection
         .prepare(
             "
-            SELECT tags.id, tags.name, tags.parent_id, tags.color, tags.created_at
+            SELECT tags.id, tags.name, tags.parent_id, tags.color, tags.created_at, tags.updated_at
             FROM tags
             INNER JOIN excerpt_tags ON excerpt_tags.tag_id = tags.id
             WHERE excerpt_tags.excerpt_id = ?1
@@ -299,7 +304,7 @@ fn list_all_tags(connection: &Connection) -> Result<Vec<Tag>, String> {
     let mut statement = connection
         .prepare(
             "
-            SELECT id, name, parent_id, color, created_at
+            SELECT id, name, parent_id, color, created_at, updated_at
             FROM tags
             ORDER BY lower(name) ASC
             ",
@@ -339,10 +344,10 @@ fn create_tag_record(
     connection
         .execute(
             "
-            INSERT INTO tags (id, name, parent_id, color, created_at)
-            VALUES (?1, ?2, ?3, ?4, ?5)
+            INSERT INTO tags (id, name, parent_id, color, created_at, updated_at)
+            VALUES (?1, ?2, ?3, ?4, ?5, ?6)
             ",
-            params![id, name, parent_id, color, now],
+            params![id, name, parent_id, color, now, now],
         )
         .map_err(|error| format!("failed to create tag: {error}"))?;
 
@@ -353,7 +358,7 @@ fn get_tag_by_id(connection: &Connection, id: &str) -> Result<Tag, String> {
     connection
         .query_row(
             "
-            SELECT id, name, parent_id, color, created_at
+            SELECT id, name, parent_id, color, created_at, updated_at
             FROM tags
             WHERE id = ?1
             ",
@@ -367,7 +372,7 @@ fn get_tag_by_name(connection: &Connection, name: &str) -> Result<Option<Tag>, S
     connection
         .query_row(
             "
-            SELECT id, name, parent_id, color, created_at
+            SELECT id, name, parent_id, color, created_at, updated_at
             FROM tags
             WHERE lower(name) = lower(?1)
             ",
@@ -385,6 +390,7 @@ fn map_tag_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Tag> {
         parent_id: row.get(2)?,
         color: row.get(3)?,
         created_at: row.get(4)?,
+        updated_at: row.get(5)?,
     })
 }
 
@@ -395,7 +401,8 @@ fn map_tag_with_count_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<TagWithCo
         parent_id: row.get(2)?,
         color: row.get(3)?,
         created_at: row.get(4)?,
-        excerpt_count: row.get(5)?,
+        updated_at: row.get(5)?,
+        excerpt_count: row.get(6)?,
     })
 }
 

@@ -20,6 +20,8 @@ const emit = defineEmits<{
     input: {
       quote: string;
       reflection: string;
+      bookId?: string | null;
+      chapterId?: string | null;
       bookTitle: string;
       chapterTitle: string;
       tagNames: string[];
@@ -54,7 +56,8 @@ const editDraft = reactive<UpdateExcerptInput & { tagInput: string }>({
   id: "",
   quote: "",
   reflection: "",
-  sourceWorkId: null,
+  bookId: null,
+  chapterId: null,
   bookTitle: "",
   chapterTitle: "",
   tagNames: [],
@@ -161,7 +164,8 @@ const isEditDirty = computed(() => {
   return (
     editDraft.quote !== excerpt.quote ||
     editDraft.reflection !== normalizeOptionalText(excerpt.reflection) ||
-    editDraft.sourceWorkId !== (excerpt.sourceWorkId || null) ||
+    editDraft.bookId !== (excerpt.bookId || null) ||
+    editDraft.chapterId !== (excerpt.chapterId || null) ||
     editDraft.bookTitle !== normalizeOptionalText(excerpt.bookTitle) ||
     editDraft.chapterTitle !== normalizeOptionalText(excerpt.chapterTitle) ||
     excerptTags.join("\n") !== draftTags.join("\n")
@@ -198,6 +202,8 @@ function submitCreate() {
   emit("createExcerpt", {
     quote: createDraft.quote,
     reflection: createDraft.reflection,
+    bookId: findBookByTitle(createDraft.bookTitle)?.id || null,
+    chapterId: findChapterByTitle(createDraft.bookTitle, createDraft.chapterTitle)?.id || null,
     bookTitle: createDraft.bookTitle,
     chapterTitle: createDraft.chapterTitle,
     tagNames: parseTagInput(createDraft.tagInput),
@@ -231,7 +237,8 @@ function startEditing(excerpt: Excerpt) {
   editDraft.id = excerpt.id;
   editDraft.quote = excerpt.quote;
   editDraft.reflection = excerpt.reflection || "";
-  editDraft.sourceWorkId = excerpt.sourceWorkId || null;
+  editDraft.bookId = excerpt.bookId || null;
+  editDraft.chapterId = excerpt.chapterId || null;
   editDraft.bookTitle = excerpt.bookTitle || "";
   editDraft.chapterTitle = excerpt.chapterTitle || "";
   editDraft.tagNames = excerpt.tags.map((tag) => tag.name);
@@ -284,7 +291,8 @@ function submitEdit() {
     id: editDraft.id,
     quote: editDraft.quote,
     reflection: editDraft.reflection,
-    sourceWorkId: editDraft.sourceWorkId,
+    bookId: findBookByTitle(editDraft.bookTitle)?.id || null,
+    chapterId: findChapterByTitle(editDraft.bookTitle, editDraft.chapterTitle)?.id || null,
     bookTitle: editDraft.bookTitle,
     chapterTitle: editDraft.chapterTitle,
     tagNames: parseTagInput(editDraft.tagInput),
@@ -341,7 +349,8 @@ function resetEditDraft() {
   editDraft.id = "";
   editDraft.quote = "";
   editDraft.reflection = "";
-  editDraft.sourceWorkId = null;
+  editDraft.bookId = null;
+  editDraft.chapterId = null;
   editDraft.bookTitle = "";
   editDraft.chapterTitle = "";
   editDraft.tagNames = [];
@@ -356,9 +365,27 @@ function parseTagInput(value: string) {
 }
 
 function chapterOptionsForBook(bookTitle: string) {
-  const normalized = bookTitle.trim().toLowerCase();
-  const book = props.books.find((item) => item.title.toLowerCase() === normalized);
+  const book = findBookByTitle(bookTitle);
   return book?.chapters.map((chapter) => chapter.title) || [];
+}
+
+function findBookByTitle(bookTitle: string) {
+  const normalized = bookTitle.trim().toLowerCase();
+  if (!normalized) {
+    return null;
+  }
+
+  return props.books.find((item) => item.title.toLowerCase() === normalized) || null;
+}
+
+function findChapterByTitle(bookTitle: string, chapterTitle: string) {
+  const book = findBookByTitle(bookTitle);
+  const normalized = chapterTitle.trim().toLowerCase();
+  if (!book || !normalized) {
+    return null;
+  }
+
+  return book.chapters.find((chapter) => chapter.title.toLowerCase() === normalized) || null;
 }
 
 function tagStyle(tag: Tag) {

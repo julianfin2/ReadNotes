@@ -57,6 +57,13 @@ pub struct UpdateBookChapterRequest {
     pub title: String,
 }
 
+pub struct ResolveExcerptSourceInput<'a> {
+    pub book_id: Option<&'a str>,
+    pub chapter_id: Option<&'a str>,
+    pub book_title: Option<&'a str>,
+    pub chapter_title: Option<&'a str>,
+}
+
 #[tauri::command]
 pub fn list_books(state: State<'_, AppState>) -> Result<Vec<Book>, String> {
     let connection = state
@@ -219,21 +226,37 @@ pub fn delete_book_chapter(state: State<'_, AppState>, id: String) -> Result<(),
     Ok(())
 }
 
-pub fn ensure_book_candidate(
+pub fn resolve_excerpt_source(
     connection: &Connection,
-    book_title: Option<&str>,
-    chapter_title: Option<&str>,
-) -> Result<(), String> {
-    let Some(book_title) = normalize_optional_text(book_title) else {
-        return Ok(());
+    input: ResolveExcerptSourceInput<'_>,
+) -> Result<(Option<String>, Option<String>), String> {
+    let book_id = match normalize_optional_text(input.book_id) {
+        Some(book_id) => Some(require_book(connection, &book_id)?),
+        None => match normalize_optional_text(input.book_title) {
+            Some(book_title) => Some(find_or_create_book(connection, &book_title)?),
+            None => None,
+        },
     };
 
-    let book_id = find_or_create_book(connection, &book_title)?;
-    if let Some(chapter_title) = normalize_optional_text(chapter_title) {
-        find_or_create_chapter(connection, &book_id, &chapter_title)?;
-    }
+    let chapter_id = match (
+        book_id.as_deref(),
+        normalize_optional_text(input.chapter_id),
+    ) {
+        (Some(book_id), Some(chapter_id)) => {
+            Some(require_chapter(connection, book_id, &chapter_id)?)
+        }
+        _ => match (
+            book_id.as_deref(),
+            normalize_optional_text(input.chapter_title),
+        ) {
+            (Some(book_id), Some(chapter_title)) => {
+                Some(find_or_create_chapter(connection, book_id, &chapter_title)?)
+            }
+            _ => None,
+        },
+    };
 
-    Ok(())
+    Ok((book_id, chapter_id))
 }
 
 fn list_all_books(connection: &Connection) -> Result<Vec<Book>, String> {
@@ -249,7 +272,7 @@ fn list_all_books(connection: &Connection) -> Result<Vec<Book>, String> {
               COUNT(DISTINCT excerpts.id) AS excerpt_count
             FROM books
             LEFT JOIN book_chapters ON book_chapters.book_id = books.id
-            LEFT JOIN excerpts ON lower(excerpts.book_title) = lower(books.title)
+            LEFT JOIN excerpts ON excerpts.book_id = books.id
             GROUP BY books.id
             ORDER BY lower(books.title) ASC
             ",
@@ -264,7 +287,7 @@ fn list_all_books(connection: &Connection) -> Result<Vec<Book>, String> {
         .map_err(|error| format!("failed to read books: {error}"))?;
 
     for book in &mut books {
-        book.chapters = list_chapters_for_book(connection, &book.id, &book.title)?;
+        book.chapters = list_chapters_for_book(connection, &book.id)?;
     }
 
     Ok(books)
@@ -273,7 +296,6 @@ fn list_all_books(connection: &Connection) -> Result<Vec<Book>, String> {
 fn list_chapters_for_book(
     connection: &Connection,
     book_id: &str,
-    book_title: &str,
 ) -> Result<Vec<BookChapter>, String> {
     let mut statement = connection
         .prepare(
@@ -287,9 +309,7 @@ fn list_chapters_for_book(
               book_chapters.updated_at,
               COUNT(excerpts.id) AS excerpt_count
             FROM book_chapters
-            LEFT JOIN excerpts
-              ON lower(excerpts.book_title) = lower(?2)
-              AND lower(excerpts.chapter_title) = lower(book_chapters.title)
+            LEFT JOIN excerpts ON excerpts.chapter_id = book_chapters.id
             WHERE book_chapters.book_id = ?1
             GROUP BY book_chapters.id
             ORDER BY book_chapters.sort_order ASC, lower(book_chapters.title) ASC
@@ -297,7 +317,7 @@ fn list_chapters_for_book(
         )
         .map_err(|error| format!("failed to prepare chapter list: {error}"))?;
     let rows = statement
-        .query_map(params![book_id, book_title], map_chapter_row)
+        .query_map(params![book_id], map_chapter_row)
         .map_err(|error| format!("failed to list chapters: {error}"))?;
 
     rows.collect::<Result<Vec<_>, _>>()
@@ -317,7 +337,7 @@ fn get_book_by_id(connection: &Connection, id: &str) -> Result<Book, String> {
               COUNT(DISTINCT excerpts.id) AS excerpt_count
             FROM books
             LEFT JOIN book_chapters ON book_chapters.book_id = books.id
-            LEFT JOIN excerpts ON lower(excerpts.book_title) = lower(books.title)
+            LEFT JOIN excerpts ON excerpts.book_id = books.id
             WHERE books.id = ?1
             GROUP BY books.id
             ",
@@ -325,7 +345,7 @@ fn get_book_by_id(connection: &Connection, id: &str) -> Result<Book, String> {
             map_book_row,
         )
         .map_err(|error| format!("failed to find book: {error}"))?;
-    book.chapters = list_chapters_for_book(connection, &book.id, &book.title)?;
+    book.chapters = list_chapters_for_book(connection, &book.id)?;
     Ok(book)
 }
 
@@ -340,9 +360,11 @@ fn get_chapter_by_id(connection: &Connection, id: &str) -> Result<BookChapter, S
               book_chapters.sort_order,
               book_chapters.created_at,
               book_chapters.updated_at,
-              0 AS excerpt_count
+              COUNT(excerpts.id) AS excerpt_count
             FROM book_chapters
-            WHERE id = ?1
+            LEFT JOIN excerpts ON excerpts.chapter_id = book_chapters.id
+            WHERE book_chapters.id = ?1
+            GROUP BY book_chapters.id
             ",
             params![id],
             map_chapter_row,
@@ -374,6 +396,36 @@ fn find_or_create_book(connection: &Connection, title: &str) -> Result<String, S
         .map_err(|error| format!("failed to create book: {error}"))?;
 
     Ok(id)
+}
+
+fn require_book(connection: &Connection, id: &str) -> Result<String, String> {
+    let exists = connection
+        .query_row(
+            "SELECT EXISTS(SELECT 1 FROM books WHERE id = ?1)",
+            params![id],
+            |row| row.get::<_, bool>(0),
+        )
+        .map_err(|error| format!("failed to check book: {error}"))?;
+    if exists {
+        Ok(id.to_string())
+    } else {
+        Err("book not found".to_string())
+    }
+}
+
+fn require_chapter(connection: &Connection, book_id: &str, id: &str) -> Result<String, String> {
+    let exists = connection
+        .query_row(
+            "SELECT EXISTS(SELECT 1 FROM book_chapters WHERE id = ?1 AND book_id = ?2)",
+            params![id, book_id],
+            |row| row.get::<_, bool>(0),
+        )
+        .map_err(|error| format!("failed to check chapter: {error}"))?;
+    if exists {
+        Ok(id.to_string())
+    } else {
+        Err("chapter not found for selected book".to_string())
+    }
 }
 
 fn find_or_create_chapter(
