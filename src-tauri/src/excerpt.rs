@@ -134,12 +134,16 @@ pub fn list_excerpts(
                 excerpts.rowid IN (
                     SELECT rowid FROM excerpt_search WHERE excerpt_search MATCH ?
                 )
+                OR lower(COALESCE(excerpts.quote, '')) LIKE lower(?)
+                OR lower(COALESCE(excerpts.reflection, '')) LIKE lower(?)
                 OR lower(COALESCE(books.title, '')) LIKE lower(?)
                 OR lower(COALESCE(book_chapters.title, '')) LIKE lower(?)
             )"
             .to_string(),
         );
         parameter_values.push(to_fts_query(&search));
+        parameter_values.push(format!("%{search}%"));
+        parameter_values.push(format!("%{search}%"));
         parameter_values.push(format!("%{search}%"));
         parameter_values.push(format!("%{search}%"));
     }
