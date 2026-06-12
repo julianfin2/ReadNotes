@@ -13,13 +13,12 @@ const props = defineProps<{
 const topics = ref<Topic[]>([]);
 const topicNodes = ref<TopicNode[]>([]);
 const topicExcerpts = ref<TopicExcerpt[]>([]);
+const viewMode = ref<"list" | "create" | "edit" | "workspace">("list");
 const selectedTopicId = ref("");
 const selectedNodeId = ref("");
 const selectedTopicExcerptId = ref("");
-const topicModalOpen = ref(false);
 const nodeModalOpen = ref(false);
 const addExcerptModalOpen = ref(false);
-const editTopicModalOpen = ref(false);
 const editNodeModalOpen = ref(false);
 const confirmModalOpen = ref(false);
 const editingTopicId = ref("");
@@ -70,6 +69,22 @@ const confirmAction = shallowRef<ConfirmAction | null>(null);
 const selectedTopic = computed(() =>
   topics.value.find((topic) => topic.id === selectedTopicId.value),
 );
+
+const pageTitle = computed(() => {
+  if (viewMode.value === "create") {
+    return "新建主题";
+  }
+
+  if (viewMode.value === "edit") {
+    return "编辑主题";
+  }
+
+  if (viewMode.value === "workspace") {
+    return selectedTopic.value?.title || "主题工作台";
+  }
+
+  return "主题";
+});
 
 const selectedNode = computed(() =>
   topicNodes.value.find((node) => node.id === selectedNodeId.value),
@@ -239,7 +254,7 @@ async function reloadSelectedTopic() {
 
 async function createTopic() {
   await runSaving(async () => {
-    const topic = await invoke<Topic>("create_topic", {
+    await invoke<Topic>("create_topic", {
       input: {
         title: topicTitle.value,
         researchQuestion: topicQuestion.value,
@@ -248,9 +263,8 @@ async function createTopic() {
 
     topicTitle.value = "";
     topicQuestion.value = "";
-    topicModalOpen.value = false;
     await loadTopics();
-    selectedTopicId.value = topic.id;
+    viewMode.value = "list";
   });
 }
 
@@ -273,8 +287,8 @@ async function updateTopic(topicId: string) {
 
     delete editingTopics[topicId];
     editingTopicId.value = "";
-    editTopicModalOpen.value = false;
     await reloadSelectedTopic();
+    viewMode.value = "list";
   });
 }
 
@@ -287,6 +301,9 @@ async function deleteTopic(topicId: string) {
     await loadTopics();
     if (!selectedTopicId.value && topics.value.length > 0) {
       selectedTopicId.value = topics.value[0].id;
+    }
+    if (viewMode.value !== "list") {
+      viewMode.value = "list";
     }
   });
 }
@@ -429,7 +446,7 @@ function startEditingTopic(topic: Topic) {
     researchQuestion: topic.researchQuestion || "",
     status: topic.status,
   };
-  editTopicModalOpen.value = true;
+  viewMode.value = "edit";
 }
 
 function startEditingNode(node: TopicNode) {
@@ -456,7 +473,33 @@ function startEditingTopicExcerpt(topicExcerpt: TopicExcerpt) {
 function cancelEditingTopic(topicId: string) {
   delete editingTopics[topicId];
   editingTopicId.value = "";
-  editTopicModalOpen.value = false;
+  viewMode.value = "list";
+}
+
+function startCreatingTopic() {
+  topicTitle.value = "";
+  topicQuestion.value = "";
+  viewMode.value = "create";
+}
+
+function openTopicWorkspace(topic: Topic) {
+  if (!discardTopicExcerptEditing()) {
+    return;
+  }
+
+  selectedTopicId.value = topic.id;
+  viewMode.value = "workspace";
+}
+
+function returnToTopicList() {
+  clearEditingState();
+  for (const key of Object.keys(editingTopics)) {
+    delete editingTopics[key];
+  }
+  editingTopicId.value = "";
+  topicTitle.value = "";
+  topicQuestion.value = "";
+  viewMode.value = "list";
 }
 
 function cancelEditingNode(nodeId: string) {
@@ -631,6 +674,22 @@ function excerptSourceLabel(excerpt: Excerpt) {
   return excerpt.chapterTitle || "未记录书籍与章节";
 }
 
+function formatDate(value: string) {
+  return new Date(value).toLocaleDateString();
+}
+
+function topicStatusLabel(status: TopicStatus) {
+  const labels: Record<TopicStatus, string> = {
+    collecting: "收集中",
+    organizing: "整理中",
+    drafting: "写作中",
+    finished: "已完成",
+    paused: "已暂停",
+  };
+
+  return labels[status];
+}
+
 async function runSaving(task: () => Promise<void>) {
   errorMessage.value = "";
   isSaving.value = true;
@@ -650,14 +709,22 @@ async function runSaving(task: () => Promise<void>) {
     <header class="page-header">
       <div>
         <p class="eyebrow">Workspace</p>
-        <h2>{{ selectedTopic?.title || "主题工作台" }}</h2>
-        <p v-if="selectedTopic?.researchQuestion" class="subtle-text">
+        <h2>{{ pageTitle }}</h2>
+        <p v-if="viewMode === 'workspace' && selectedTopic?.researchQuestion" class="subtle-text">
           {{ selectedTopic.researchQuestion }}
         </p>
-        <p v-else class="subtle-text">{{ topics.length }} 个主题</p>
+        <p v-else-if="viewMode === 'workspace'" class="subtle-text">管理当前主题的子主题和材料</p>
+        <p v-else-if="viewMode === 'list'" class="subtle-text">{{ topics.length }} 个主题</p>
+        <p v-else class="subtle-text">保存或取消后返回主题列表</p>
       </div>
 
-      <div class="toolbar topic-toolbar">
+      <div v-if="viewMode === 'list'" class="toolbar topic-toolbar">
+        <button class="primary-action" type="button" @click="startCreatingTopic">
+          新建主题
+        </button>
+      </div>
+
+      <div v-else-if="viewMode === 'workspace'" class="toolbar topic-toolbar">
         <CustomSelect
           v-if="topics.length > 0"
           :model-value="selectedTopicId"
@@ -667,8 +734,8 @@ async function runSaving(task: () => Promise<void>) {
           placeholder="选择主题"
           @change="selectTopic"
         />
-        <button class="primary-action" type="button" @click="topicModalOpen = true">
-          新建主题
+        <button class="secondary-action" type="button" @click="returnToTopicList">
+          返回列表
         </button>
         <button
           v-if="selectedTopic"
@@ -687,9 +754,107 @@ async function runSaving(task: () => Promise<void>) {
           删除主题
         </button>
       </div>
+
+      <div v-else class="toolbar topic-toolbar">
+        <button class="secondary-action" type="button" @click="returnToTopicList">
+          返回列表
+        </button>
+      </div>
     </header>
 
-    <div v-if="selectedTopic" class="topic-workspace-grid">
+    <div v-if="viewMode === 'list'" class="table-page">
+      <div class="topic-table">
+        <div class="topic-table-head">
+          <span>主题</span>
+          <span>研究问题</span>
+          <span>状态</span>
+          <span>更新时间</span>
+          <span>操作</span>
+        </div>
+
+        <div
+          v-for="topic in topics"
+          :key="topic.id"
+          class="topic-table-row"
+          role="button"
+          tabindex="0"
+          @click="openTopicWorkspace(topic)"
+          @keydown.enter="openTopicWorkspace(topic)"
+        >
+          <span class="table-quote">
+            <strong>{{ topic.title }}</strong>
+            <small v-if="topic.description">{{ topic.description }}</small>
+          </span>
+          <span class="table-source">{{ topic.researchQuestion || "未记录" }}</span>
+          <span class="topic-status">{{ topicStatusLabel(topic.status) }}</span>
+          <span class="item-meta">{{ formatDate(topic.updatedAt) }}</span>
+          <span class="row-actions" @click.stop>
+            <button class="secondary-action" type="button" @click="openTopicWorkspace(topic)">
+              打开
+            </button>
+            <button class="secondary-action" type="button" @click="startEditingTopic(topic)">
+              编辑
+            </button>
+            <button class="danger-action" type="button" @click="requestDeleteTopic(topic)">
+              删除
+            </button>
+          </span>
+        </div>
+
+        <p v-if="topics.length === 0" class="empty-state table-empty">还没有主题。</p>
+      </div>
+    </div>
+
+    <form v-else-if="viewMode === 'create'" class="editor-page" @submit.prevent="createTopic">
+      <section class="editor-surface">
+        <label>
+          主题标题
+          <input v-model="topicTitle" placeholder="例如：现代人的焦虑来源" />
+        </label>
+        <label>
+          研究问题
+          <textarea v-model="topicQuestion" rows="5" placeholder="这个主题想回答什么？" />
+        </label>
+      </section>
+      <div class="editor-actions">
+        <button class="secondary-action" type="button" @click="returnToTopicList">取消</button>
+        <button class="primary-action" :disabled="isSaving || !topicTitle.trim()" type="submit">
+          保存
+        </button>
+      </div>
+    </form>
+
+    <form
+      v-else-if="viewMode === 'edit' && editingTopicId && editingTopics[editingTopicId]"
+      class="editor-page"
+      @submit.prevent="updateTopic(editingTopicId)"
+    >
+      <section class="editor-surface">
+        <label>
+          标题
+          <input v-model="editingTopics[editingTopicId].title" />
+        </label>
+        <label>
+          研究问题
+          <textarea v-model="editingTopics[editingTopicId].researchQuestion" rows="5" />
+        </label>
+        <label>
+          状态
+          <CustomSelect
+            v-model="editingTopics[editingTopicId].status"
+            :options="topicStatusOptions"
+          />
+        </label>
+      </section>
+      <div class="editor-actions">
+        <button class="secondary-action" type="button" @click="cancelEditingTopic(editingTopicId)">
+          取消
+        </button>
+        <button class="primary-action" type="submit">保存</button>
+      </div>
+    </form>
+
+    <div v-else-if="viewMode === 'workspace' && selectedTopic" class="topic-workspace-grid">
       <aside class="topic-context-pane">
         <section class="context-section">
           <div class="card-header">
@@ -955,32 +1120,8 @@ async function runSaving(task: () => Promise<void>) {
       </section>
     </div>
 
-    <div v-else class="empty-detail topic-empty-state">
-      <p class="empty-state">先创建一个主题。</p>
-      <button class="primary-action" type="button" @click="topicModalOpen = true">
-        新建主题
-      </button>
-    </div>
-
     <p v-if="errorMessage" class="error-message">{{ errorMessage }}</p>
   </section>
-
-  <BaseModal :open="topicModalOpen" title="新建主题" @close="topicModalOpen = false">
-    <form class="modal-form" @submit.prevent="createTopic">
-      <label>
-        主题标题
-        <input v-model="topicTitle" placeholder="例如：现代人的焦虑来源" />
-      </label>
-      <label>
-        研究问题
-        <textarea v-model="topicQuestion" rows="4" placeholder="这个主题想回答什么？" />
-      </label>
-      <div class="modal-actions">
-        <button class="secondary-action" type="button" @click="topicModalOpen = false">取消</button>
-        <button class="primary-action" :disabled="isSaving" type="submit">保存</button>
-      </div>
-    </form>
-  </BaseModal>
 
   <BaseModal :open="nodeModalOpen" title="添加子主题" @close="nodeModalOpen = false">
     <form class="modal-form" @submit.prevent="createTopicNode">
@@ -1077,36 +1218,6 @@ async function runSaving(task: () => Promise<void>) {
         <button class="primary-action" :disabled="isSaving || !excerptIdToAdd" type="submit">
           保存
         </button>
-      </div>
-    </form>
-  </BaseModal>
-
-  <BaseModal :open="editTopicModalOpen" title="编辑主题" @close="cancelEditingTopic(editingTopicId)">
-    <form
-      v-if="editingTopicId && editingTopics[editingTopicId]"
-      class="modal-form"
-      @submit.prevent="updateTopic(editingTopicId)"
-    >
-      <label>
-        标题
-        <input v-model="editingTopics[editingTopicId].title" />
-      </label>
-      <label>
-        研究问题
-        <textarea v-model="editingTopics[editingTopicId].researchQuestion" rows="4" />
-      </label>
-      <label>
-        状态
-        <CustomSelect
-          v-model="editingTopics[editingTopicId].status"
-          :options="topicStatusOptions"
-        />
-      </label>
-      <div class="modal-actions">
-        <button class="secondary-action" type="button" @click="cancelEditingTopic(editingTopicId)">
-          取消
-        </button>
-        <button class="primary-action" type="submit">保存</button>
       </div>
     </form>
   </BaseModal>
