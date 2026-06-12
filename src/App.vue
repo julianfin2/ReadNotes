@@ -891,17 +891,17 @@ form,
 
 .excerpt-table-head,
 .excerpt-table-row {
-  grid-template-columns: minmax(300px, 2fr) minmax(190px, 1fr) minmax(150px, 0.62fr) 120px 150px;
+  grid-template-columns: minmax(280px, 2fr) minmax(170px, 1fr) minmax(130px, 0.62fr) 168px 150px;
 }
 
 .topic-table-head,
 .topic-table-row {
-  grid-template-columns: minmax(260px, 1.3fr) minmax(300px, 1.7fr) 120px 120px 210px;
+  grid-template-columns: minmax(240px, 1.3fr) minmax(280px, 1.7fr) 120px 168px 210px;
 }
 
 .tag-table-head,
 .tag-table-row {
-  grid-template-columns: minmax(180px, 1.2fr) minmax(130px, 0.8fr) minmax(130px, 0.8fr) 90px 120px 150px;
+  grid-template-columns: minmax(160px, 1.2fr) minmax(120px, 0.8fr) minmax(120px, 0.8fr) 90px 168px 150px;
 }
 
 .excerpt-table-row,

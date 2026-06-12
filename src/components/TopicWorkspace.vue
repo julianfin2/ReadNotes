@@ -6,6 +6,7 @@ import CustomSelect from "./CustomSelect.vue";
 import type { Excerpt } from "../types/excerpt";
 import type { Tag } from "../types/tag";
 import type { Topic, TopicExcerpt, TopicNode, TopicStatus } from "../types/topic";
+import { formatDateOnly, formatDateTime } from "../utils/date";
 
 const props = defineProps<{
   excerpts: Excerpt[];
@@ -776,10 +777,6 @@ function toTagBackground(color: string) {
   return `rgba(${red}, ${green}, ${blue}, 0.14)`;
 }
 
-function formatDate(value: string) {
-  return new Date(value).toLocaleDateString();
-}
-
 function topicStatusLabel(status: TopicStatus) {
   const labels: Record<TopicStatus, string> = {
     collecting: "收集中",
@@ -880,7 +877,7 @@ async function runSaving(task: () => Promise<void>) {
             </span>
             <span class="table-source">{{ topic.researchQuestion || "未记录" }}</span>
             <span class="topic-status">{{ topicStatusLabel(topic.status) }}</span>
-            <span class="item-meta">{{ formatDate(topic.updatedAt) }}</span>
+            <span class="item-meta">{{ formatDateTime(topic.updatedAt) }}</span>
             <span class="row-actions" @click.stop>
               <button class="secondary-action" type="button" @click="openTopicWorkspace(topic)">
                 打开
@@ -1034,7 +1031,7 @@ async function runSaving(task: () => Promise<void>) {
                   </span>
                 </span>
                 <span class="item-meta">
-                  {{ new Date(topicExcerpt.addedAt).toLocaleDateString() }}
+                  {{ formatDateOnly(topicExcerpt.addedAt) }}
                 </span>
               </button>
             </div>
@@ -1156,7 +1153,7 @@ async function runSaving(task: () => Promise<void>) {
                 </span>
               </p>
               <footer>
-                <span>{{ new Date(selectedTopicExcerpt.addedAt).toLocaleString() }}</span>
+                <span>{{ formatDateTime(selectedTopicExcerpt.addedAt) }}</span>
               </footer>
             </div>
             <div class="action-row">

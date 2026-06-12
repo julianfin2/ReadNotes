@@ -6,6 +6,7 @@ import EditableCombobox from "./EditableCombobox.vue";
 import type { Book } from "../types/book";
 import type { Excerpt, ExcerptFilters, UpdateExcerptInput } from "../types/excerpt";
 import type { Tag } from "../types/tag";
+import { formatDateTime } from "../utils/date";
 
 const props = defineProps<{
   excerpts: Excerpt[];
@@ -518,10 +519,6 @@ function normalizeOptionalText(value: string | null | undefined) {
   return value || "";
 }
 
-function formatDate(value: string) {
-  return new Date(value).toLocaleDateString();
-}
-
 function excerptSource(excerpt: Excerpt) {
   if (excerpt.bookTitle && excerpt.chapterTitle) {
     return `《${excerpt.bookTitle}》 / ${excerpt.chapterTitle}`;
@@ -677,7 +674,7 @@ function cancelDiscardEditor() {
                 +{{ excerpt.tags.length - 2 }}
               </span>
             </span>
-            <span class="item-meta">{{ formatDate(excerpt.createdAt) }}</span>
+            <span class="item-meta">{{ formatDateTime(excerpt.createdAt) }}</span>
             <span class="row-actions" @click.stop>
               <button class="secondary-action" type="button" @click="startEditing(excerpt)">
                 编辑
@@ -698,9 +695,9 @@ function cancelDiscardEditor() {
         <header class="reader-meta">
           <p class="source-line">{{ excerptSource(activeExcerpt) }}</p>
           <footer>
-            <span>创建于 {{ new Date(activeExcerpt.createdAt).toLocaleString() }}</span>
+            <span>创建于 {{ formatDateTime(activeExcerpt.createdAt) }}</span>
             <span v-if="activeExcerpt.updatedAt !== activeExcerpt.createdAt">
-              更新于 {{ new Date(activeExcerpt.updatedAt).toLocaleString() }}
+              更新于 {{ formatDateTime(activeExcerpt.updatedAt) }}
             </span>
           </footer>
         </header>
