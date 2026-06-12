@@ -717,6 +717,18 @@ form,
   overflow: auto;
 }
 
+.tag-table {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.tag-table-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+
 .excerpt-table-head,
 .excerpt-table-row,
 .topic-table-head,
@@ -731,8 +743,6 @@ form,
 .excerpt-table-head,
 .topic-table-head,
 .tag-table-head {
-  position: sticky;
-  top: 0;
   z-index: 1;
   min-height: 42px;
   padding: 0 16px;
@@ -741,6 +751,12 @@ form,
   color: #6e7678;
   font-size: 0.78rem;
   font-weight: 700;
+}
+
+.excerpt-table-head,
+.topic-table-head {
+  position: sticky;
+  top: 0;
 }
 
 .excerpt-table-head,

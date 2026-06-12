@@ -205,31 +205,33 @@ async function runSaving(task: () => Promise<void>) {
           <span>操作</span>
         </div>
 
-        <div v-for="tag in filteredTags" :key="tag.id" class="tag-table-row">
-          <span class="tag-name-cell">#{{ tag.name }}</span>
-          <span>
-            <span
-              class="tag-color-swatch"
-              :style="{ backgroundColor: tag.color || '#e8eee6' }"
-            />
-            <span class="subtle-inline">{{ tag.color || "未设置" }}</span>
-          </span>
-          <span>{{ parentLabel(tag) }}</span>
-          <span>{{ tag.excerptCount }}</span>
-          <span>{{ new Date(tag.createdAt).toLocaleDateString() }}</span>
-          <span class="table-actions">
-            <button class="secondary-action" type="button" @click="startEditing(tag)">
-              编辑
-            </button>
-            <button class="danger-action" type="button" @click="requestDeleteTag(tag.id)">
-              删除
-            </button>
-          </span>
-        </div>
+        <div class="tag-table-body">
+          <div v-for="tag in filteredTags" :key="tag.id" class="tag-table-row">
+            <span class="tag-name-cell">#{{ tag.name }}</span>
+            <span>
+              <span
+                class="tag-color-swatch"
+                :style="{ backgroundColor: tag.color || '#e8eee6' }"
+              />
+              <span class="subtle-inline">{{ tag.color || "未设置" }}</span>
+            </span>
+            <span>{{ parentLabel(tag) }}</span>
+            <span>{{ tag.excerptCount }}</span>
+            <span>{{ new Date(tag.createdAt).toLocaleDateString() }}</span>
+            <span class="table-actions">
+              <button class="secondary-action" type="button" @click="startEditing(tag)">
+                编辑
+              </button>
+              <button class="danger-action" type="button" @click="requestDeleteTag(tag.id)">
+                删除
+              </button>
+            </span>
+          </div>
 
-        <p v-if="filteredTags.length === 0" class="empty-state">
-          {{ search ? "没有匹配的标签。" : "先创建一个标签。" }}
-        </p>
+          <p v-if="filteredTags.length === 0" class="empty-state">
+            {{ search ? "没有匹配的标签。" : "先创建一个标签。" }}
+          </p>
+        </div>
       </div>
     </div>
 
