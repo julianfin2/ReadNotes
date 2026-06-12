@@ -5,6 +5,7 @@ import TagManager from "./TagManager.vue";
 
 const emit = defineEmits<{
   booksChanged: [];
+  tagsChanged: [];
 }>();
 
 const activeSection = ref<"tags" | "books">("tags");
@@ -38,7 +39,7 @@ const activeSection = ref<"tags" | "books">("tags");
       </div>
     </header>
 
-    <TagManager v-if="activeSection === 'tags'" embedded />
+    <TagManager v-if="activeSection === 'tags'" embedded @tags-changed="emit('tagsChanged')" />
     <BookManager v-else @books-changed="emit('booksChanged')" />
   </section>
 </template>

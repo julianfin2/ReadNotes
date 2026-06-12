@@ -73,6 +73,10 @@ async function handleBooksChanged() {
   await Promise.all([loadBooks(), loadExcerpts(lastFilters.value)]);
 }
 
+async function handleTagsChanged() {
+  await Promise.all([loadTags(), loadExcerpts(lastFilters.value)]);
+}
+
 async function createExcerpt(input: {
   quote: string;
   reflection: string;
@@ -154,6 +158,7 @@ function toExcerptQuery(filters: ExcerptFilters) {
       <ManagementView
         v-else-if="activeView === 'management'"
         @books-changed="handleBooksChanged"
+        @tags-changed="handleTagsChanged"
       />
 
       <section v-else class="workspace-panel">

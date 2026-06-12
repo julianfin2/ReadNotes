@@ -9,6 +9,10 @@ defineProps<{
   embedded?: boolean;
 }>();
 
+const emit = defineEmits<{
+  tagsChanged: [];
+}>();
+
 const tags = ref<TagWithCount[]>([]);
 const search = ref("");
 const createModalOpen = ref(false);
@@ -67,7 +71,7 @@ async function createTag() {
     newTagParentId.value = "";
     newTagColor.value = "";
     createModalOpen.value = false;
-    await loadTags();
+    await refreshAfterMutation();
   });
 }
 
@@ -90,15 +94,20 @@ async function updateTag(tagId: string) {
     delete editingTags[tagId];
     editingTagId.value = "";
     editModalOpen.value = false;
-    await loadTags();
+    await refreshAfterMutation();
   });
 }
 
 async function deleteTag(tagId: string) {
   await runSaving(async () => {
     await invoke("delete_tag", { id: tagId });
-    await loadTags();
+    await refreshAfterMutation();
   });
+}
+
+async function refreshAfterMutation() {
+  await loadTags();
+  emit("tagsChanged");
 }
 
 function requestDeleteTag(tagId: string) {
