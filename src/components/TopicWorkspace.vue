@@ -32,6 +32,7 @@ const nodeTitle = ref("");
 const nodeSummary = ref("");
 const nodeParentId = ref("");
 const excerptIdToAdd = ref("");
+const excerptSearch = ref("");
 const reason = ref("");
 const topicReflection = ref("");
 const errorMessage = ref("");
@@ -119,6 +120,40 @@ const isTopicExcerptEditDirty = computed(() => {
 
 const canSaveTopicExcerptEdit = computed(() => {
   return isTopicExcerptEditDirty.value && !isSaving.value;
+});
+
+const availableExcerptsToCollect = computed(() => {
+  const collectedExcerptIds = new Set(
+    topicExcerpts.value.map((topicExcerpt) => topicExcerpt.excerptId),
+  );
+
+  return props.excerpts.filter((excerpt) => !collectedExcerptIds.has(excerpt.id));
+});
+
+const filteredExcerptsToCollect = computed(() => {
+  const query = excerptSearch.value.trim().toLowerCase();
+
+  if (!query) {
+    return availableExcerptsToCollect.value;
+  }
+
+  return availableExcerptsToCollect.value.filter((excerpt) => {
+    const searchableText = [
+      excerpt.quote,
+      excerpt.reflection || "",
+      excerpt.bookTitle || "",
+      excerpt.chapterTitle || "",
+      excerpt.tags.map((tag) => tag.name).join(" "),
+    ]
+      .join(" ")
+      .toLowerCase();
+
+    return searchableText.includes(query);
+  });
+});
+
+const excerptToAdd = computed(() => {
+  return props.excerpts.find((excerpt) => excerpt.id === excerptIdToAdd.value) || null;
 });
 
 onMounted(async () => {
@@ -321,6 +356,7 @@ async function addExcerptToTopic() {
     });
 
     excerptIdToAdd.value = "";
+    excerptSearch.value = "";
     reason.value = "";
     topicReflection.value = "";
     addExcerptModalOpen.value = false;
@@ -445,6 +481,22 @@ function requestRemoveTopicExcerpt(topicExcerpt: TopicExcerpt) {
   );
 }
 
+function openAddExcerptModal() {
+  excerptIdToAdd.value = "";
+  excerptSearch.value = "";
+  reason.value = "";
+  topicReflection.value = "";
+  addExcerptModalOpen.value = true;
+}
+
+function closeAddExcerptModal() {
+  addExcerptModalOpen.value = false;
+  excerptIdToAdd.value = "";
+  excerptSearch.value = "";
+  reason.value = "";
+  topicReflection.value = "";
+}
+
 function handleTopicChange(event: Event) {
   const topicId = (event.target as HTMLSelectElement).value;
 
@@ -538,6 +590,18 @@ function nodeLabel(node: TopicNode) {
 
 function selectableParents(nodeId?: string) {
   return topicNodes.value.filter((node) => node.id !== nodeId);
+}
+
+function excerptSourceLabel(excerpt: Excerpt) {
+  if (excerpt.bookTitle && excerpt.chapterTitle) {
+    return `《${excerpt.bookTitle}》 / ${excerpt.chapterTitle}`;
+  }
+
+  if (excerpt.bookTitle) {
+    return `《${excerpt.bookTitle}》`;
+  }
+
+  return excerpt.chapterTitle || "未记录书籍与章节";
 }
 
 async function runSaving(task: () => Promise<void>) {
@@ -659,7 +723,7 @@ async function runSaving(task: () => Promise<void>) {
               <h3>材料</h3>
               <p class="subtle-text">{{ visibleTopicExcerpts.length }} 条材料</p>
             </div>
-            <button class="primary-action" type="button" @click="addExcerptModalOpen = true">
+            <button class="primary-action" type="button" @click="openAddExcerptModal">
               收录
             </button>
           </div>
@@ -921,34 +985,80 @@ async function runSaving(task: () => Promise<void>) {
     </form>
   </BaseModal>
 
-  <BaseModal :open="addExcerptModalOpen" title="收录摘抄" @close="addExcerptModalOpen = false">
-    <form class="modal-form" @submit.prevent="addExcerptToTopic">
+  <BaseModal :open="addExcerptModalOpen" title="收录摘抄" @close="closeAddExcerptModal">
+    <form class="collect-excerpt-form" @submit.prevent="addExcerptToTopic">
       <label>
-        选择摘抄
-        <select v-model="excerptIdToAdd">
-          <option value="">请选择</option>
-          <option v-for="excerpt in props.excerpts" :key="excerpt.id" :value="excerpt.id">
-            {{ excerpt.quote.slice(0, 64) }}
-          </option>
-        </select>
-      </label>
-      <label>
-        收录理由
-        <textarea v-model="reason" rows="3" placeholder="为什么把它放进这个主题？" />
-      </label>
-      <label>
-        主题内理解
-        <textarea
-          v-model="topicReflection"
-          rows="5"
-          placeholder="这条摘抄在当前主题下意味着什么？"
+        搜索材料
+        <input
+          v-model="excerptSearch"
+          placeholder="搜索原文、笔记、书籍、章节或标签"
         />
       </label>
+
+      <section class="excerpt-picker">
+        <div class="excerpt-picker-list">
+          <button
+            v-for="excerpt in filteredExcerptsToCollect"
+            :key="excerpt.id"
+            class="excerpt-picker-item"
+            :class="{ active: excerpt.id === excerptIdToAdd }"
+            type="button"
+            @click="excerptIdToAdd = excerpt.id"
+          >
+            <span class="item-title">{{ excerpt.quote }}</span>
+            <span class="item-meta">{{ excerptSourceLabel(excerpt) }}</span>
+            <span v-if="excerpt.tags.length > 0" class="tag-row compact-tags">
+              <span v-for="tag in excerpt.tags" :key="tag.id" class="tag-pill">
+                #{{ tag.name }}
+              </span>
+            </span>
+          </button>
+
+          <p
+            v-if="availableExcerptsToCollect.length === 0"
+            class="empty-state excerpt-picker-empty"
+          >
+            当前主题已经收录了全部摘抄。
+          </p>
+          <p
+            v-else-if="filteredExcerptsToCollect.length === 0"
+            class="empty-state excerpt-picker-empty"
+          >
+            没有匹配的摘抄。
+          </p>
+        </div>
+
+        <aside class="excerpt-picker-preview">
+          <template v-if="excerptToAdd">
+            <section class="excerpt-picker-selected">
+              <p class="source-line">{{ excerptSourceLabel(excerptToAdd) }}</p>
+              <blockquote>{{ excerptToAdd.quote }}</blockquote>
+            </section>
+          </template>
+          <p v-else class="empty-state">选择一条摘抄后填写收录信息。</p>
+
+          <label>
+            收录理由
+            <textarea v-model="reason" rows="4" placeholder="为什么把它放进这个主题？" />
+          </label>
+          <label>
+            主题内理解
+            <textarea
+              v-model="topicReflection"
+              rows="6"
+              placeholder="这条摘抄在当前主题下意味着什么？"
+            />
+          </label>
+        </aside>
+      </section>
+
       <div class="modal-actions">
-        <button class="secondary-action" type="button" @click="addExcerptModalOpen = false">
+        <button class="secondary-action" type="button" @click="closeAddExcerptModal">
           取消
         </button>
-        <button class="primary-action" :disabled="isSaving" type="submit">保存</button>
+        <button class="primary-action" :disabled="isSaving || !excerptIdToAdd" type="submit">
+          保存
+        </button>
       </div>
     </form>
   </BaseModal>
