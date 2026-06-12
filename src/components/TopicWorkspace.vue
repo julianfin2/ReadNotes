@@ -27,6 +27,7 @@ const editingNodeId = ref("");
 const editingTopicExcerptId = ref("");
 const confirmTitle = ref("");
 const confirmMessage = ref("");
+const confirmActionLabel = ref("确认");
 const topicTitle = ref("");
 const topicQuestion = ref("");
 const nodeTitle = ref("");
@@ -436,14 +437,16 @@ async function removeTopicExcerpt(topicExcerptId: string) {
 }
 
 function startEditingTopic(topic: Topic) {
-  editingTopicId.value = topic.id;
-  editingTopics[topic.id] = {
-    title: topic.title,
-    description: topic.description || "",
-    researchQuestion: topic.researchQuestion || "",
-    status: topic.status,
-  };
-  viewMode.value = "edit";
+  runAfterTopicExcerptDiscard(() => {
+    editingTopicId.value = topic.id;
+    editingTopics[topic.id] = {
+      title: topic.title,
+      description: topic.description || "",
+      researchQuestion: topic.researchQuestion || "",
+      status: topic.status,
+    };
+    viewMode.value = "edit";
+  });
 }
 
 function startEditingNode(node: TopicNode) {
@@ -480,23 +483,23 @@ function startCreatingTopic() {
 }
 
 function openTopicWorkspace(topic: Topic) {
-  if (!discardTopicExcerptEditing()) {
-    return;
-  }
-
-  selectedTopicId.value = topic.id;
-  viewMode.value = "workspace";
+  runAfterTopicExcerptDiscard(() => {
+    selectedTopicId.value = topic.id;
+    viewMode.value = "workspace";
+  });
 }
 
 function returnToTopicList() {
-  clearEditingState();
-  for (const key of Object.keys(editingTopics)) {
-    delete editingTopics[key];
-  }
-  editingTopicId.value = "";
-  topicTitle.value = "";
-  topicQuestion.value = "";
-  viewMode.value = "list";
+  runAfterTopicExcerptDiscard(() => {
+    clearEditingState();
+    for (const key of Object.keys(editingTopics)) {
+      delete editingTopics[key];
+    }
+    editingTopicId.value = "";
+    topicTitle.value = "";
+    topicQuestion.value = "";
+    viewMode.value = "list";
+  });
 }
 
 function cancelEditingNode(nodeId: string) {
@@ -510,12 +513,18 @@ function cancelEditingTopicExcerpt(topicExcerptId: string) {
     return;
   }
 
-  discardTopicExcerptEditing();
+  runAfterTopicExcerptDiscard(() => {});
 }
 
-function requestConfirmation(title: string, message: string, action: ConfirmAction) {
+function requestConfirmation(
+  title: string,
+  message: string,
+  action: ConfirmAction,
+  actionLabel = "确认",
+) {
   confirmTitle.value = title;
   confirmMessage.value = message;
+  confirmActionLabel.value = actionLabel;
   confirmAction.value = action;
   confirmModalOpen.value = true;
 }
@@ -565,11 +574,9 @@ function selectTopicNode(nodeId: string) {
     return;
   }
 
-  if (!discardTopicExcerptEditing()) {
-    return;
-  }
-
-  selectedNodeId.value = nodeId;
+  runAfterTopicExcerptDiscard(() => {
+    selectedNodeId.value = nodeId;
+  });
 }
 
 function selectTopicExcerpt(topicExcerptId: string) {
@@ -577,11 +584,9 @@ function selectTopicExcerpt(topicExcerptId: string) {
     return;
   }
 
-  if (!discardTopicExcerptEditing()) {
-    return;
-  }
-
-  selectedTopicExcerptId.value = topicExcerptId;
+  runAfterTopicExcerptDiscard(() => {
+    selectedTopicExcerptId.value = topicExcerptId;
+  });
 }
 
 async function confirmDestructiveAction() {
@@ -592,12 +597,14 @@ async function confirmDestructiveAction() {
 
   confirmModalOpen.value = false;
   confirmAction.value = null;
+  confirmActionLabel.value = "确认";
   await action();
 }
 
 function cancelConfirmation() {
   confirmModalOpen.value = false;
   confirmAction.value = null;
+  confirmActionLabel.value = "确认";
 }
 
 function clearEditingState() {
@@ -613,18 +620,36 @@ function clearEditingState() {
   editingTopicExcerptId.value = "";
 }
 
-function discardTopicExcerptEditing() {
+function clearTopicExcerptEditing() {
   if (!editingTopicExcerptId.value) {
-    return true;
-  }
-
-  if (isTopicExcerptEditDirty.value && !window.confirm("当前收录信息有未保存修改，确定放弃吗？")) {
-    return false;
+    return;
   }
 
   delete editingTopicExcerpts[editingTopicExcerptId.value];
   editingTopicExcerptId.value = "";
-  return true;
+}
+
+function runAfterTopicExcerptDiscard(action: ConfirmAction) {
+  if (!editingTopicExcerptId.value) {
+    void action();
+    return;
+  }
+
+  if (!isTopicExcerptEditDirty.value) {
+    clearTopicExcerptEditing();
+    void action();
+    return;
+  }
+
+  requestConfirmation(
+    "放弃更改",
+    "当前收录信息有未保存修改，确定放弃吗？",
+    async () => {
+      clearTopicExcerptEditing();
+      await action();
+    },
+    "放弃更改",
+  );
 }
 
 function nodeLabel(node: TopicNode) {
@@ -1261,7 +1286,9 @@ async function runSaving(task: () => Promise<void>) {
       <p class="reflection">{{ confirmMessage }}</p>
       <div class="modal-actions">
         <button class="secondary-action" type="button" @click="cancelConfirmation">取消</button>
-        <button class="danger-action" type="button" @click="confirmDestructiveAction">确认</button>
+        <button class="danger-action" type="button" @click="confirmDestructiveAction">
+          {{ confirmActionLabel }}
+        </button>
       </div>
     </div>
   </BaseModal>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, reactive, ref, watch } from "vue";
+import { computed, reactive, ref, shallowRef, watch } from "vue";
 import BaseModal from "./BaseModal.vue";
 import CustomSelect from "./CustomSelect.vue";
 import EditableCombobox from "./EditableCombobox.vue";
@@ -31,11 +31,16 @@ const emit = defineEmits<{
   updateExcerpt: [input: UpdateExcerptInput];
 }>();
 
+type PendingEditorAction = () => void;
+
 const filterModalOpen = ref(false);
 const deleteModalOpen = ref(false);
+const discardModalOpen = ref(false);
 const viewMode = ref<"list" | "detail" | "create" | "edit">("list");
 const activeExcerptId = ref("");
 const deletingExcerptId = ref("");
+const discardModalMessage = ref("");
+const pendingEditorAction = shallowRef<PendingEditorAction | null>(null);
 
 const filters = reactive<ExcerptFilters>({
   search: "",
@@ -229,31 +234,27 @@ function selectEditBook(title: string) {
 }
 
 function startEditing(excerpt: Excerpt) {
-  if (!confirmLeaveEditor()) {
-    return;
-  }
-
-  activeExcerptId.value = excerpt.id;
-  editDraft.id = excerpt.id;
-  editDraft.quote = excerpt.quote;
-  editDraft.reflection = excerpt.reflection || "";
-  editDraft.bookId = excerpt.bookId || null;
-  editDraft.chapterId = excerpt.chapterId || null;
-  editDraft.bookTitle = excerpt.bookTitle || "";
-  editDraft.chapterTitle = excerpt.chapterTitle || "";
-  editDraft.tagNames = excerpt.tags.map((tag) => tag.name);
-  editDraft.tagInput = excerpt.tags.map((tag) => `#${tag.name}`).join(" ");
-  viewMode.value = "edit";
+  runAfterEditorDiscard(() => {
+    activeExcerptId.value = excerpt.id;
+    editDraft.id = excerpt.id;
+    editDraft.quote = excerpt.quote;
+    editDraft.reflection = excerpt.reflection || "";
+    editDraft.bookId = excerpt.bookId || null;
+    editDraft.chapterId = excerpt.chapterId || null;
+    editDraft.bookTitle = excerpt.bookTitle || "";
+    editDraft.chapterTitle = excerpt.chapterTitle || "";
+    editDraft.tagNames = excerpt.tags.map((tag) => tag.name);
+    editDraft.tagInput = excerpt.tags.map((tag) => `#${tag.name}`).join(" ");
+    viewMode.value = "edit";
+  });
 }
 
 function openDetail(excerpt: Excerpt) {
-  if (!confirmLeaveEditor()) {
-    return;
-  }
-
-  activeExcerptId.value = excerpt.id;
-  resetEditDraft();
-  viewMode.value = "detail";
+  runAfterEditorDiscard(() => {
+    activeExcerptId.value = excerpt.id;
+    resetEditDraft();
+    viewMode.value = "detail";
+  });
 }
 
 function requestDeleteExcerpt(id: string) {
@@ -303,12 +304,10 @@ function submitEdit() {
 }
 
 function startCreate() {
-  if (!confirmLeaveEditor()) {
-    return;
-  }
-
-  resetCreateDraft();
-  viewMode.value = "create";
+  runAfterEditorDiscard(() => {
+    resetCreateDraft();
+    viewMode.value = "create";
+  });
 }
 
 function goToList() {
@@ -319,9 +318,7 @@ function goToList() {
 }
 
 function cancelEditor() {
-  if (confirmLeaveEditor()) {
-    goToList();
-  }
+  runAfterEditorDiscard(goToList);
 }
 
 function applyFilters() {
@@ -435,20 +432,49 @@ function excerptSource(excerpt: Excerpt) {
   return excerpt.chapterTitle || "未记录";
 }
 
-function confirmLeaveEditor() {
+function editorDiscardMessage() {
   if (viewMode.value === "create" && isCreateDirty.value) {
-    return window.confirm("当前新增摘抄还没有保存，确定离开吗？");
+    return "当前新增摘抄还没有保存，确定放弃这些修改并离开吗？";
   }
 
   if (viewMode.value !== "edit") {
-    return true;
+    return "";
   }
 
-  if (isEditDirty.value && !window.confirm("当前摘抄有未保存修改，确定放弃吗？")) {
-    return false;
+  if (isEditDirty.value) {
+    return "当前摘抄有未保存修改，确定放弃吗？";
   }
 
-  return true;
+  return "";
+}
+
+function runAfterEditorDiscard(action: PendingEditorAction) {
+  const message = editorDiscardMessage();
+
+  if (!message) {
+    action();
+    return;
+  }
+
+  discardModalMessage.value = message;
+  pendingEditorAction.value = action;
+  discardModalOpen.value = true;
+}
+
+function confirmDiscardEditor() {
+  const action = pendingEditorAction.value;
+  discardModalOpen.value = false;
+  pendingEditorAction.value = null;
+
+  if (action) {
+    action();
+  }
+}
+
+function cancelDiscardEditor() {
+  discardModalOpen.value = false;
+  pendingEditorAction.value = null;
+  discardModalMessage.value = "";
 }
 </script>
 
@@ -678,6 +704,20 @@ function confirmLeaveEditor() {
       <div class="modal-actions">
         <button class="secondary-action" type="button" @click="cancelDeleteExcerpt">取消</button>
         <button class="danger-action" type="button" @click="confirmDeleteExcerpt">删除</button>
+      </div>
+    </div>
+  </BaseModal>
+
+  <BaseModal :open="discardModalOpen" title="放弃更改" @close="cancelDiscardEditor">
+    <div class="modal-form">
+      <p class="reflection">{{ discardModalMessage }}</p>
+      <div class="modal-actions">
+        <button class="secondary-action" type="button" @click="cancelDiscardEditor">
+          继续编辑
+        </button>
+        <button class="danger-action" type="button" @click="confirmDiscardEditor">
+          放弃更改
+        </button>
       </div>
     </div>
   </BaseModal>
