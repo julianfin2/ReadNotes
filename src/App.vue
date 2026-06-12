@@ -462,6 +462,13 @@ nav {
 
 .database-actions {
   justify-content: flex-start;
+  gap: 12px;
+  padding-top: 2px;
+}
+
+.database-actions .primary-action,
+.database-actions .secondary-action {
+  min-width: 78px;
 }
 
 .library-panel,
