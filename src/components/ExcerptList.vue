@@ -460,43 +460,45 @@ function confirmLeaveEditor() {
           <span>操作</span>
         </div>
 
-        <div
-          v-for="excerpt in props.excerpts"
-          :key="excerpt.id"
-          class="excerpt-table-row"
-          role="button"
-          tabindex="0"
-          @click="openDetail(excerpt)"
-          @keydown.enter="openDetail(excerpt)"
-        >
-          <span class="table-quote">
-            <strong>{{ excerpt.quote }}</strong>
-            <small v-if="excerpt.reflection">{{ excerpt.reflection }}</small>
-          </span>
-          <span class="table-source">{{ excerptSource(excerpt) }}</span>
-          <span
-            class="table-tags"
-            :title="excerpt.tags.map((tag) => `#${tag.name}`).join(' ')"
+        <div class="excerpt-table-body">
+          <div
+            v-for="excerpt in props.excerpts"
+            :key="excerpt.id"
+            class="excerpt-table-row"
+            role="button"
+            tabindex="0"
+            @click="openDetail(excerpt)"
+            @keydown.enter="openDetail(excerpt)"
           >
-            <span v-for="tag in excerpt.tags.slice(0, 2)" :key="tag.id" class="table-tag">
-              #{{ tag.name }}
+            <span class="table-quote">
+              <strong>{{ excerpt.quote }}</strong>
+              <small v-if="excerpt.reflection">{{ excerpt.reflection }}</small>
             </span>
-            <span v-if="excerpt.tags.length > 2" class="table-tag-more">
-              +{{ excerpt.tags.length - 2 }}
+            <span class="table-source">{{ excerptSource(excerpt) }}</span>
+            <span
+              class="table-tags"
+              :title="excerpt.tags.map((tag) => `#${tag.name}`).join(' ')"
+            >
+              <span v-for="tag in excerpt.tags.slice(0, 2)" :key="tag.id" class="table-tag">
+                #{{ tag.name }}
+              </span>
+              <span v-if="excerpt.tags.length > 2" class="table-tag-more">
+                +{{ excerpt.tags.length - 2 }}
+              </span>
             </span>
-          </span>
-          <span class="item-meta">{{ formatDate(excerpt.createdAt) }}</span>
-          <span class="row-actions" @click.stop>
-            <button class="secondary-action" type="button" @click="startEditing(excerpt)">
-              编辑
-            </button>
-            <button class="danger-action" type="button" @click="requestDeleteExcerpt(excerpt.id)">
-              删除
-            </button>
-          </span>
-        </div>
+            <span class="item-meta">{{ formatDate(excerpt.createdAt) }}</span>
+            <span class="row-actions" @click.stop>
+              <button class="secondary-action" type="button" @click="startEditing(excerpt)">
+                编辑
+              </button>
+              <button class="danger-action" type="button" @click="requestDeleteExcerpt(excerpt.id)">
+                删除
+              </button>
+            </span>
+          </div>
 
-        <p v-if="props.excerpts.length === 0" class="empty-state table-empty">还没有摘抄。</p>
+          <p v-if="props.excerpts.length === 0" class="empty-state table-empty">还没有摘抄。</p>
+        </div>
       </div>
     </div>
 

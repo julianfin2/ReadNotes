@@ -746,36 +746,38 @@ async function runSaving(task: () => Promise<void>) {
           <span>操作</span>
         </div>
 
-        <div
-          v-for="topic in topics"
-          :key="topic.id"
-          class="topic-table-row"
-          role="button"
-          tabindex="0"
-          @click="openTopicWorkspace(topic)"
-          @keydown.enter="openTopicWorkspace(topic)"
-        >
-          <span class="table-quote">
-            <strong>{{ topic.title }}</strong>
-            <small v-if="topic.description">{{ topic.description }}</small>
-          </span>
-          <span class="table-source">{{ topic.researchQuestion || "未记录" }}</span>
-          <span class="topic-status">{{ topicStatusLabel(topic.status) }}</span>
-          <span class="item-meta">{{ formatDate(topic.updatedAt) }}</span>
-          <span class="row-actions" @click.stop>
-            <button class="secondary-action" type="button" @click="openTopicWorkspace(topic)">
-              打开
-            </button>
-            <button class="secondary-action" type="button" @click="startEditingTopic(topic)">
-              编辑
-            </button>
-            <button class="danger-action" type="button" @click="requestDeleteTopic(topic)">
-              删除
-            </button>
-          </span>
-        </div>
+        <div class="topic-table-body">
+          <div
+            v-for="topic in topics"
+            :key="topic.id"
+            class="topic-table-row"
+            role="button"
+            tabindex="0"
+            @click="openTopicWorkspace(topic)"
+            @keydown.enter="openTopicWorkspace(topic)"
+          >
+            <span class="table-quote">
+              <strong>{{ topic.title }}</strong>
+              <small v-if="topic.description">{{ topic.description }}</small>
+            </span>
+            <span class="table-source">{{ topic.researchQuestion || "未记录" }}</span>
+            <span class="topic-status">{{ topicStatusLabel(topic.status) }}</span>
+            <span class="item-meta">{{ formatDate(topic.updatedAt) }}</span>
+            <span class="row-actions" @click.stop>
+              <button class="secondary-action" type="button" @click="openTopicWorkspace(topic)">
+                打开
+              </button>
+              <button class="secondary-action" type="button" @click="startEditingTopic(topic)">
+                编辑
+              </button>
+              <button class="danger-action" type="button" @click="requestDeleteTopic(topic)">
+                删除
+              </button>
+            </span>
+          </div>
 
-        <p v-if="topics.length === 0" class="empty-state table-empty">还没有主题。</p>
+          <p v-if="topics.length === 0" class="empty-state table-empty">还没有主题。</p>
+        </div>
       </div>
     </div>
 

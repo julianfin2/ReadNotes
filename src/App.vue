@@ -709,20 +709,18 @@ form,
 .excerpt-table,
 .topic-table,
 .tag-table {
+  display: flex;
+  flex-direction: column;
   min-height: 0;
   height: 100%;
   border: 1px solid #ded7ca;
   border-radius: 8px;
   background: #fffdf9;
-  overflow: auto;
-}
-
-.tag-table {
-  display: flex;
-  flex-direction: column;
   overflow: hidden;
 }
 
+.excerpt-table-body,
+.topic-table-body,
 .tag-table-body {
   flex: 1 1 auto;
   min-height: 0;
@@ -751,12 +749,6 @@ form,
   color: #6e7678;
   font-size: 0.78rem;
   font-weight: 700;
-}
-
-.excerpt-table-head,
-.topic-table-head {
-  position: sticky;
-  top: 0;
 }
 
 .excerpt-table-head,
