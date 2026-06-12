@@ -1578,6 +1578,11 @@ select:focus {
   overflow: auto;
 }
 
+.book-list-scroll {
+  margin-right: -10px;
+  padding-right: 10px;
+}
+
 .book-list-item {
   display: grid;
   gap: 5px;
