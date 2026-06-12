@@ -848,15 +848,16 @@ form,
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: #2e6f62;
+  color: var(--tag-accent, #2e6f62);
   font-size: 0.78rem;
   font-weight: 700;
 }
 
 .table-tag {
   padding: 1px 6px;
+  border: 1px solid var(--tag-background, transparent);
   border-radius: 5px;
-  background: #e8eee6;
+  background: var(--tag-background, #e8eee6);
 }
 
 .table-tag-more {
@@ -1720,9 +1721,10 @@ blockquote {
 .tag-pill {
   max-width: 100%;
   padding: 3px 8px;
+  border: 1px solid var(--tag-background, transparent);
   border-radius: 999px;
-  background: #e8eee6;
-  color: #2e6f62;
+  background: var(--tag-background, #e8eee6);
+  color: var(--tag-accent, #2e6f62);
   font-size: 0.78rem;
   font-weight: 700;
   overflow-wrap: anywhere;

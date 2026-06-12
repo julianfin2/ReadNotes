@@ -361,6 +361,33 @@ function chapterOptionsForBook(bookTitle: string) {
   return book?.chapters.map((chapter) => chapter.title) || [];
 }
 
+function tagStyle(tag: Tag) {
+  if (!tag.color) {
+    return {};
+  }
+
+  return {
+    "--tag-accent": tag.color,
+    "--tag-background": toTagBackground(tag.color),
+  };
+}
+
+function toTagBackground(color: string) {
+  const normalized = color.trim();
+  const hex = normalized.match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);
+  if (!hex) {
+    return normalized;
+  }
+
+  const value = hex[1].length === 3
+    ? hex[1].split("").map((part) => part + part).join("")
+    : hex[1];
+  const red = Number.parseInt(value.slice(0, 2), 16);
+  const green = Number.parseInt(value.slice(2, 4), 16);
+  const blue = Number.parseInt(value.slice(4, 6), 16);
+  return `rgba(${red}, ${green}, ${blue}, 0.14)`;
+}
+
 function normalizeOptionalText(value: string | null | undefined) {
   return value || "";
 }
@@ -479,7 +506,12 @@ function confirmLeaveEditor() {
               class="table-tags"
               :title="excerpt.tags.map((tag) => `#${tag.name}`).join(' ')"
             >
-              <span v-for="tag in excerpt.tags.slice(0, 2)" :key="tag.id" class="table-tag">
+              <span
+                v-for="tag in excerpt.tags.slice(0, 2)"
+                :key="tag.id"
+                class="table-tag"
+                :style="tagStyle(tag)"
+              >
                 #{{ tag.name }}
               </span>
               <span v-if="excerpt.tags.length > 2" class="table-tag-more">
@@ -525,7 +557,12 @@ function confirmLeaveEditor() {
         </section>
 
         <div v-if="activeExcerpt.tags.length > 0" class="tag-row">
-          <span v-for="tag in activeExcerpt.tags" :key="tag.id" class="tag-pill">
+          <span
+            v-for="tag in activeExcerpt.tags"
+            :key="tag.id"
+            class="tag-pill"
+            :style="tagStyle(tag)"
+          >
             #{{ tag.name }}
           </span>
         </div>

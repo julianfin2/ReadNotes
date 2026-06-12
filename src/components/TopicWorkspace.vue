@@ -4,6 +4,7 @@ import { invoke } from "@tauri-apps/api/core";
 import BaseModal from "./BaseModal.vue";
 import CustomSelect from "./CustomSelect.vue";
 import type { Excerpt } from "../types/excerpt";
+import type { Tag } from "../types/tag";
 import type { Topic, TopicExcerpt, TopicNode, TopicStatus } from "../types/topic";
 
 const props = defineProps<{
@@ -658,6 +659,33 @@ function excerptSourceLabel(excerpt: Excerpt) {
   return excerpt.chapterTitle || "未记录书籍与章节";
 }
 
+function tagStyle(tag: Tag) {
+  if (!tag.color) {
+    return {};
+  }
+
+  return {
+    "--tag-accent": tag.color,
+    "--tag-background": toTagBackground(tag.color),
+  };
+}
+
+function toTagBackground(color: string) {
+  const normalized = color.trim();
+  const hex = normalized.match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);
+  if (!hex) {
+    return normalized;
+  }
+
+  const value = hex[1].length === 3
+    ? hex[1].split("").map((part) => part + part).join("")
+    : hex[1];
+  const red = Number.parseInt(value.slice(0, 2), 16);
+  const green = Number.parseInt(value.slice(2, 4), 16);
+  const blue = Number.parseInt(value.slice(4, 6), 16);
+  return `rgba(${red}, ${green}, ${blue}, 0.14)`;
+}
+
 function formatDate(value: string) {
   return new Date(value).toLocaleDateString();
 }
@@ -1075,6 +1103,7 @@ async function runSaving(task: () => Promise<void>) {
                   v-for="tag in selectedTopicExcerpt.excerpt.tags"
                   :key="tag.id"
                   class="tag-pill"
+                  :style="tagStyle(tag)"
                 >
                   #{{ tag.name }}
                 </span>
@@ -1137,7 +1166,12 @@ async function runSaving(task: () => Promise<void>) {
             <span class="item-title">{{ excerpt.quote }}</span>
             <span class="item-meta">{{ excerptSourceLabel(excerpt) }}</span>
             <span v-if="excerpt.tags.length > 0" class="tag-row compact-tags">
-              <span v-for="tag in excerpt.tags" :key="tag.id" class="tag-pill">
+              <span
+                v-for="tag in excerpt.tags"
+                :key="tag.id"
+                class="tag-pill"
+                :style="tagStyle(tag)"
+              >
                 #{{ tag.name }}
               </span>
             </span>
