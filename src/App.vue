@@ -19,6 +19,7 @@ const databasePath = ref("");
 const errorMessage = ref("");
 const isSaving = ref(false);
 const lastFilters = ref<ExcerptFilters | undefined>();
+let errorDismissTimer: number | undefined;
 
 onMounted(async () => {
   await Promise.all([loadDatabasePath(), loadExcerpts(), loadTags(), loadBooks()]);
@@ -36,27 +37,27 @@ async function loadExcerpts(filters?: ExcerptFilters) {
 }
 
 async function updateExcerpt(input: UpdateExcerptInput) {
-  errorMessage.value = "";
+  clearError();
   isSaving.value = true;
 
   try {
     await invoke<Excerpt>("update_excerpt", { input });
     await Promise.all([loadExcerpts(lastFilters.value), loadTags(), loadBooks()]);
   } catch (error) {
-    errorMessage.value = String(error);
+    showError(error);
   } finally {
     isSaving.value = false;
   }
 }
 
 async function deleteExcerpt(id: string) {
-  errorMessage.value = "";
+  clearError();
 
   try {
     await invoke("delete_excerpt", { id });
     await Promise.all([loadExcerpts(lastFilters.value), loadTags()]);
   } catch (error) {
-    errorMessage.value = String(error);
+    showError(error);
   }
 }
 
@@ -75,16 +76,36 @@ async function createExcerpt(input: {
   chapterTitle: string;
   tagNames: string[];
 }) {
-  errorMessage.value = "";
+  clearError();
   isSaving.value = true;
 
   try {
     await invoke<Excerpt>("create_excerpt", { input });
     await Promise.all([loadExcerpts(), loadTags(), loadBooks()]);
   } catch (error) {
-    errorMessage.value = String(error);
+    showError(error);
   } finally {
     isSaving.value = false;
+  }
+}
+
+function showError(error: unknown) {
+  errorMessage.value = String(error);
+  if (errorDismissTimer) {
+    window.clearTimeout(errorDismissTimer);
+  }
+
+  errorDismissTimer = window.setTimeout(() => {
+    errorMessage.value = "";
+    errorDismissTimer = undefined;
+  }, 6000);
+}
+
+function clearError() {
+  errorMessage.value = "";
+  if (errorDismissTimer) {
+    window.clearTimeout(errorDismissTimer);
+    errorDismissTimer = undefined;
   }
 }
 
@@ -104,7 +125,12 @@ function toExcerptQuery(filters: ExcerptFilters) {
 
     <section class="app-main-frame">
       <template v-if="activeView === 'excerpts'">
-      <p v-if="errorMessage" class="app-error">{{ errorMessage }}</p>
+      <div v-if="errorMessage" class="app-error" role="alert">
+        <span>{{ errorMessage }}</span>
+        <button class="app-error-close" type="button" aria-label="关闭错误提示" @click="clearError">
+          ×
+        </button>
+      </div>
       <ExcerptList
         :excerpts="excerpts"
         :is-saving="isSaving"
@@ -1093,6 +1119,9 @@ select:focus {
   right: 20px;
   bottom: 20px;
   z-index: 2;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
   max-width: min(420px, calc(100vw - 40px));
   margin: 0;
   padding: 10px 12px;
@@ -1101,6 +1130,26 @@ select:focus {
   background: #fff8f6;
   color: #a23b32;
   box-shadow: 0 8px 18px rgba(38, 35, 30, 0.12);
+}
+
+.app-error span {
+  min-width: 0;
+}
+
+.app-error-close {
+  flex: 0 0 auto;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  background: transparent;
+  color: #a23b32;
+  cursor: pointer;
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.app-error-close:hover {
+  background: rgba(162, 59, 50, 0.1);
 }
 
 .modal-backdrop {
