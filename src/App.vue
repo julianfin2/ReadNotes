@@ -18,21 +18,21 @@ const books = ref<Book[]>([]);
 const databasePath = ref("");
 const errorMessage = ref("");
 const isSaving = ref(false);
-const lastFilters = ref<ExcerptFilters | undefined>();
+const excerptFilters = ref<ExcerptFilters>(createDefaultExcerptFilters());
 let errorDismissTimer: number | undefined;
 
 onMounted(async () => {
-  await Promise.all([loadDatabasePath(), loadExcerpts(), loadTags(), loadBooks()]);
+  await Promise.all([loadDatabasePath(), loadExcerpts(excerptFilters.value), loadTags(), loadBooks()]);
 });
 
 async function loadDatabasePath() {
   databasePath.value = await invoke<string>("get_database_path");
 }
 
-async function loadExcerpts(filters?: ExcerptFilters) {
-  lastFilters.value = filters;
+async function loadExcerpts(filters: ExcerptFilters = excerptFilters.value) {
+  excerptFilters.value = { ...filters };
   excerpts.value = await invoke<Excerpt[]>("list_excerpts", {
-    input: filters ? toExcerptQuery(filters) : null,
+    input: toExcerptQuery(excerptFilters.value),
   });
 }
 
@@ -42,7 +42,7 @@ async function updateExcerpt(input: UpdateExcerptInput) {
 
   try {
     await invoke<Excerpt>("update_excerpt", { input });
-    await Promise.all([loadExcerpts(lastFilters.value), loadTags(), loadBooks()]);
+    await Promise.all([loadExcerpts(excerptFilters.value), loadTags(), loadBooks()]);
   } catch (error) {
     showError(error);
   } finally {
@@ -55,7 +55,7 @@ async function deleteExcerpt(id: string) {
 
   try {
     await invoke("delete_excerpt", { id });
-    await Promise.all([loadExcerpts(lastFilters.value), loadTags()]);
+    await Promise.all([loadExcerpts(excerptFilters.value), loadTags()]);
   } catch (error) {
     showError(error);
   }
@@ -70,11 +70,11 @@ async function loadBooks() {
 }
 
 async function handleBooksChanged() {
-  await Promise.all([loadBooks(), loadExcerpts(lastFilters.value)]);
+  await Promise.all([loadBooks(), loadExcerpts(excerptFilters.value)]);
 }
 
 async function handleTagsChanged() {
-  await Promise.all([loadTags(), loadExcerpts(lastFilters.value)]);
+  await Promise.all([loadTags(), loadExcerpts(excerptFilters.value)]);
 }
 
 async function createExcerpt(input: {
@@ -91,7 +91,7 @@ async function createExcerpt(input: {
 
   try {
     await invoke<Excerpt>("create_excerpt", { input });
-    await Promise.all([loadExcerpts(), loadTags(), loadBooks()]);
+    await Promise.all([loadExcerpts(excerptFilters.value), loadTags(), loadBooks()]);
   } catch (error) {
     showError(error);
   } finally {
@@ -127,6 +127,15 @@ function toExcerptQuery(filters: ExcerptFilters) {
     sortDirection: filters.sortDirection,
   };
 }
+
+function createDefaultExcerptFilters(): ExcerptFilters {
+  return {
+    search: "",
+    tagName: "",
+    sortBy: "createdAt",
+    sortDirection: "desc",
+  };
+}
 </script>
 
 <template>
@@ -146,6 +155,7 @@ function toExcerptQuery(filters: ExcerptFilters) {
         :is-saving="isSaving"
         :books="books"
         :tags="tags"
+        :filters="excerptFilters"
         @apply-filters="loadExcerpts"
         @create-excerpt="createExcerpt"
         @delete-excerpt="deleteExcerpt"

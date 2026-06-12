@@ -11,6 +11,7 @@ const props = defineProps<{
   excerpts: Excerpt[];
   books: Book[];
   tags: Tag[];
+  filters: ExcerptFilters;
   isSaving: boolean;
 }>();
 
@@ -184,6 +185,14 @@ const isEditDirty = computed(() => {
 const canSaveEdit = computed(() => {
   return editDraft.quote.trim().length > 0 && isEditDirty.value && !props.isSaving;
 });
+
+watch(
+  () => props.filters,
+  (filters) => {
+    syncAppliedFilters(filters);
+  },
+  { deep: true, immediate: true },
+);
 
 watch(
   () => props.excerpts,
@@ -411,6 +420,20 @@ function copyFilters(source: ExcerptFilters, target: ExcerptFilters) {
   target.tagName = source.tagName;
   target.sortBy = source.sortBy;
   target.sortDirection = source.sortDirection;
+}
+
+function syncAppliedFilters(filters: ExcerptFilters) {
+  if (searchDebounceTimer) {
+    window.clearTimeout(searchDebounceTimer);
+    searchDebounceTimer = undefined;
+  }
+
+  copyFilters(filters, appliedFilters);
+  toolbarSearch.value = filters.search;
+
+  if (!filterModalOpen.value) {
+    copyFilters(filters, filterDraft);
+  }
 }
 
 function resetCreateDraft() {
