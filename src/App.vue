@@ -605,7 +605,7 @@ form,
 .excerpt-table-head,
 .excerpt-table-row {
   display: grid;
-  grid-template-columns: minmax(280px, 1.8fr) minmax(180px, 0.9fr) minmax(180px, 0.8fr) 120px 150px;
+  grid-template-columns: minmax(300px, 2fr) minmax(190px, 1fr) minmax(150px, 0.62fr) 120px 150px;
   gap: 14px;
   align-items: center;
 }
@@ -681,6 +681,33 @@ form,
   display: flex;
   align-items: center;
   gap: 6px;
+}
+
+.table-tags {
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.table-tag,
+.table-tag-more {
+  flex: 0 0 auto;
+  max-width: 78px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #2e6f62;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.table-tag {
+  padding: 1px 6px;
+  border-radius: 5px;
+  background: #e8eee6;
+}
+
+.table-tag-more {
+  color: #6e7678;
 }
 
 .row-actions {
