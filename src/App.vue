@@ -1392,7 +1392,9 @@ select:focus {
   gap: 8px;
   flex: 1 1 auto;
   min-height: 0;
+  margin-right: -10px;
   overflow: auto;
+  padding-right: 10px;
 }
 
 .context-actions {
