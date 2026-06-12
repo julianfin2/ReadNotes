@@ -854,111 +854,110 @@ async function runSaving(task: () => Promise<void>) {
       </div>
     </form>
 
-    <div v-else-if="viewMode === 'workspace' && selectedTopic" class="topic-workspace-grid">
-      <aside class="topic-context-pane">
-        <section class="context-section">
-          <div class="card-header">
-            <h3>子主题</h3>
-            <div class="inline-actions">
+    <div v-else-if="viewMode === 'workspace' && selectedTopic" class="topic-workspace">
+      <section class="topic-tabs-bar">
+        <div class="topic-tabs">
+          <button
+            class="topic-tab"
+            :class="{ active: selectedNodeId === '' }"
+            type="button"
+            @click="selectTopicNode('')"
+          >
+            全部摘抄
+          </button>
+          <button
+            v-for="node in topicNodes"
+            :key="node.id"
+            class="topic-tab"
+            :class="{ active: node.id === selectedNodeId }"
+            type="button"
+            @click="selectTopicNode(node.id)"
+          >
+            {{ nodeLabel(node) }}
+          </button>
+        </div>
+
+        <div class="topic-tab-actions">
+          <button
+            v-if="selectedNode"
+            class="secondary-action"
+            type="button"
+            @click="startEditingNode(selectedNode)"
+          >
+            编辑
+          </button>
+          <button
+            v-if="selectedNode"
+            class="danger-action"
+            type="button"
+            @click="requestDeleteTopicNode(selectedNode)"
+          >
+            删除
+          </button>
+          <button class="secondary-action" type="button" @click="nodeModalOpen = true">
+            添加子主题
+          </button>
+        </div>
+      </section>
+
+      <p v-if="selectedNode?.summary" class="topic-node-summary">{{ selectedNode.summary }}</p>
+
+      <div class="topic-workspace-grid">
+        <aside class="topic-material-pane">
+          <section class="context-section material-context-section">
+            <div class="card-header">
+              <div>
+                <h3>材料</h3>
+                <p class="subtle-text">{{ visibleTopicExcerpts.length }} 条材料</p>
+              </div>
+              <button class="primary-action" type="button" @click="openAddExcerptModal">
+                收录
+              </button>
+            </div>
+
+            <p class="context-caption">{{ selectedNode?.title || "全部摘抄" }}</p>
+
+            <div class="material-list-scroll">
               <button
-                v-if="selectedNode"
-                class="secondary-action"
+                v-for="topicExcerpt in visibleTopicExcerpts"
+                :key="topicExcerpt.id"
+                class="excerpt-list-item"
+                :class="{ active: topicExcerpt.id === selectedTopicExcerptId }"
                 type="button"
-                @click="startEditingNode(selectedNode)"
+                @click="selectTopicExcerpt(topicExcerpt.id)"
               >
-                编辑
-              </button>
-              <button
-                v-if="selectedNode"
-                class="danger-action"
-                type="button"
-                @click="requestDeleteTopicNode(selectedNode)"
-              >
-                删除
-              </button>
-              <button class="secondary-action" type="button" @click="nodeModalOpen = true">
-                添加
+                <span class="item-title">{{ topicExcerpt.excerpt.quote }}</span>
+                <span
+                  v-if="topicExcerpt.excerpt.bookTitle || topicExcerpt.excerpt.chapterTitle"
+                  class="item-meta"
+                >
+                  <span v-if="topicExcerpt.excerpt.bookTitle">
+                    《{{ topicExcerpt.excerpt.bookTitle }}》
+                  </span>
+                  <span v-if="topicExcerpt.excerpt.bookTitle && topicExcerpt.excerpt.chapterTitle">
+                    /
+                  </span>
+                  <span v-if="topicExcerpt.excerpt.chapterTitle">
+                    {{ topicExcerpt.excerpt.chapterTitle }}
+                  </span>
+                </span>
+                <span class="item-meta">
+                  {{ new Date(topicExcerpt.addedAt).toLocaleDateString() }}
+                </span>
               </button>
             </div>
-          </div>
 
-          <div class="node-list">
-            <button
-              class="node-selector"
-              :class="{ active: selectedNodeId === '' }"
-              @click="selectTopicNode('')"
-            >
-              全部摘抄
-            </button>
+            <p v-if="visibleTopicExcerpts.length === 0" class="empty-state">
+              当前范围还没有收录摘抄。
+            </p>
+          </section>
+        </aside>
 
-            <div v-for="node in topicNodes" :key="node.id" class="node-editor">
-              <button
-                class="node-selector"
-                :class="{ active: node.id === selectedNodeId }"
-                @click="selectTopicNode(node.id)"
-              >
-                {{ nodeLabel(node) }}
-              </button>
-            </div>
-          </div>
-
-          <div v-if="selectedNode" class="context-actions">
-            <p v-if="selectedNode.summary" class="subtle-text">{{ selectedNode.summary }}</p>
-          </div>
-        </section>
-
-        <section class="context-section material-context-section">
-          <div class="card-header">
-            <div>
-              <h3>材料</h3>
-              <p class="subtle-text">{{ visibleTopicExcerpts.length }} 条材料</p>
-            </div>
-            <button class="primary-action" type="button" @click="openAddExcerptModal">
-              收录
-            </button>
-          </div>
-
-          <p class="context-caption">{{ selectedNode?.title || "全部摘抄" }}</p>
-
-          <div class="material-list-scroll">
-            <button
-              v-for="topicExcerpt in visibleTopicExcerpts"
-              :key="topicExcerpt.id"
-              class="excerpt-list-item"
-              :class="{ active: topicExcerpt.id === selectedTopicExcerptId }"
-              type="button"
-              @click="selectTopicExcerpt(topicExcerpt.id)"
-            >
-              <span class="item-title">{{ topicExcerpt.excerpt.quote }}</span>
-              <span
-                v-if="topicExcerpt.excerpt.bookTitle || topicExcerpt.excerpt.chapterTitle"
-                class="item-meta"
-              >
-                <span v-if="topicExcerpt.excerpt.bookTitle">
-                  《{{ topicExcerpt.excerpt.bookTitle }}》
-                </span>
-                <span v-if="topicExcerpt.excerpt.bookTitle && topicExcerpt.excerpt.chapterTitle">
-                  /
-                </span>
-                <span v-if="topicExcerpt.excerpt.chapterTitle">
-                  {{ topicExcerpt.excerpt.chapterTitle }}
-                </span>
-              </span>
-              <span class="item-meta">{{ new Date(topicExcerpt.addedAt).toLocaleDateString() }}</span>
-            </button>
-          </div>
-
-          <p v-if="visibleTopicExcerpts.length === 0" class="empty-state">
-            当前范围还没有收录摘抄。
-          </p>
-        </section>
-      </aside>
-
-      <article
-        v-if="selectedTopicExcerpt"
-        class="detail-pane excerpt-detail-pane topic-detail-pane document-detail-pane"
-        :class="{ 'is-editing': isEditingSelectedTopicExcerpt }"
-      >
+        <article
+          v-if="selectedTopicExcerpt"
+          class="detail-pane excerpt-detail-pane topic-detail-pane document-detail-pane"
+          :class="{ 'is-editing': isEditingSelectedTopicExcerpt }"
+        >
         <form
           v-if="isEditingSelectedTopicExcerpt && editingTopicExcerpts[editingTopicExcerptId]"
           class="detail-document edit-document"
@@ -1118,6 +1117,7 @@ async function runSaving(task: () => Promise<void>) {
       <section v-else class="detail-pane empty-detail">
         <p class="empty-state">选择一条材料查看详情。</p>
       </section>
+    </div>
     </div>
 
     <p v-if="errorMessage" class="error-message">{{ errorMessage }}</p>
