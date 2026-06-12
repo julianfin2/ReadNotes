@@ -498,6 +498,7 @@ form,
   grid-template-columns: minmax(280px, 340px) minmax(0, 1fr);
   gap: 16px;
   min-height: 0;
+  overflow: hidden;
 }
 
 .library-workbench .split-workspace {
@@ -506,6 +507,8 @@ form,
 
 .list-pane,
 .detail-pane {
+  display: flex;
+  flex-direction: column;
   min-height: 0;
   border: 1px solid #ded7ca;
   border-radius: 8px;
@@ -517,8 +520,10 @@ form,
 .detail-scroll {
   display: grid;
   align-content: start;
+  grid-auto-rows: max-content;
   gap: 8px;
-  height: 100%;
+  flex: 1 1 auto;
+  min-height: 0;
   overflow: auto;
   padding: 12px;
 }
