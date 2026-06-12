@@ -1,13 +1,30 @@
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
 use rusqlite::Connection;
-use tauri::{AppHandle, Manager};
+use serde::{Deserialize, Serialize};
+use tauri::{AppHandle, Manager, State};
 
 pub struct AppState {
     pub db: Mutex<Connection>,
-    pub db_path: PathBuf,
+    pub db_path: Mutex<PathBuf>,
+    default_db_path: PathBuf,
+    settings_path: PathBuf,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DatabaseInfo {
+    current_path: String,
+    default_path: String,
+    using_default: bool,
+}
+
+#[derive(Debug, Default, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct AppSettings {
+    database_path: Option<String>,
 }
 
 pub fn open_database(app: &AppHandle) -> Result<AppState, String> {
@@ -19,25 +36,64 @@ pub fn open_database(app: &AppHandle) -> Result<AppState, String> {
     fs::create_dir_all(&app_data_dir)
         .map_err(|error| format!("failed to create app data directory: {error}"))?;
 
-    let db_path = app_data_dir.join("readnotes.sqlite");
-    let connection =
-        Connection::open(&db_path).map_err(|error| format!("failed to open database: {error}"))?;
-
-    connection
-        .execute_batch(
-            "
-            PRAGMA foreign_keys = ON;
-            PRAGMA journal_mode = DELETE;
-            ",
-        )
-        .map_err(|error| format!("failed to configure database: {error}"))?;
-
-    initialize_schema(&connection)?;
+    let default_db_path = app_data_dir.join("readnotes.sqlite");
+    let settings_path = app_data_dir.join("settings.json");
+    let settings = read_settings(&settings_path)?;
+    let db_path = settings
+        .database_path
+        .map(PathBuf::from)
+        .unwrap_or_else(|| default_db_path.clone());
+    let connection = open_database_connection(&db_path, true)?;
 
     Ok(AppState {
         db: Mutex::new(connection),
-        db_path,
+        db_path: Mutex::new(db_path),
+        default_db_path,
+        settings_path,
     })
+}
+
+#[tauri::command]
+pub fn get_database_info(state: State<'_, AppState>) -> Result<DatabaseInfo, String> {
+    let current_path = state
+        .db_path
+        .lock()
+        .map_err(|_| "database path lock was poisoned".to_string())?
+        .clone();
+
+    Ok(database_info(&current_path, &state.default_db_path))
+}
+
+#[tauri::command]
+pub fn create_database_at(state: State<'_, AppState>, path: String) -> Result<DatabaseInfo, String> {
+    let db_path = normalize_user_database_path(path)?;
+    if db_path.exists() {
+        return Err("database file already exists".to_string());
+    }
+
+    let connection = open_database_connection(&db_path, true)?;
+    activate_database(&state, db_path, connection, true)
+}
+
+#[tauri::command]
+pub fn switch_database(state: State<'_, AppState>, path: String) -> Result<DatabaseInfo, String> {
+    let db_path = normalize_user_database_path(path)?;
+    if !db_path.exists() {
+        return Err("database file does not exist".to_string());
+    }
+    if !db_path.is_file() {
+        return Err("database path must point to a file".to_string());
+    }
+
+    let connection = open_database_connection(&db_path, false)?;
+    activate_database(&state, db_path, connection, true)
+}
+
+#[tauri::command]
+pub fn use_default_database(state: State<'_, AppState>) -> Result<DatabaseInfo, String> {
+    let db_path = state.default_db_path.clone();
+    let connection = open_database_connection(&db_path, true)?;
+    activate_database(&state, db_path, connection, false)
 }
 
 fn initialize_schema(connection: &Connection) -> Result<(), String> {
@@ -234,4 +290,105 @@ pub fn rebuild_excerpt_search_index(connection: &Connection) -> Result<(), Strin
             ",
         )
         .map_err(|error| format!("failed to rebuild excerpt search index: {error}"))
+}
+
+fn open_database_connection(path: &Path, create_parent: bool) -> Result<Connection, String> {
+    if create_parent {
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent)
+                .map_err(|error| format!("failed to create database directory: {error}"))?;
+        }
+    }
+
+    let connection =
+        Connection::open(path).map_err(|error| format!("failed to open database: {error}"))?;
+
+    connection
+        .execute_batch(
+            "
+            PRAGMA foreign_keys = ON;
+            PRAGMA journal_mode = DELETE;
+            ",
+        )
+        .map_err(|error| format!("failed to configure database: {error}"))?;
+
+    initialize_schema(&connection)?;
+    Ok(connection)
+}
+
+fn activate_database(
+    state: &AppState,
+    db_path: PathBuf,
+    connection: Connection,
+    persist_custom_path: bool,
+) -> Result<DatabaseInfo, String> {
+    let settings = AppSettings {
+        database_path: if persist_custom_path {
+            Some(db_path.display().to_string())
+        } else {
+            None
+        },
+    };
+    write_settings(&state.settings_path, &settings)?;
+
+    {
+        let mut active_connection = state
+            .db
+            .lock()
+            .map_err(|_| "database lock was poisoned".to_string())?;
+        *active_connection = connection;
+    }
+
+    {
+        let mut active_path = state
+            .db_path
+            .lock()
+            .map_err(|_| "database path lock was poisoned".to_string())?;
+        *active_path = db_path.clone();
+    }
+
+    Ok(database_info(&db_path, &state.default_db_path))
+}
+
+fn database_info(current_path: &Path, default_path: &Path) -> DatabaseInfo {
+    DatabaseInfo {
+        current_path: current_path.display().to_string(),
+        default_path: default_path.display().to_string(),
+        using_default: current_path == default_path,
+    }
+}
+
+fn normalize_user_database_path(path: String) -> Result<PathBuf, String> {
+    let trimmed = path.trim();
+    if trimmed.is_empty() {
+        return Err("database path cannot be empty".to_string());
+    }
+
+    let db_path = PathBuf::from(trimmed);
+    if !db_path.is_absolute() {
+        return Err("database path must be an absolute path".to_string());
+    }
+
+    Ok(db_path)
+}
+
+fn read_settings(settings_path: &Path) -> Result<AppSettings, String> {
+    if !settings_path.exists() {
+        return Ok(AppSettings::default());
+    }
+
+    let content = fs::read_to_string(settings_path)
+        .map_err(|error| format!("failed to read settings: {error}"))?;
+    serde_json::from_str(&content).map_err(|error| format!("failed to parse settings: {error}"))
+}
+
+fn write_settings(settings_path: &Path, settings: &AppSettings) -> Result<(), String> {
+    if let Some(parent) = settings_path.parent() {
+        fs::create_dir_all(parent)
+            .map_err(|error| format!("failed to create settings directory: {error}"))?;
+    }
+
+    let content = serde_json::to_string_pretty(settings)
+        .map_err(|error| format!("failed to serialize settings: {error}"))?;
+    fs::write(settings_path, content).map_err(|error| format!("failed to write settings: {error}"))
 }

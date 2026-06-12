@@ -4,29 +4,40 @@ import { invoke } from "@tauri-apps/api/core";
 import AppSidebar from "./components/AppSidebar.vue";
 import ExcerptList from "./components/ExcerptList.vue";
 import ManagementView from "./components/ManagementView.vue";
+import SettingsView from "./components/SettingsView.vue";
 import TopicWorkspace from "./components/TopicWorkspace.vue";
 import type { Book } from "./types/book";
+import type { DatabaseInfo } from "./types/database";
 import type { Excerpt, ExcerptFilters, UpdateExcerptInput } from "./types/excerpt";
 import type { Tag } from "./types/tag";
 
-type ViewKey = "excerpts" | "topics" | "management";
+type ViewKey = "excerpts" | "topics" | "management" | "settings";
 
 const activeView = ref<ViewKey>("excerpts");
 const excerpts = ref<Excerpt[]>([]);
 const tags = ref<Tag[]>([]);
 const books = ref<Book[]>([]);
-const databasePath = ref("");
+const databaseInfo = ref<DatabaseInfo>({
+  currentPath: "",
+  defaultPath: "",
+  usingDefault: true,
+});
 const errorMessage = ref("");
 const isSaving = ref(false);
 const excerptFilters = ref<ExcerptFilters>(createDefaultExcerptFilters());
 let errorDismissTimer: number | undefined;
 
 onMounted(async () => {
-  await Promise.all([loadDatabasePath(), loadExcerpts(excerptFilters.value), loadTags(), loadBooks()]);
+  await Promise.all([
+    loadDatabaseInfo(),
+    loadExcerpts(excerptFilters.value),
+    loadTags(),
+    loadBooks(),
+  ]);
 });
 
-async function loadDatabasePath() {
-  databasePath.value = await invoke<string>("get_database_path");
+async function loadDatabaseInfo() {
+  databaseInfo.value = await invoke<DatabaseInfo>("get_database_info");
 }
 
 async function loadExcerpts(filters: ExcerptFilters = excerptFilters.value) {
@@ -99,6 +110,34 @@ async function createExcerpt(input: {
   }
 }
 
+async function createDatabase(path: string) {
+  await changeDatabase(() => invoke<DatabaseInfo>("create_database_at", { path }));
+}
+
+async function switchDatabase(path: string) {
+  await changeDatabase(() => invoke<DatabaseInfo>("switch_database", { path }));
+}
+
+async function useDefaultDatabase() {
+  await changeDatabase(() => invoke<DatabaseInfo>("use_default_database"));
+}
+
+async function changeDatabase(action: () => Promise<DatabaseInfo>) {
+  clearError();
+  isSaving.value = true;
+
+  try {
+    const info = await action();
+    databaseInfo.value = info;
+    excerptFilters.value = createDefaultExcerptFilters();
+    await Promise.all([loadExcerpts(excerptFilters.value), loadTags(), loadBooks()]);
+  } catch (error) {
+    showError(error);
+  } finally {
+    isSaving.value = false;
+  }
+}
+
 function showError(error: unknown) {
   errorMessage.value = String(error);
   if (errorDismissTimer) {
@@ -143,13 +182,14 @@ function createDefaultExcerptFilters(): ExcerptFilters {
     <AppSidebar :active-view="activeView" @select-view="activeView = $event" />
 
     <section class="app-main-frame">
-      <template v-if="activeView === 'excerpts'">
       <div v-if="errorMessage" class="app-error" role="alert">
         <span>{{ errorMessage }}</span>
         <button class="app-error-close" type="button" aria-label="关闭错误提示" @click="clearError">
           ×
         </button>
       </div>
+
+      <template v-if="activeView === 'excerpts'">
       <ExcerptList
         :excerpts="excerpts"
         :is-saving="isSaving"
@@ -169,6 +209,15 @@ function createDefaultExcerptFilters(): ExcerptFilters {
         v-else-if="activeView === 'management'"
         @books-changed="handleBooksChanged"
         @tags-changed="handleTagsChanged"
+      />
+
+      <SettingsView
+        v-else-if="activeView === 'settings'"
+        :database-info="databaseInfo"
+        :is-saving="isSaving"
+        @create-database="createDatabase"
+        @switch-database="switchDatabase"
+        @use-default-database="useDefaultDatabase"
       />
 
       <section v-else class="workspace-panel">
@@ -381,6 +430,49 @@ nav {
 .management-tab.active {
   background: #e8eee6;
   color: #2e6f62;
+}
+
+.settings-page {
+  grid-column: 1 / -1;
+}
+
+.settings-layout {
+  display: grid;
+  grid-template-columns: minmax(360px, 0.85fr) minmax(420px, 1fr);
+  grid-auto-rows: max-content;
+  gap: 16px;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+
+.settings-card {
+  display: grid;
+  align-content: start;
+  gap: 16px;
+  padding: 18px;
+  border: 1px solid #ded7ca;
+  border-radius: 8px;
+  background: #fffdf9;
+}
+
+.settings-card:first-child {
+  grid-row: span 2;
+}
+
+.settings-form {
+  display: grid;
+  gap: 14px;
+}
+
+.settings-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.settings-card input[readonly] {
+  color: #4c5b60;
+  cursor: default;
 }
 
 .library-panel,
@@ -1952,6 +2044,14 @@ footer,
 
   .filter-bar {
     grid-template-columns: 1fr;
+  }
+
+  .settings-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-card:first-child {
+    grid-row: auto;
   }
 
   .excerpt-table-head,
