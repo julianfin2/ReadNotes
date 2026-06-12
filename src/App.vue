@@ -364,11 +364,6 @@ nav {
   width: min(420px, 42vw);
 }
 
-.topic-switcher {
-  min-height: 40px;
-  width: min(260px, 100%);
-}
-
 .custom-select {
   position: relative;
   flex: 0 0 auto;

@@ -151,10 +151,6 @@ const topicNodeOptions = computed(() => [
   ...topicNodes.value.map((node) => ({ value: node.id, label: nodeLabel(node) })),
 ]);
 
-const topicSwitcherOptions = computed(() =>
-  topics.value.map((topic) => ({ value: topic.id, label: topic.title })),
-);
-
 const nodeParentOptions = computed(() => [
   { value: "", label: "无" },
   ...topicNodes.value.map((node) => ({ value: node.id, label: nodeLabel(node) })),
@@ -563,18 +559,6 @@ function closeAddExcerptModal() {
   topicReflection.value = "";
 }
 
-function selectTopic(topicId: string) {
-  if (topicId === selectedTopicId.value) {
-    return;
-  }
-
-  if (!discardTopicExcerptEditing()) {
-    return;
-  }
-
-  selectedTopicId.value = topicId;
-}
-
 function selectTopicNode(nodeId: string) {
   if (nodeId === selectedNodeId.value) {
     return;
@@ -706,9 +690,8 @@ async function runSaving(task: () => Promise<void>) {
 
 <template>
   <section class="page-panel workspace-panel desktop-view topic-page">
-    <header class="page-header">
-      <div>
-        <p class="eyebrow">Workspace</p>
+    <header class="page-header" :class="{ 'list-toolbar-header': viewMode === 'list' }">
+      <div class="page-title-block">
         <h2>{{ pageTitle }}</h2>
         <p v-if="viewMode === 'workspace' && selectedTopic?.researchQuestion" class="subtle-text">
           {{ selectedTopic.researchQuestion }}
@@ -725,15 +708,6 @@ async function runSaving(task: () => Promise<void>) {
       </div>
 
       <div v-else-if="viewMode === 'workspace'" class="toolbar topic-toolbar">
-        <CustomSelect
-          v-if="topics.length > 0"
-          :model-value="selectedTopicId"
-          class="topic-switcher"
-          :options="topicSwitcherOptions"
-          fit-content
-          placeholder="选择主题"
-          @change="selectTopic"
-        />
         <button class="secondary-action" type="button" @click="returnToTopicList">
           返回列表
         </button>
