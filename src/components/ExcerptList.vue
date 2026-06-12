@@ -2,11 +2,14 @@
 import { computed, reactive, ref, watch } from "vue";
 import BaseModal from "./BaseModal.vue";
 import CustomSelect from "./CustomSelect.vue";
+import EditableCombobox from "./EditableCombobox.vue";
+import type { Book } from "../types/book";
 import type { Excerpt, ExcerptFilters, UpdateExcerptInput } from "../types/excerpt";
 import type { Tag } from "../types/tag";
 
 const props = defineProps<{
   excerpts: Excerpt[];
+  books: Book[];
   tags: Tag[];
   isSaving: boolean;
 }>();
@@ -90,6 +93,12 @@ const tagFilterOptions = computed(() => [
   { value: "", label: "全部标签" },
   ...props.tags.map((tag) => ({ value: tag.name, label: `#${tag.name}` })),
 ]);
+
+const bookTitleOptions = computed(() => props.books.map((book) => book.title));
+
+const createChapterOptions = computed(() => chapterOptionsForBook(createDraft.bookTitle));
+
+const editChapterOptions = computed(() => chapterOptionsForBook(editDraft.bookTitle));
 
 const sortByOptions = [
   { value: "createdAt", label: "创建时间" },
@@ -195,6 +204,22 @@ function submitCreate() {
   });
   resetCreateDraft();
   viewMode.value = "list";
+}
+
+function selectCreateBook(title: string) {
+  if (!props.books.some((book) => book.title === title && book.chapters.length > 0)) {
+    return;
+  }
+
+  createDraft.chapterTitle = "";
+}
+
+function selectEditBook(title: string) {
+  if (!props.books.some((book) => book.title === title && book.chapters.length > 0)) {
+    return;
+  }
+
+  editDraft.chapterTitle = "";
 }
 
 function startEditing(excerpt: Excerpt) {
@@ -328,6 +353,12 @@ function parseTagInput(value: string) {
     .split(/[\s,，#]+/)
     .map((tag) => tag.trim())
     .filter(Boolean);
+}
+
+function chapterOptionsForBook(bookTitle: string) {
+  const normalized = bookTitle.trim().toLowerCase();
+  const book = props.books.find((item) => item.title.toLowerCase() === normalized);
+  return book?.chapters.map((chapter) => chapter.title) || [];
 }
 
 function normalizeOptionalText(value: string | null | undefined) {
@@ -512,11 +543,20 @@ function confirmLeaveEditor() {
         <div class="source-grid">
           <label>
             书籍名
-            <input v-model="createDraft.bookTitle" placeholder="例如：置身事内" />
+            <EditableCombobox
+              v-model="createDraft.bookTitle"
+              :options="bookTitleOptions"
+              placeholder="例如：置身事内"
+              @select="selectCreateBook"
+            />
           </label>
           <label>
             章节名
-            <input v-model="createDraft.chapterTitle" placeholder="例如：地方政府的权力与事务" />
+            <EditableCombobox
+              v-model="createDraft.chapterTitle"
+              :options="createChapterOptions"
+              placeholder="例如：地方政府的权力与事务"
+            />
           </label>
         </div>
         <label>
@@ -543,11 +583,15 @@ function confirmLeaveEditor() {
         <div class="source-grid">
           <label>
             书籍名
-            <input v-model="editDraft.bookTitle" />
+            <EditableCombobox
+              v-model="editDraft.bookTitle"
+              :options="bookTitleOptions"
+              @select="selectEditBook"
+            />
           </label>
           <label>
             章节名
-            <input v-model="editDraft.chapterTitle" />
+            <EditableCombobox v-model="editDraft.chapterTitle" :options="editChapterOptions" />
           </label>
         </div>
         <label>

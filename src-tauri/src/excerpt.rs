@@ -4,6 +4,7 @@ use tauri::State;
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 use uuid::Uuid;
 
+use crate::book::ensure_book_candidate;
 use crate::db::AppState;
 use crate::tag::{list_tags_for_excerpt, replace_excerpt_tags, Tag};
 
@@ -59,6 +60,10 @@ pub fn create_excerpt(
     input: CreateExcerptRequest,
 ) -> Result<Excerpt, String> {
     let quote = normalize_required_text(input.quote, "quote")?;
+    let reflection = empty_to_none(input.reflection);
+    let source_work_id = empty_to_none(input.source_work_id);
+    let book_title = empty_to_none(input.book_title);
+    let chapter_title = empty_to_none(input.chapter_title);
     let tag_names = input.tag_names.unwrap_or_default();
     let now = now_rfc3339()?;
     let id = Uuid::new_v4().to_string();
@@ -84,16 +89,17 @@ pub fn create_excerpt(
             params![
                 id,
                 quote,
-                empty_to_none(input.reflection),
-                empty_to_none(input.source_work_id),
-                empty_to_none(input.book_title),
-                empty_to_none(input.chapter_title),
+                reflection.as_deref(),
+                source_work_id.as_deref(),
+                book_title.as_deref(),
+                chapter_title.as_deref(),
                 now,
                 now
             ],
         )
         .map_err(|error| format!("failed to create excerpt: {error}"))?;
 
+    ensure_book_candidate(&transaction, book_title.as_deref(), chapter_title.as_deref())?;
     replace_excerpt_tags(&transaction, &id, tag_names)?;
 
     transaction
@@ -198,6 +204,10 @@ pub fn update_excerpt(
     input: UpdateExcerptRequest,
 ) -> Result<Excerpt, String> {
     let quote = normalize_required_text(input.quote, "quote")?;
+    let reflection = empty_to_none(input.reflection);
+    let source_work_id = empty_to_none(input.source_work_id);
+    let book_title = empty_to_none(input.book_title);
+    let chapter_title = empty_to_none(input.chapter_title);
     let now = now_rfc3339()?;
 
     let mut connection = state
@@ -225,10 +235,10 @@ pub fn update_excerpt(
             params![
                 input.id,
                 quote,
-                empty_to_none(input.reflection),
-                empty_to_none(input.source_work_id),
-                empty_to_none(input.book_title),
-                empty_to_none(input.chapter_title),
+                reflection.as_deref(),
+                source_work_id.as_deref(),
+                book_title.as_deref(),
+                chapter_title.as_deref(),
                 now
             ],
         )
@@ -237,6 +247,8 @@ pub fn update_excerpt(
     if changed == 0 {
         return Err("excerpt not found".to_string());
     }
+
+    ensure_book_candidate(&transaction, book_title.as_deref(), chapter_title.as_deref())?;
 
     if let Some(tag_names) = input.tag_names {
         replace_excerpt_tags(&transaction, &input.id, tag_names)?;

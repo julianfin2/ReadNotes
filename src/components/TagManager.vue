@@ -6,6 +6,10 @@ import CustomSelect from "./CustomSelect.vue";
 import type { Excerpt } from "../types/excerpt";
 import type { TagWithCount } from "../types/tag";
 
+defineProps<{
+  embedded?: boolean;
+}>();
+
 const tags = ref<TagWithCount[]>([]);
 const excerpts = ref<Excerpt[]>([]);
 const selectedTagName = ref("");
@@ -215,11 +219,10 @@ async function runSaving(task: () => Promise<void>) {
 </script>
 
 <template>
-  <section class="page-panel workspace-panel desktop-view tag-page">
+  <section class="workspace-panel desktop-view tag-page" :class="{ embedded }">
     <header class="page-header">
       <div>
-        <p class="eyebrow">Tags</p>
-        <h2>{{ selectedTagName ? `#${selectedTagName}` : "标签" }}</h2>
+        <h2>{{ selectedTagName ? `#${selectedTagName}` : "标签管理" }}</h2>
         <p v-if="selectedTag" class="subtle-text">
           {{ selectedTag.excerptCount }} 条摘抄
           <span v-if="selectedTag.parentId"> / 父标签 #{{ parentLabel(selectedTag) }}</span>

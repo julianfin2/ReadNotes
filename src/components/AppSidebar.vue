@@ -2,7 +2,7 @@
 import appIcon from "../assets/icon.png";
 import packageJson from "../../package.json";
 
-type ViewKey = "excerpts" | "topics" | "tags";
+type ViewKey = "excerpts" | "topics" | "management";
 
 defineProps<{
   activeView: ViewKey;
@@ -39,10 +39,10 @@ const appVersion = packageJson.version;
       </button>
       <button
         class="nav-item"
-        :class="{ active: activeView === 'tags' }"
-        @click="$emit('selectView', 'tags')"
+        :class="{ active: activeView === 'management' }"
+        @click="$emit('selectView', 'management')"
       >
-        标签
+        管理
       </button>
     </nav>
 

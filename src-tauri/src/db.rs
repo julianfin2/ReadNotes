@@ -82,6 +82,23 @@ fn run_migrations(connection: &Connection) -> Result<(), String> {
               FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE
             );
 
+            CREATE TABLE IF NOT EXISTS books (
+              id TEXT PRIMARY KEY,
+              title TEXT NOT NULL,
+              created_at TEXT NOT NULL,
+              updated_at TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS book_chapters (
+              id TEXT PRIMARY KEY,
+              book_id TEXT NOT NULL,
+              title TEXT NOT NULL,
+              sort_order INTEGER NOT NULL DEFAULT 0,
+              created_at TEXT NOT NULL,
+              updated_at TEXT NOT NULL,
+              FOREIGN KEY (book_id) REFERENCES books(id) ON DELETE CASCADE
+            );
+
             CREATE TABLE IF NOT EXISTS topics (
               id TEXT PRIMARY KEY,
               title TEXT NOT NULL,
@@ -124,6 +141,10 @@ fn run_migrations(connection: &Connection) -> Result<(), String> {
             CREATE INDEX IF NOT EXISTS idx_excerpts_updated_at ON excerpts(updated_at);
             CREATE UNIQUE INDEX IF NOT EXISTS idx_tags_name_nocase ON tags(name COLLATE NOCASE);
             CREATE INDEX IF NOT EXISTS idx_tags_parent_id ON tags(parent_id);
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_books_title_nocase ON books(title COLLATE NOCASE);
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_book_chapters_book_title_nocase
+              ON book_chapters(book_id, title COLLATE NOCASE);
+            CREATE INDEX IF NOT EXISTS idx_book_chapters_book_id ON book_chapters(book_id);
             CREATE INDEX IF NOT EXISTS idx_topic_nodes_topic_id ON topic_nodes(topic_id);
             CREATE INDEX IF NOT EXISTS idx_topic_excerpts_topic_id ON topic_excerpts(topic_id);
             CREATE INDEX IF NOT EXISTS idx_topic_excerpts_excerpt_id ON topic_excerpts(excerpt_id);
@@ -134,6 +155,7 @@ fn run_migrations(connection: &Connection) -> Result<(), String> {
     add_column_if_missing(connection, "excerpts", "book_title", "TEXT")?;
     add_column_if_missing(connection, "excerpts", "chapter_title", "TEXT")?;
     migrate_excerpts_without_removed_fields(connection)?;
+    backfill_books_from_excerpts(connection)?;
 
     connection
         .execute_batch(
@@ -192,6 +214,44 @@ fn run_migrations(connection: &Connection) -> Result<(), String> {
         .map_err(|error| format!("failed to backfill excerpt search index: {error}"))?;
 
     Ok(())
+}
+
+fn backfill_books_from_excerpts(connection: &Connection) -> Result<(), String> {
+    connection
+        .execute_batch(
+            "
+            INSERT OR IGNORE INTO books (id, title, created_at, updated_at)
+            SELECT lower(hex(randomblob(4))) || '-' || lower(hex(randomblob(2))) || '-'
+              || lower(hex(randomblob(2))) || '-' || lower(hex(randomblob(2))) || '-'
+              || lower(hex(randomblob(6))),
+              trim(book_title),
+              MIN(created_at),
+              MAX(updated_at)
+            FROM excerpts
+            WHERE book_title IS NOT NULL AND trim(book_title) != ''
+            GROUP BY lower(trim(book_title));
+
+            INSERT OR IGNORE INTO book_chapters (
+              id, book_id, title, sort_order, created_at, updated_at
+            )
+            SELECT lower(hex(randomblob(4))) || '-' || lower(hex(randomblob(2))) || '-'
+              || lower(hex(randomblob(2))) || '-' || lower(hex(randomblob(2))) || '-'
+              || lower(hex(randomblob(6))),
+              books.id,
+              trim(excerpts.chapter_title),
+              0,
+              MIN(excerpts.created_at),
+              MAX(excerpts.updated_at)
+            FROM excerpts
+            INNER JOIN books ON lower(books.title) = lower(trim(excerpts.book_title))
+            WHERE excerpts.book_title IS NOT NULL
+              AND trim(excerpts.book_title) != ''
+              AND excerpts.chapter_title IS NOT NULL
+              AND trim(excerpts.chapter_title) != ''
+            GROUP BY books.id, lower(trim(excerpts.chapter_title));
+            ",
+        )
+        .map_err(|error| format!("failed to backfill books from excerpts: {error}"))
 }
 
 fn migrate_excerpts_without_removed_fields(connection: &Connection) -> Result<(), String> {

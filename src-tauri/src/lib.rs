@@ -1,3 +1,4 @@
+mod book;
 mod db;
 mod excerpt;
 mod tag;
@@ -15,6 +16,13 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            book::create_book,
+            book::create_book_chapter,
+            book::delete_book,
+            book::delete_book_chapter,
+            book::list_books,
+            book::update_book,
+            book::update_book_chapter,
             excerpt::create_excerpt,
             excerpt::delete_excerpt,
             excerpt::get_database_path,

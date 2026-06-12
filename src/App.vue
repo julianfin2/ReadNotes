@@ -3,23 +3,25 @@ import { onMounted, ref } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import AppSidebar from "./components/AppSidebar.vue";
 import ExcerptList from "./components/ExcerptList.vue";
-import TagManager from "./components/TagManager.vue";
+import ManagementView from "./components/ManagementView.vue";
 import TopicWorkspace from "./components/TopicWorkspace.vue";
+import type { Book } from "./types/book";
 import type { Excerpt, ExcerptFilters, UpdateExcerptInput } from "./types/excerpt";
 import type { Tag } from "./types/tag";
 
-type ViewKey = "excerpts" | "topics" | "tags";
+type ViewKey = "excerpts" | "topics" | "management";
 
 const activeView = ref<ViewKey>("excerpts");
 const excerpts = ref<Excerpt[]>([]);
 const tags = ref<Tag[]>([]);
+const books = ref<Book[]>([]);
 const databasePath = ref("");
 const errorMessage = ref("");
 const isSaving = ref(false);
 const lastFilters = ref<ExcerptFilters | undefined>();
 
 onMounted(async () => {
-  await Promise.all([loadDatabasePath(), loadExcerpts(), loadTags()]);
+  await Promise.all([loadDatabasePath(), loadExcerpts(), loadTags(), loadBooks()]);
 });
 
 async function loadDatabasePath() {
@@ -39,7 +41,7 @@ async function updateExcerpt(input: UpdateExcerptInput) {
 
   try {
     await invoke<Excerpt>("update_excerpt", { input });
-    await Promise.all([loadExcerpts(lastFilters.value), loadTags()]);
+    await Promise.all([loadExcerpts(lastFilters.value), loadTags(), loadBooks()]);
   } catch (error) {
     errorMessage.value = String(error);
   } finally {
@@ -62,6 +64,10 @@ async function loadTags() {
   tags.value = await invoke<Tag[]>("list_tags");
 }
 
+async function loadBooks() {
+  books.value = await invoke<Book[]>("list_books");
+}
+
 async function createExcerpt(input: {
   quote: string;
   reflection: string;
@@ -74,7 +80,7 @@ async function createExcerpt(input: {
 
   try {
     await invoke<Excerpt>("create_excerpt", { input });
-    await Promise.all([loadExcerpts(), loadTags()]);
+    await Promise.all([loadExcerpts(), loadTags(), loadBooks()]);
   } catch (error) {
     errorMessage.value = String(error);
   } finally {
@@ -102,6 +108,7 @@ function toExcerptQuery(filters: ExcerptFilters) {
       <ExcerptList
         :excerpts="excerpts"
         :is-saving="isSaving"
+        :books="books"
         :tags="tags"
         @apply-filters="loadExcerpts"
         @create-excerpt="createExcerpt"
@@ -112,7 +119,7 @@ function toExcerptQuery(filters: ExcerptFilters) {
 
       <TopicWorkspace v-else-if="activeView === 'topics'" :excerpts="excerpts" />
 
-      <TagManager v-else-if="activeView === 'tags'" />
+      <ManagementView v-else-if="activeView === 'management'" @books-changed="loadBooks" />
 
       <section v-else class="workspace-panel">
         <p class="empty-state">这个视图还没有实现。</p>
@@ -295,6 +302,37 @@ nav {
   opacity: 0.45;
 }
 
+.management-page > .tag-page,
+.management-page > .book-manager {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.management-tabs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px;
+  border: 1px solid #ded7ca;
+  border-radius: 8px;
+  background: #fbf8f1;
+}
+
+.management-tab {
+  min-height: 34px;
+  padding: 0 14px;
+  border-radius: 999px;
+  background: transparent;
+  color: #2d3a3f;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.management-tab.active {
+  background: #e8eee6;
+  color: #2e6f62;
+}
+
 .library-panel,
 .topic-panel,
 .workspace-panel {
@@ -458,6 +496,44 @@ nav {
 
 .custom-select-option:hover,
 .custom-select-option.active {
+  background: #e8eee6;
+  color: #2e6f62;
+}
+
+.editable-combobox {
+  position: relative;
+}
+
+.editable-combobox-menu {
+  position: absolute;
+  z-index: 20;
+  right: 0;
+  left: 0;
+  display: grid;
+  gap: 4px;
+  max-height: 220px;
+  margin-top: 6px;
+  padding: 6px;
+  border: 1px solid #d6cfc2;
+  border-radius: 8px;
+  background: #fffdf9;
+  box-shadow: 0 12px 28px rgba(38, 35, 30, 0.16);
+  overflow: auto;
+}
+
+.editable-combobox-option {
+  min-height: 32px;
+  padding: 0 10px;
+  border-radius: 6px;
+  background: transparent;
+  color: #1d2528;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+  text-align: left;
+}
+
+.editable-combobox-option:hover {
   background: #e8eee6;
   color: #2e6f62;
 }
@@ -1469,6 +1545,86 @@ select:focus {
 
 .excerpt-picker-empty {
   padding: 8px 2px;
+}
+
+.book-manager {
+  display: grid;
+  grid-template-columns: minmax(280px, 340px) minmax(0, 1fr);
+  gap: 18px;
+  overflow: hidden;
+}
+
+.book-list-pane,
+.book-detail-pane {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 16px;
+  border: 1px solid #ded7ca;
+  border-radius: 8px;
+  background: #fffdf9;
+  overflow: hidden;
+}
+
+.book-list-scroll,
+.chapter-list {
+  display: grid;
+  align-content: start;
+  grid-auto-rows: max-content;
+  gap: 8px;
+  flex: 1 1 auto;
+  min-height: 0;
+  margin-top: 14px;
+  overflow: auto;
+}
+
+.book-list-item {
+  display: grid;
+  gap: 5px;
+  width: 100%;
+  min-height: 64px;
+  padding: 10px 12px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: #1d2528;
+  cursor: pointer;
+  text-align: left;
+}
+
+.book-list-item:hover,
+.book-list-item.active {
+  border-color: #bfd0c8;
+  background: #e8eee6;
+}
+
+.book-detail-header,
+.chapter-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.book-detail-header {
+  flex: 0 0 auto;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #ded7ca;
+}
+
+.chapter-section {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding-top: 16px;
+}
+
+.chapter-row {
+  min-height: 60px;
+  padding: 10px 12px;
+  border: 1px solid #ded7ca;
+  border-radius: 6px;
+  background: #fbf8f1;
 }
 
 .topic-empty-state {
