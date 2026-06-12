@@ -165,11 +165,11 @@ const canSaveTopicEdit = computed(() => {
 });
 
 const topicStatusOptions = [
-  { value: "collecting", label: "collecting" },
-  { value: "organizing", label: "organizing" },
-  { value: "drafting", label: "drafting" },
-  { value: "finished", label: "finished" },
-  { value: "paused", label: "paused" },
+  { value: "collecting", label: "收集中" },
+  { value: "organizing", label: "整理中" },
+  { value: "drafting", label: "写作中" },
+  { value: "finished", label: "已完成" },
+  { value: "paused", label: "已暂停" },
 ];
 
 const topicNodeOptions = computed(() => [
