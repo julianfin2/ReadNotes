@@ -436,16 +436,6 @@ nav {
   grid-column: 1 / -1;
 }
 
-.settings-layout {
-  display: grid;
-  grid-template-columns: minmax(360px, 0.85fr) minmax(420px, 1fr);
-  grid-auto-rows: max-content;
-  gap: 16px;
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow: auto;
-}
-
 .settings-card {
   display: grid;
   align-content: start;
@@ -456,15 +446,6 @@ nav {
   background: #fffdf9;
 }
 
-.settings-card:first-child {
-  grid-row: span 2;
-}
-
-.settings-form {
-  display: grid;
-  gap: 14px;
-}
-
 .settings-actions {
   display: flex;
   justify-content: flex-end;
@@ -473,6 +454,14 @@ nav {
 .settings-card input[readonly] {
   color: #4c5b60;
   cursor: default;
+}
+
+.database-settings-card {
+  gap: 18px;
+}
+
+.database-actions {
+  justify-content: flex-start;
 }
 
 .library-panel,
@@ -2044,14 +2033,6 @@ footer,
 
   .filter-bar {
     grid-template-columns: 1fr;
-  }
-
-  .settings-layout {
-    grid-template-columns: 1fr;
-  }
-
-  .settings-card:first-child {
-    grid-row: auto;
   }
 
   .excerpt-table-head,

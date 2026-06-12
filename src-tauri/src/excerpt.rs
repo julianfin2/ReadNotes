@@ -326,15 +326,6 @@ pub fn delete_excerpt(state: State<'_, AppState>, id: String) -> Result<(), Stri
     Ok(())
 }
 
-#[tauri::command]
-pub fn get_database_path(state: State<'_, AppState>) -> String {
-    state
-        .db_path
-        .lock()
-        .map(|path| path.display().to_string())
-        .unwrap_or_default()
-}
-
 pub fn get_excerpt_by_id(connection: &Connection, id: &str) -> Result<Excerpt, String> {
     let mut excerpt = connection
         .query_row(

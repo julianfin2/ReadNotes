@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch } from "vue";
+import { open, save } from "@tauri-apps/plugin-dialog";
 import type { DatabaseInfo } from "../types/database";
 
 const props = defineProps<{
@@ -13,33 +13,35 @@ const emit = defineEmits<{
   useDefaultDatabase: [];
 }>();
 
-const createPath = ref("");
-const switchPath = ref("");
-
-watch(
-  () => props.databaseInfo.currentPath,
-  (path) => {
-    switchPath.value = path;
+const databaseFilters = [
+  {
+    name: "SQLite 数据库",
+    extensions: ["sqlite", "sqlite3", "db"],
   },
-  { immediate: true },
-);
+];
 
-function submitCreate() {
-  const path = createPath.value.trim();
-  if (!path) {
-    return;
+async function chooseNewDatabase() {
+  const path = await save({
+    title: "新建数据库",
+    defaultPath: props.databaseInfo.defaultPath,
+    filters: databaseFilters,
+  });
+
+  if (path) {
+    emit("createDatabase", path);
   }
-
-  emit("createDatabase", path);
 }
 
-function submitSwitch() {
-  const path = switchPath.value.trim();
-  if (!path || path === props.databaseInfo.currentPath) {
-    return;
-  }
+async function chooseExistingDatabase() {
+  const path = await open({
+    title: "切换数据库",
+    multiple: false,
+    filters: databaseFilters,
+  });
 
-  emit("switchDatabase", path);
+  if (typeof path === "string") {
+    emit("switchDatabase", path);
+  }
 }
 </script>
 
@@ -48,94 +50,42 @@ function submitSwitch() {
     <header class="page-header list-toolbar-header">
       <div class="page-title-block">
         <h2>设置</h2>
-        <p class="subtle-text">管理数据库文件位置</p>
+        <p class="subtle-text">管理当前使用的数据库文件</p>
       </div>
     </header>
 
-    <div class="settings-layout">
-      <section class="settings-card">
-        <div class="card-header">
-          <div>
-            <h3>当前数据库</h3>
-            <p class="subtle-text">
-              {{ databaseInfo.usingDefault ? "正在使用默认数据库" : "正在使用自定义数据库" }}
-            </p>
-          </div>
-          <button
-            class="secondary-action"
-            :disabled="isSaving || databaseInfo.usingDefault"
-            type="button"
-            @click="emit('useDefaultDatabase')"
-          >
-            回到默认
-          </button>
-        </div>
+    <section class="settings-card database-settings-card">
+      <label>
+        当前数据库路径
+        <input :value="databaseInfo.currentPath" readonly />
+      </label>
 
-        <label>
-          当前路径
-          <input :value="databaseInfo.currentPath" readonly />
-        </label>
-        <label>
-          默认路径
-          <input :value="databaseInfo.defaultPath" readonly />
-        </label>
-      </section>
-
-      <section class="settings-card">
-        <div>
-          <h3>创建新数据库</h3>
-          <p class="subtle-text">输入一个还不存在的 SQLite 数据库文件绝对路径。</p>
-        </div>
-
-        <form class="settings-form" @submit.prevent="submitCreate">
-          <label>
-            新数据库路径
-            <input
-              v-model="createPath"
-              placeholder="例如：D:\\ReadNotes\\my-notes.sqlite"
-            />
-          </label>
-          <div class="settings-actions">
-            <button
-              class="primary-action"
-              :disabled="isSaving || !createPath.trim()"
-              type="submit"
-            >
-              创建并切换
-            </button>
-          </div>
-        </form>
-      </section>
-
-      <section class="settings-card">
-        <div>
-          <h3>切换数据库</h3>
-          <p class="subtle-text">输入一个已经存在的数据库文件绝对路径。</p>
-        </div>
-
-        <form class="settings-form" @submit.prevent="submitSwitch">
-          <label>
-            数据库路径
-            <input
-              v-model="switchPath"
-              placeholder="例如：D:\\ReadNotes\\archive.sqlite"
-            />
-          </label>
-          <div class="settings-actions">
-            <button
-              class="primary-action"
-              :disabled="
-                isSaving ||
-                !switchPath.trim() ||
-                switchPath.trim() === databaseInfo.currentPath
-              "
-              type="submit"
-            >
-              切换数据库
-            </button>
-          </div>
-        </form>
-      </section>
-    </div>
+      <div class="settings-actions database-actions">
+        <button
+          class="primary-action"
+          :disabled="isSaving"
+          type="button"
+          @click="chooseNewDatabase"
+        >
+          新建
+        </button>
+        <button
+          class="secondary-action"
+          :disabled="isSaving"
+          type="button"
+          @click="chooseExistingDatabase"
+        >
+          切换
+        </button>
+        <button
+          class="secondary-action"
+          :disabled="isSaving || databaseInfo.usingDefault"
+          type="button"
+          @click="emit('useDefaultDatabase')"
+        >
+          默认
+        </button>
+      </div>
+    </section>
   </section>
 </template>

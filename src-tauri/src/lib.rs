@@ -9,6 +9,7 @@ use tauri::Manager;
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
             let state = db::open_database(app.handle())?;
@@ -29,7 +30,6 @@ pub fn run() {
             db::use_default_database,
             excerpt::create_excerpt,
             excerpt::delete_excerpt,
-            excerpt::get_database_path,
             excerpt::list_excerpts,
             excerpt::update_excerpt,
             tag::create_tag,
