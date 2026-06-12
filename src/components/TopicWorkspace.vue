@@ -16,7 +16,6 @@ const topicExcerpts = ref<TopicExcerpt[]>([]);
 const selectedTopicId = ref("");
 const selectedNodeId = ref("");
 const selectedTopicExcerptId = ref("");
-const topicMenuOpen = ref(false);
 const topicModalOpen = ref(false);
 const nodeModalOpen = ref(false);
 const addExcerptModalOpen = ref(false);
@@ -136,6 +135,10 @@ const topicNodeOptions = computed(() => [
   { value: "", label: "未分类" },
   ...topicNodes.value.map((node) => ({ value: node.id, label: nodeLabel(node) })),
 ]);
+
+const topicSwitcherOptions = computed(() =>
+  topics.value.map((topic) => ({ value: topic.id, label: topic.title })),
+);
 
 const nodeParentOptions = computed(() => [
   { value: "", label: "无" },
@@ -519,7 +522,6 @@ function closeAddExcerptModal() {
 
 function selectTopic(topicId: string) {
   if (topicId === selectedTopicId.value) {
-    topicMenuOpen.value = false;
     return;
   }
 
@@ -528,19 +530,6 @@ function selectTopic(topicId: string) {
   }
 
   selectedTopicId.value = topicId;
-  topicMenuOpen.value = false;
-}
-
-function handleTopicSwitcherBlur(event: FocusEvent) {
-  const nextTarget = event.relatedTarget;
-
-  if (nextTarget instanceof Node && event.currentTarget instanceof Node) {
-    if (event.currentTarget.contains(nextTarget)) {
-      return;
-    }
-  }
-
-  topicMenuOpen.value = false;
 }
 
 function selectTopicNode(nodeId: string) {
@@ -669,37 +658,14 @@ async function runSaving(task: () => Promise<void>) {
       </div>
 
       <div class="toolbar topic-toolbar">
-        <div
+        <CustomSelect
           v-if="topics.length > 0"
-          class="custom-select topic-switcher"
-          @focusout="handleTopicSwitcherBlur"
-        >
-          <button
-            class="custom-select-trigger"
-            type="button"
-            aria-haspopup="listbox"
-            :aria-expanded="topicMenuOpen"
-            @click="topicMenuOpen = !topicMenuOpen"
-          >
-            <span>{{ selectedTopic?.title || "选择主题" }}</span>
-            <span class="custom-select-caret" aria-hidden="true"></span>
-          </button>
-
-          <div v-if="topicMenuOpen" class="custom-select-menu" role="listbox">
-            <button
-              v-for="topic in topics"
-              :key="topic.id"
-              class="custom-select-option"
-              :class="{ active: topic.id === selectedTopicId }"
-              type="button"
-              role="option"
-              :aria-selected="topic.id === selectedTopicId"
-              @click="selectTopic(topic.id)"
-            >
-              {{ topic.title }}
-            </button>
-          </div>
-        </div>
+          :model-value="selectedTopicId"
+          class="topic-switcher"
+          :options="topicSwitcherOptions"
+          placeholder="选择主题"
+          @change="selectTopic"
+        />
         <button class="primary-action" type="button" @click="topicModalOpen = true">
           新建主题
         </button>

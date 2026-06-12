@@ -361,14 +361,10 @@ nav {
 }
 
 .custom-select-menu {
-  position: absolute;
-  top: calc(100% + 6px);
-  left: 0;
-  z-index: 8;
+  position: fixed;
+  z-index: 30;
   display: grid;
   gap: 4px;
-  width: 100%;
-  max-height: 240px;
   padding: 6px;
   border: 1px solid #d6cfc2;
   border-radius: 8px;
