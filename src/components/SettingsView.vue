@@ -50,7 +50,7 @@ async function chooseExistingDatabase() {
   <section class="page-panel workspace-panel desktop-view settings-page">
     <header class="page-header list-toolbar-header">
       <div class="page-title-block">
-        <h2>设置</h2>
+        <h2 class="page-title-line">设置</h2>
       </div>
     </header>
 

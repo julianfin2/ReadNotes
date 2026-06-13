@@ -223,7 +223,7 @@ function createDefaultExcerptFilters(): ExcerptFilters {
       <section v-else-if="activeView === 'books'" class="page-panel workspace-panel desktop-view book-page">
         <header class="page-header list-toolbar-header">
           <div class="page-title-block">
-            <h2>书籍管理</h2>
+            <h2 class="page-title-line">书籍管理</h2>
           </div>
         </header>
 
@@ -568,10 +568,11 @@ nav {
 
 .page-header {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 16px;
-  margin-bottom: 22px;
+  min-height: 34px;
+  margin-bottom: 18px;
 }
 
 .list-toolbar-header {
@@ -619,12 +620,13 @@ nav {
 }
 
 .desktop-toolbar {
-  margin-bottom: 16px;
+  margin-bottom: 18px;
 }
 
 .toolbar,
 .modal-actions {
   display: flex;
+  align-items: center;
   justify-content: flex-end;
   gap: 10px;
 }
