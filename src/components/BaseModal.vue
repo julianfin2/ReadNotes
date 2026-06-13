@@ -11,7 +11,7 @@ defineEmits<{
 
 <template>
   <Teleport to="body">
-    <div v-if="open" class="modal-backdrop" @click.self="$emit('close')">
+    <div v-if="open" class="modal-backdrop">
       <section class="modal-panel" role="dialog" aria-modal="true" :aria-label="title">
         <header class="modal-header">
           <h2>{{ title }}</h2>
