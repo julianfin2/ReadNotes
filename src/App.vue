@@ -3,6 +3,7 @@ import { onMounted, ref } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import AppSidebar from "./components/AppSidebar.vue";
 import BookManager from "./components/BookManager.vue";
+import DatabaseRecoveryModal from "./components/DatabaseRecoveryModal.vue";
 import ExcerptList from "./components/ExcerptList.vue";
 import SettingsView from "./components/SettingsView.vue";
 import TagManager from "./components/TagManager.vue";
@@ -22,6 +23,7 @@ const databaseInfo = ref<DatabaseInfo>({
   currentPath: "",
   defaultPath: "",
   usingDefault: true,
+  startupIssue: null,
 });
 const errorMessage = ref("");
 const isSaving = ref(false);
@@ -29,12 +31,10 @@ const excerptFilters = ref<ExcerptFilters>(createDefaultExcerptFilters());
 let errorDismissTimer: number | undefined;
 
 onMounted(async () => {
-  await Promise.all([
-    loadDatabaseInfo(),
-    loadExcerpts(excerptFilters.value),
-    loadTags(),
-    loadBooks(),
-  ]);
+  await loadDatabaseInfo();
+  if (!databaseInfo.value.startupIssue) {
+    await loadWorkspaceData();
+  }
 });
 
 async function loadDatabaseInfo() {
@@ -82,6 +82,14 @@ async function loadBooks() {
   books.value = await invoke<Book[]>("list_books");
 }
 
+async function loadWorkspaceData() {
+  await Promise.all([
+    loadExcerpts(excerptFilters.value),
+    loadTags(),
+    loadBooks(),
+  ]);
+}
+
 async function handleBooksChanged() {
   await Promise.all([loadBooks(), loadExcerpts(excerptFilters.value)]);
 }
@@ -114,15 +122,15 @@ async function createExcerpt(input: {
 }
 
 async function createDatabase(path: string) {
-  await changeDatabase(() => invoke<DatabaseInfo>("create_database_at", { path }));
+  return changeDatabase(() => invoke<DatabaseInfo>("create_database_at", { path }));
 }
 
 async function switchDatabase(path: string) {
-  await changeDatabase(() => invoke<DatabaseInfo>("switch_database", { path }));
+  return changeDatabase(() => invoke<DatabaseInfo>("switch_database", { path }));
 }
 
 async function useDefaultDatabase() {
-  await changeDatabase(() => invoke<DatabaseInfo>("use_default_database"));
+  return changeDatabase(() => invoke<DatabaseInfo>("use_default_database"));
 }
 
 async function changeDatabase(action: () => Promise<DatabaseInfo>) {
@@ -133,9 +141,11 @@ async function changeDatabase(action: () => Promise<DatabaseInfo>) {
     const info = await action();
     databaseInfo.value = info;
     excerptFilters.value = createDefaultExcerptFilters();
-    await Promise.all([loadExcerpts(excerptFilters.value), loadTags(), loadBooks()]);
+    await loadWorkspaceData();
+    return true;
   } catch (error) {
     showError(error);
+    return false;
   } finally {
     isSaving.value = false;
   }
@@ -185,7 +195,7 @@ function createDefaultExcerptFilters(): ExcerptFilters {
     <AppSidebar :active-view="activeView" @select-view="activeView = $event" />
 
     <section class="app-main-frame">
-      <div v-if="errorMessage" class="app-error" role="alert">
+      <div v-if="errorMessage && !databaseInfo.startupIssue" class="app-error" role="alert">
         <span>{{ errorMessage }}</span>
         <button class="app-error-close" type="button" aria-label="关闭错误提示" @click="clearError">
           ×
@@ -234,6 +244,17 @@ function createDefaultExcerptFilters(): ExcerptFilters {
         <p class="empty-state">这个视图还没有实现。</p>
       </section>
     </section>
+
+    <DatabaseRecoveryModal
+      v-if="databaseInfo.startupIssue"
+      :database-info="databaseInfo"
+      :issue="databaseInfo.startupIssue"
+      :is-saving="isSaving"
+      :error-message="errorMessage"
+      @create-database="createDatabase"
+      @switch-database="switchDatabase"
+      @use-default-database="useDefaultDatabase"
+    />
   </main>
 </template>
 
@@ -1405,6 +1426,73 @@ select:focus {
   min-height: 0;
   max-height: none;
   overflow: hidden;
+}
+
+.database-recovery-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(29, 37, 40, 0.56);
+}
+
+.database-recovery-panel {
+  display: grid;
+  gap: 18px;
+  width: min(720px, 100%);
+  padding: 24px;
+  border: 1px solid #d6cfc2;
+  border-radius: 8px;
+  background: #fbf8f1;
+  box-shadow: 0 24px 70px rgba(24, 25, 23, 0.26);
+}
+
+.database-recovery-panel header {
+  display: grid;
+  gap: 6px;
+}
+
+.database-recovery-panel p {
+  margin: 0;
+  color: #5c686b;
+}
+
+.database-recovery-detail {
+  display: grid;
+  grid-template-columns: 80px minmax(0, 1fr);
+  gap: 8px 12px;
+  padding: 14px;
+  border: 1px solid #ded7ca;
+  border-radius: 8px;
+  background: #fffdf9;
+}
+
+.database-recovery-detail span {
+  color: #6e7678;
+  font-size: 0.86rem;
+}
+
+.database-recovery-detail strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: #1d2528;
+  font-weight: 700;
+}
+
+.database-recovery-error {
+  padding: 10px 12px;
+  border: 1px solid #d9a29c;
+  border-radius: 6px;
+  background: #fff8f6;
+  color: #a23b32 !important;
+}
+
+.database-recovery-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
 }
 
 .icon-button {

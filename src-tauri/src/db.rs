@@ -9,6 +9,7 @@ use tauri::{AppHandle, Manager, State};
 pub struct AppState {
     pub db: Mutex<Connection>,
     pub db_path: Mutex<PathBuf>,
+    startup_issue: Mutex<Option<DatabaseStartupIssue>>,
     default_db_path: PathBuf,
     settings_path: PathBuf,
 }
@@ -19,6 +20,14 @@ pub struct DatabaseInfo {
     current_path: String,
     default_path: String,
     using_default: bool,
+    startup_issue: Option<DatabaseStartupIssue>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DatabaseStartupIssue {
+    configured_path: String,
+    reason: String,
 }
 
 #[derive(Debug, Default, Deserialize, Serialize)]
@@ -39,15 +48,29 @@ pub fn open_database(app: &AppHandle) -> Result<AppState, String> {
     let default_db_path = app_data_dir.join("readnotes.sqlite");
     let settings_path = app_data_dir.join("settings.json");
     let settings = read_settings(&settings_path)?;
-    let db_path = settings
-        .database_path
-        .map(PathBuf::from)
-        .unwrap_or_else(|| default_db_path.clone());
-    let connection = open_database_connection(&db_path, true)?;
+    let configured_db_path = settings.database_path.map(PathBuf::from);
+    let (db_path, connection, startup_issue) = match configured_db_path {
+        Some(custom_path) => match open_configured_database(&custom_path) {
+            Ok(connection) => (custom_path, connection, None),
+            Err(reason) => {
+                let connection = open_database_connection(&default_db_path, true)?;
+                let issue = DatabaseStartupIssue {
+                    configured_path: custom_path.display().to_string(),
+                    reason,
+                };
+                (default_db_path.clone(), connection, Some(issue))
+            }
+        },
+        None => {
+            let connection = open_database_connection(&default_db_path, true)?;
+            (default_db_path.clone(), connection, None)
+        }
+    };
 
     Ok(AppState {
         db: Mutex::new(connection),
         db_path: Mutex::new(db_path),
+        startup_issue: Mutex::new(startup_issue),
         default_db_path,
         settings_path,
     })
@@ -60,8 +83,17 @@ pub fn get_database_info(state: State<'_, AppState>) -> Result<DatabaseInfo, Str
         .lock()
         .map_err(|_| "database path lock was poisoned".to_string())?
         .clone();
+    let startup_issue = state
+        .startup_issue
+        .lock()
+        .map_err(|_| "startup issue lock was poisoned".to_string())?
+        .clone();
 
-    Ok(database_info(&current_path, &state.default_db_path))
+    Ok(database_info(
+        &current_path,
+        &state.default_db_path,
+        startup_issue,
+    ))
 }
 
 #[tauri::command]
@@ -325,6 +357,19 @@ fn open_database_connection(path: &Path, create_parent: bool) -> Result<Connecti
     Ok(connection)
 }
 
+fn open_configured_database(path: &Path) -> Result<Connection, String> {
+    if !path.exists() {
+        return Err("保存的数据库路径不存在".to_string());
+    }
+
+    if !path.is_file() {
+        return Err("保存的数据库路径不是文件".to_string());
+    }
+
+    open_database_connection(path, false)
+        .map_err(|error| format!("保存的数据库文件无法打开或格式不正确：{error}"))
+}
+
 fn activate_database(
     state: &AppState,
     db_path: PathBuf,
@@ -356,14 +401,27 @@ fn activate_database(
         *active_path = db_path.clone();
     }
 
-    Ok(database_info(&db_path, &state.default_db_path))
+    {
+        let mut startup_issue = state
+            .startup_issue
+            .lock()
+            .map_err(|_| "startup issue lock was poisoned".to_string())?;
+        *startup_issue = None;
+    }
+
+    Ok(database_info(&db_path, &state.default_db_path, None))
 }
 
-fn database_info(current_path: &Path, default_path: &Path) -> DatabaseInfo {
+fn database_info(
+    current_path: &Path,
+    default_path: &Path,
+    startup_issue: Option<DatabaseStartupIssue>,
+) -> DatabaseInfo {
     DatabaseInfo {
         current_path: current_path.display().to_string(),
         default_path: default_path.display().to_string(),
         using_default: current_path == default_path,
+        startup_issue,
     }
 }
 
