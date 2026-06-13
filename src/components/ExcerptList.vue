@@ -1,5 +1,16 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, reactive, ref, shallowRef, watch } from "vue";
+import {
+  ArrowLeft,
+  Check,
+  Pencil,
+  Plus,
+  RotateCcw,
+  Save,
+  SlidersHorizontal,
+  Trash2,
+  X,
+} from "@lucide/vue";
 import BaseModal from "./BaseModal.vue";
 import CustomSelect from "./CustomSelect.vue";
 import EditableCombobox from "./EditableCombobox.vue";
@@ -884,15 +895,21 @@ function cancelDiscardEditor() {
           placeholder="搜索原文、笔记、书籍或章节"
         />
         <button class="secondary-action" type="button" @click="openFilterModal">
+          <SlidersHorizontal aria-hidden="true" />
           筛选{{ activeFilterCount ? ` (${activeFilterCount})` : "" }}
         </button>
         <button class="primary-action" type="button" @click="startCreate">
+          <Plus aria-hidden="true" />
           新增摘抄
         </button>
       </form>
       <div v-else-if="viewMode === 'detail' && activeExcerpt" class="toolbar">
-        <button class="secondary-action" type="button" @click="goToList">返回列表</button>
+        <button class="secondary-action" type="button" @click="goToList">
+          <ArrowLeft aria-hidden="true" />
+          返回列表
+        </button>
         <button class="secondary-action" type="button" @click="startEditing(activeExcerpt)">
+          <Pencil aria-hidden="true" />
           编辑
         </button>
         <button
@@ -900,11 +917,15 @@ function cancelDiscardEditor() {
           type="button"
           @click="requestDeleteExcerpt(activeExcerpt.id)"
         >
+          <Trash2 aria-hidden="true" />
           删除
         </button>
       </div>
       <div v-else class="toolbar">
-        <button class="secondary-action" type="button" @click="cancelEditor">返回列表</button>
+        <button class="secondary-action" type="button" @click="cancelEditor">
+          <ArrowLeft aria-hidden="true" />
+          返回列表
+        </button>
       </div>
     </header>
 
@@ -912,7 +933,10 @@ function cancelDiscardEditor() {
       <span v-for="label in activeFilterLabels" :key="label" class="filter-chip">
         {{ label }}
       </span>
-      <button class="text-action" type="button" @click="resetAppliedFilters">清空筛选</button>
+      <button class="text-action" type="button" @click="resetAppliedFilters">
+        <RotateCcw aria-hidden="true" />
+        清空筛选
+      </button>
     </div>
 
     <div v-if="viewMode === 'list'" class="table-page">
@@ -961,9 +985,11 @@ function cancelDiscardEditor() {
             </span>
             <span class="row-actions" @click.stop>
               <button class="secondary-action" type="button" @click="startEditing(excerpt)">
+                <Pencil aria-hidden="true" />
                 编辑
               </button>
               <button class="danger-action" type="button" @click="requestDeleteExcerpt(excerpt.id)">
+                <Trash2 aria-hidden="true" />
                 删除
               </button>
             </span>
@@ -1044,8 +1070,14 @@ function cancelDiscardEditor() {
         </label>
       </section>
       <div class="editor-actions">
-        <button class="secondary-action" type="button" @click="cancelEditor">取消</button>
-        <button class="primary-action" :disabled="!canSaveCreate" type="submit">保存</button>
+        <button class="secondary-action" type="button" @click="cancelEditor">
+          <X aria-hidden="true" />
+          取消
+        </button>
+        <button class="primary-action" :disabled="!canSaveCreate" type="submit">
+          <Save aria-hidden="true" />
+          保存
+        </button>
       </div>
     </form>
 
@@ -1079,8 +1111,14 @@ function cancelDiscardEditor() {
         </label>
       </section>
       <div class="editor-actions">
-        <button class="secondary-action" type="button" @click="cancelEditor">取消</button>
-        <button class="primary-action" :disabled="!canSaveEdit" type="submit">保存</button>
+        <button class="secondary-action" type="button" @click="cancelEditor">
+          <X aria-hidden="true" />
+          取消
+        </button>
+        <button class="primary-action" :disabled="!canSaveEdit" type="submit">
+          <Save aria-hidden="true" />
+          保存
+        </button>
       </div>
     </form>
   </section>
@@ -1089,8 +1127,14 @@ function cancelDiscardEditor() {
     <div class="modal-form">
       <p class="reflection">删除后这条摘抄及其关联记录将不可见。确认删除吗？</p>
       <div class="modal-actions">
-        <button class="secondary-action" type="button" @click="cancelDeleteExcerpt">取消</button>
-        <button class="danger-action" type="button" @click="confirmDeleteExcerpt">删除</button>
+        <button class="secondary-action" type="button" @click="cancelDeleteExcerpt">
+          <X aria-hidden="true" />
+          取消
+        </button>
+        <button class="danger-action" type="button" @click="confirmDeleteExcerpt">
+          <Trash2 aria-hidden="true" />
+          删除
+        </button>
       </div>
     </div>
   </BaseModal>
@@ -1100,9 +1144,11 @@ function cancelDiscardEditor() {
       <p class="reflection">{{ discardModalMessage }}</p>
       <div class="modal-actions">
         <button class="secondary-action" type="button" @click="cancelDiscardEditor">
+          <Pencil aria-hidden="true" />
           继续编辑
         </button>
         <button class="danger-action" type="button" @click="confirmDiscardEditor">
+          <Trash2 aria-hidden="true" />
           放弃更改
         </button>
       </div>
@@ -1120,9 +1166,11 @@ function cancelDiscardEditor() {
       </p>
       <div class="modal-actions">
         <button class="secondary-action" type="button" @click="discardRestoredExcerptDraft">
+          <Trash2 aria-hidden="true" />
           忽略草稿
         </button>
         <button class="primary-action" type="button" @click="restoreExcerptDraft">
+          <RotateCcw aria-hidden="true" />
           恢复草稿
         </button>
       </div>
@@ -1150,8 +1198,14 @@ function cancelDiscardEditor() {
         </label>
       </div>
       <div class="modal-actions">
-        <button class="secondary-action" type="button" @click="resetFilterDraft">清空</button>
-        <button class="primary-action" type="submit">应用</button>
+        <button class="secondary-action" type="button" @click="resetFilterDraft">
+          <RotateCcw aria-hidden="true" />
+          清空
+        </button>
+        <button class="primary-action" type="submit">
+          <Check aria-hidden="true" />
+          应用
+        </button>
       </div>
     </form>
   </BaseModal>

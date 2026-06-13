@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { BookOpen, FileText, GitBranch, Settings, Tags } from "@lucide/vue";
 import appIcon from "../assets/icon.png";
 import packageJson from "../../package.json";
 
@@ -28,14 +29,16 @@ const appVersion = packageJson.version;
         :class="{ active: activeView === 'excerpts' }"
         @click="$emit('selectView', 'excerpts')"
       >
-        摘抄
+        <FileText class="nav-item-icon" aria-hidden="true" />
+        <span>摘抄</span>
       </button>
       <button
         class="nav-item"
         :class="{ active: activeView === 'topics' }"
         @click="$emit('selectView', 'topics')"
       >
-        主题
+        <GitBranch class="nav-item-icon" aria-hidden="true" />
+        <span>主题</span>
       </button>
       <div class="nav-separator" aria-hidden="true" />
       <button
@@ -43,14 +46,16 @@ const appVersion = packageJson.version;
         :class="{ active: activeView === 'tags' }"
         @click="$emit('selectView', 'tags')"
       >
-        标签
+        <Tags class="nav-item-icon" aria-hidden="true" />
+        <span>标签</span>
       </button>
       <button
         class="nav-item"
         :class="{ active: activeView === 'books' }"
         @click="$emit('selectView', 'books')"
       >
-        书籍
+        <BookOpen class="nav-item-icon" aria-hidden="true" />
+        <span>书籍</span>
       </button>
       <div class="nav-separator" aria-hidden="true" />
       <button
@@ -58,7 +63,8 @@ const appVersion = packageJson.version;
         :class="{ active: activeView === 'settings' }"
         @click="$emit('selectView', 'settings')"
       >
-        设置
+        <Settings class="nav-item-icon" aria-hidden="true" />
+        <span>设置</span>
       </button>
     </nav>
 

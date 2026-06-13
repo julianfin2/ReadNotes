@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref } from "vue";
+import { Save } from "@lucide/vue";
 
 defineProps<{
   databasePath: string;
@@ -82,6 +83,7 @@ function parseTagInput(value: string) {
         <input v-model="chapterTitle" placeholder="例如：地方政府的权力与事务" />
       </label>
       <button class="primary-action" :disabled="isSaving" type="submit">
+        <Save aria-hidden="true" />
         {{ isSaving ? "保存中" : "保存摘抄" }}
       </button>
 

@@ -420,12 +420,22 @@ nav {
 }
 
 .nav-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
   min-height: 38px;
   padding: 0 12px;
   border-radius: 6px;
   background: transparent;
   color: #cfd8d6;
   text-align: left;
+}
+
+.nav-item-icon {
+  width: 17px;
+  height: 17px;
+  flex: 0 0 auto;
+  opacity: 0.92;
 }
 
 .nav-item.active {
@@ -736,6 +746,9 @@ nav {
 }
 
 .text-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   min-height: 26px;
   padding: 0;
   background: transparent;
@@ -1328,13 +1341,27 @@ select:focus {
 .primary-action,
 .secondary-action,
 .danger-action {
-  min-height: 40px;
-  padding: 0 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 0 11px;
   border-radius: 6px;
   cursor: pointer;
+  font-size: 0.9rem;
   font-weight: 700;
   line-height: 1;
   white-space: nowrap;
+}
+
+.primary-action svg,
+.secondary-action svg,
+.danger-action svg,
+.text-action svg {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 auto;
 }
 
 .primary-action {

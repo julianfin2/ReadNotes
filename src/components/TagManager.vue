@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from "vue";
 import { invoke } from "@tauri-apps/api/core";
+import { Pencil, Plus, Save, Trash2, X } from "@lucide/vue";
 import BaseModal from "./BaseModal.vue";
 import CustomSelect from "./CustomSelect.vue";
 import TagColorField from "./TagColorField.vue";
@@ -200,6 +201,7 @@ async function runSaving(task: () => Promise<void>) {
           type="search"
         />
         <button class="primary-action" type="button" @click="createModalOpen = true">
+          <Plus aria-hidden="true" />
           新建标签
         </button>
       </div>
@@ -233,9 +235,11 @@ async function runSaving(task: () => Promise<void>) {
             </span>
             <span class="table-actions">
               <button class="secondary-action" type="button" @click="startEditing(tag)">
+                <Pencil aria-hidden="true" />
                 编辑
               </button>
               <button class="danger-action" type="button" @click="requestDeleteTag(tag.id)">
+                <Trash2 aria-hidden="true" />
                 删除
               </button>
             </span>
@@ -267,9 +271,13 @@ async function runSaving(task: () => Promise<void>) {
       </div>
       <div class="modal-actions">
         <button class="secondary-action" type="button" @click="createModalOpen = false">
+          <X aria-hidden="true" />
           取消
         </button>
-        <button class="primary-action" :disabled="isSaving" type="submit">保存</button>
+        <button class="primary-action" :disabled="isSaving" type="submit">
+          <Save aria-hidden="true" />
+          保存
+        </button>
       </div>
     </form>
   </BaseModal>
@@ -297,9 +305,13 @@ async function runSaving(task: () => Promise<void>) {
       </div>
       <div class="modal-actions">
         <button class="secondary-action" type="button" @click="cancelEditing(editingTagId)">
+          <X aria-hidden="true" />
           取消
         </button>
-        <button class="primary-action" type="submit">保存</button>
+        <button class="primary-action" type="submit">
+          <Save aria-hidden="true" />
+          保存
+        </button>
       </div>
     </form>
   </BaseModal>
@@ -308,8 +320,14 @@ async function runSaving(task: () => Promise<void>) {
     <div class="modal-form">
       <p class="reflection">删除标签会移除它和摘抄之间的关联。确认删除吗？</p>
       <div class="modal-actions">
-        <button class="secondary-action" type="button" @click="cancelDeleteTag">取消</button>
-        <button class="danger-action" type="button" @click="confirmDeleteTag">删除</button>
+        <button class="secondary-action" type="button" @click="cancelDeleteTag">
+          <X aria-hidden="true" />
+          取消
+        </button>
+        <button class="danger-action" type="button" @click="confirmDeleteTag">
+          <Trash2 aria-hidden="true" />
+          删除
+        </button>
       </div>
     </div>
   </BaseModal>

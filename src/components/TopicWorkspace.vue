@@ -1,6 +1,17 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, reactive, ref, shallowRef, watch } from "vue";
 import { invoke } from "@tauri-apps/api/core";
+import {
+  ArrowLeft,
+  Link,
+  Pencil,
+  Plus,
+  RotateCcw,
+  Save,
+  Trash2,
+  Unlink,
+  X,
+} from "@lucide/vue";
 import BaseModal from "./BaseModal.vue";
 import CustomSelect from "./CustomSelect.vue";
 import type { Excerpt } from "../types/excerpt";
@@ -1578,12 +1589,14 @@ async function runSaving(task: () => Promise<void>) {
 
       <div v-if="viewMode === 'list'" class="toolbar topic-toolbar">
         <button class="primary-action" type="button" @click="startCreatingTopic">
+          <Plus aria-hidden="true" />
           新建主题
         </button>
       </div>
 
       <div v-else-if="viewMode === 'workspace'" class="toolbar topic-toolbar">
         <button class="secondary-action" type="button" @click="returnToTopicList">
+          <ArrowLeft aria-hidden="true" />
           返回列表
         </button>
         <button
@@ -1592,6 +1605,7 @@ async function runSaving(task: () => Promise<void>) {
           type="button"
           @click="startEditingTopic(selectedTopic)"
         >
+          <Pencil aria-hidden="true" />
           编辑主题
         </button>
         <button
@@ -1600,12 +1614,14 @@ async function runSaving(task: () => Promise<void>) {
           type="button"
           @click="requestDeleteTopic(selectedTopic)"
         >
+          <Trash2 aria-hidden="true" />
           删除主题
         </button>
       </div>
 
       <div v-else class="toolbar topic-toolbar">
         <button class="secondary-action" type="button" @click="returnToTopicList">
+          <ArrowLeft aria-hidden="true" />
           返回列表
         </button>
       </div>
@@ -1644,9 +1660,11 @@ async function runSaving(task: () => Promise<void>) {
             </span>
             <span class="row-actions" @click.stop>
               <button class="secondary-action" type="button" @click="startEditingTopic(topic)">
+                <Pencil aria-hidden="true" />
                 编辑
               </button>
               <button class="danger-action" type="button" @click="requestDeleteTopic(topic)">
+                <Trash2 aria-hidden="true" />
                 删除
               </button>
             </span>
@@ -1669,8 +1687,12 @@ async function runSaving(task: () => Promise<void>) {
         </label>
       </section>
       <div class="editor-actions">
-        <button class="secondary-action" type="button" @click="returnToTopicList">取消</button>
+        <button class="secondary-action" type="button" @click="returnToTopicList">
+          <X aria-hidden="true" />
+          取消
+        </button>
         <button class="primary-action" :disabled="!canSaveTopicCreate" type="submit">
+          <Save aria-hidden="true" />
           保存
         </button>
       </div>
@@ -1700,9 +1722,13 @@ async function runSaving(task: () => Promise<void>) {
       </section>
       <div class="editor-actions">
         <button class="secondary-action" type="button" @click="cancelEditingTopic">
+          <X aria-hidden="true" />
           取消
         </button>
-        <button class="primary-action" :disabled="!canSaveTopicEdit" type="submit">保存</button>
+        <button class="primary-action" :disabled="!canSaveTopicEdit" type="submit">
+          <Save aria-hidden="true" />
+          保存
+        </button>
       </div>
     </form>
 
@@ -1736,6 +1762,7 @@ async function runSaving(task: () => Promise<void>) {
             type="button"
             @click="startEditingNode(selectedNode)"
           >
+            <Pencil aria-hidden="true" />
             编辑
           </button>
           <button
@@ -1744,9 +1771,11 @@ async function runSaving(task: () => Promise<void>) {
             type="button"
             @click="requestDeleteTopicNode(selectedNode)"
           >
+            <Trash2 aria-hidden="true" />
             删除
           </button>
           <button class="secondary-action" type="button" @click="openNodeModal">
+            <Plus aria-hidden="true" />
             添加子主题
           </button>
         </div>
@@ -1766,6 +1795,7 @@ async function runSaving(task: () => Promise<void>) {
                 <p class="subtle-text">{{ visibleTopicExcerpts.length }} 条材料</p>
               </div>
               <button class="primary-action" type="button" @click="openAddExcerptModal">
+                <Link aria-hidden="true" />
                 收录
               </button>
             </div>
@@ -1826,6 +1856,7 @@ async function runSaving(task: () => Promise<void>) {
                 type="button"
                 @click="cancelEditingTopicExcerpt(editingTopicExcerptId)"
               >
+                <X aria-hidden="true" />
                 取消
               </button>
               <button
@@ -1833,6 +1864,7 @@ async function runSaving(task: () => Promise<void>) {
                 :disabled="!canSaveTopicExcerptEdit"
                 type="submit"
               >
+                <Save aria-hidden="true" />
                 保存
               </button>
             </div>
@@ -1927,6 +1959,7 @@ async function runSaving(task: () => Promise<void>) {
                 title="编辑这条材料在当前主题中的子主题、收录理由和主题理解"
                 @click="startEditingTopicExcerpt(selectedTopicExcerpt)"
               >
+                <Pencil aria-hidden="true" />
                 编辑收录
               </button>
               <button
@@ -1935,6 +1968,7 @@ async function runSaving(task: () => Promise<void>) {
                 title="只从当前主题移除，不删除摘抄原文"
                 @click="requestRemoveTopicExcerpt(selectedTopicExcerpt)"
               >
+                <Unlink aria-hidden="true" />
                 移出主题
               </button>
             </div>
@@ -1988,8 +2022,14 @@ async function runSaving(task: () => Promise<void>) {
         <textarea v-model="nodeSummary" rows="4" placeholder="这个子主题目前怎么理解？" />
       </label>
       <div class="modal-actions">
-        <button class="secondary-action" type="button" @click="closeNodeModal">取消</button>
-        <button class="primary-action" :disabled="isSaving" type="submit">保存</button>
+        <button class="secondary-action" type="button" @click="closeNodeModal">
+          <X aria-hidden="true" />
+          取消
+        </button>
+        <button class="primary-action" :disabled="isSaving" type="submit">
+          <Save aria-hidden="true" />
+          保存
+        </button>
       </div>
     </form>
   </BaseModal>
@@ -2068,9 +2108,11 @@ async function runSaving(task: () => Promise<void>) {
 
       <div class="modal-actions">
         <button class="secondary-action" type="button" @click="closeAddExcerptModal">
+          <X aria-hidden="true" />
           取消
         </button>
         <button class="primary-action" :disabled="isSaving || !excerptIdToAdd" type="submit">
+          <Save aria-hidden="true" />
           保存
         </button>
       </div>
@@ -2100,9 +2142,13 @@ async function runSaving(task: () => Promise<void>) {
       </label>
       <div class="modal-actions">
         <button class="secondary-action" type="button" @click="cancelEditingNode(editingNodeId)">
+          <X aria-hidden="true" />
           取消
         </button>
-        <button class="primary-action" type="submit">保存</button>
+        <button class="primary-action" type="submit">
+          <Save aria-hidden="true" />
+          保存
+        </button>
       </div>
     </form>
   </BaseModal>
@@ -2111,8 +2157,12 @@ async function runSaving(task: () => Promise<void>) {
     <div class="modal-form">
       <p class="reflection">{{ confirmMessage }}</p>
       <div class="modal-actions">
-        <button class="secondary-action" type="button" @click="cancelConfirmation">取消</button>
+        <button class="secondary-action" type="button" @click="cancelConfirmation">
+          <X aria-hidden="true" />
+          取消
+        </button>
         <button class="danger-action" type="button" @click="confirmDestructiveAction">
+          <Trash2 aria-hidden="true" />
           {{ confirmActionLabel }}
         </button>
       </div>
@@ -2124,9 +2174,11 @@ async function runSaving(task: () => Promise<void>) {
       <p class="reflection">{{ restoreDraftMessage }}</p>
       <div class="modal-actions">
         <button class="secondary-action" type="button" @click="discardPendingDraft">
+          <Trash2 aria-hidden="true" />
           忽略草稿
         </button>
         <button class="primary-action" type="button" @click="restorePendingDraft">
+          <RotateCcw aria-hidden="true" />
           恢复草稿
         </button>
       </div>

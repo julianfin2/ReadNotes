@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from "vue";
 import { invoke } from "@tauri-apps/api/core";
+import { Pencil, Plus, Save, Trash2, X } from "@lucide/vue";
 import BaseModal from "./BaseModal.vue";
 import type { Book, BookChapter } from "../types/book";
 
@@ -190,6 +191,7 @@ async function runSaving(task: () => Promise<void>) {
           <p class="subtle-text">{{ books.length }} 本书</p>
         </div>
         <button class="primary-action" type="button" @click="createBookModalOpen = true">
+          <Plus aria-hidden="true" />
           新建
         </button>
       </div>
@@ -223,9 +225,11 @@ async function runSaving(task: () => Promise<void>) {
         </div>
         <div class="action-row">
           <button class="secondary-action" type="button" @click="startEditingBook">
+            <Pencil aria-hidden="true" />
             编辑书名
           </button>
           <button class="danger-action" type="button" @click="deleteBookModalOpen = true">
+            <Trash2 aria-hidden="true" />
             删除书籍
           </button>
         </div>
@@ -238,6 +242,7 @@ async function runSaving(task: () => Promise<void>) {
             <p class="subtle-text">用于摘抄录入时快速选择</p>
           </div>
           <button class="primary-action" type="button" @click="createChapterModalOpen = true">
+            <Plus aria-hidden="true" />
             新建章节
           </button>
         </div>
@@ -250,6 +255,7 @@ async function runSaving(task: () => Promise<void>) {
             </div>
             <div class="action-row">
               <button class="secondary-action" type="button" @click="startEditingChapter(chapter)">
+                <Pencil aria-hidden="true" />
                 编辑
               </button>
               <button
@@ -257,6 +263,7 @@ async function runSaving(task: () => Promise<void>) {
                 type="button"
                 @click="requestDeleteChapter(chapter.id)"
               >
+                <Trash2 aria-hidden="true" />
                 删除
               </button>
             </div>
@@ -284,9 +291,13 @@ async function runSaving(task: () => Promise<void>) {
       </label>
       <div class="modal-actions">
         <button class="secondary-action" type="button" @click="createBookModalOpen = false">
+          <X aria-hidden="true" />
           取消
         </button>
-        <button class="primary-action" :disabled="isSaving" type="submit">保存</button>
+        <button class="primary-action" :disabled="isSaving" type="submit">
+          <Save aria-hidden="true" />
+          保存
+        </button>
       </div>
     </form>
   </BaseModal>
@@ -299,9 +310,13 @@ async function runSaving(task: () => Promise<void>) {
       </label>
       <div class="modal-actions">
         <button class="secondary-action" type="button" @click="editBookModalOpen = false">
+          <X aria-hidden="true" />
           取消
         </button>
-        <button class="primary-action" :disabled="isSaving" type="submit">保存</button>
+        <button class="primary-action" :disabled="isSaving" type="submit">
+          <Save aria-hidden="true" />
+          保存
+        </button>
       </div>
     </form>
   </BaseModal>
@@ -311,9 +326,13 @@ async function runSaving(task: () => Promise<void>) {
       <p class="reflection">这只会删除候选书籍和章节，不会修改已经录入的摘抄文本。</p>
       <div class="modal-actions">
         <button class="secondary-action" type="button" @click="deleteBookModalOpen = false">
+          <X aria-hidden="true" />
           取消
         </button>
-        <button class="danger-action" type="button" @click="deleteBook">删除</button>
+        <button class="danger-action" type="button" @click="deleteBook">
+          <Trash2 aria-hidden="true" />
+          删除
+        </button>
       </div>
     </div>
   </BaseModal>
@@ -330,9 +349,13 @@ async function runSaving(task: () => Promise<void>) {
       </label>
       <div class="modal-actions">
         <button class="secondary-action" type="button" @click="createChapterModalOpen = false">
+          <X aria-hidden="true" />
           取消
         </button>
-        <button class="primary-action" :disabled="isSaving" type="submit">保存</button>
+        <button class="primary-action" :disabled="isSaving" type="submit">
+          <Save aria-hidden="true" />
+          保存
+        </button>
       </div>
     </form>
   </BaseModal>
@@ -349,9 +372,13 @@ async function runSaving(task: () => Promise<void>) {
       </label>
       <div class="modal-actions">
         <button class="secondary-action" type="button" @click="editChapterModalOpen = false">
+          <X aria-hidden="true" />
           取消
         </button>
-        <button class="primary-action" :disabled="isSaving" type="submit">保存</button>
+        <button class="primary-action" :disabled="isSaving" type="submit">
+          <Save aria-hidden="true" />
+          保存
+        </button>
       </div>
     </form>
   </BaseModal>
@@ -365,9 +392,13 @@ async function runSaving(task: () => Promise<void>) {
       <p class="reflection">这只会删除候选章节，不会修改已经录入的摘抄文本。</p>
       <div class="modal-actions">
         <button class="secondary-action" type="button" @click="deleteChapterModalOpen = false">
+          <X aria-hidden="true" />
           取消
         </button>
-        <button class="danger-action" type="button" @click="deleteChapter">删除</button>
+        <button class="danger-action" type="button" @click="deleteChapter">
+          <Trash2 aria-hidden="true" />
+          删除
+        </button>
       </div>
     </div>
   </BaseModal>

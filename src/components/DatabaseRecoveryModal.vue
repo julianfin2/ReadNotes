@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { open, save } from "@tauri-apps/plugin-dialog";
+import { Database, FolderOpen, RotateCcw } from "@lucide/vue";
 import type { DatabaseInfo, DatabaseStartupIssue } from "../types/database";
 
 const props = defineProps<{
@@ -67,12 +68,15 @@ async function chooseExistingDatabase() {
 
         <div class="database-recovery-actions">
           <button class="primary-action" :disabled="isSaving" type="button" @click="chooseNewDatabase">
+            <Database aria-hidden="true" />
             新建
           </button>
           <button class="secondary-action" :disabled="isSaving" type="button" @click="chooseExistingDatabase">
+            <FolderOpen aria-hidden="true" />
             切换
           </button>
           <button class="secondary-action" :disabled="isSaving" type="button" @click="emit('useDefaultDatabase')">
+            <RotateCcw aria-hidden="true" />
             默认
           </button>
         </div>
