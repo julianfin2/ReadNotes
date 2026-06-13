@@ -640,7 +640,7 @@ nav {
 
 .toolbar-search {
   box-sizing: border-box;
-  width: min(420px, 42vw);
+  width: min(320px, 30vw);
   height: 34px;
   min-height: 34px;
   padding: 0 11px;
@@ -766,6 +766,17 @@ nav {
   align-items: center;
   gap: 8px;
   margin: -6px 0 14px;
+}
+
+.toolbar-filter-chips {
+  flex: 0 1 auto;
+  max-width: min(420px, 34vw);
+  margin: 0;
+  overflow: hidden;
+}
+
+.toolbar-filter-chips .filter-chip {
+  max-width: 180px;
 }
 
 .filter-chip {

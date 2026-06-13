@@ -889,6 +889,15 @@ function cancelDiscardEditor() {
         class="toolbar list-toolbar"
         @submit.prevent="applyToolbarSearch"
       >
+        <div v-if="activeFilterLabels.length > 0" class="filter-chip-row toolbar-filter-chips">
+          <span v-for="label in activeFilterLabels" :key="label" class="filter-chip">
+            {{ label }}
+          </span>
+          <button class="text-action" type="button" @click="resetAppliedFilters">
+            <RotateCcw aria-hidden="true" />
+            清空筛选
+          </button>
+        </div>
         <input
           v-model="toolbarSearch"
           class="toolbar-search"
@@ -928,16 +937,6 @@ function cancelDiscardEditor() {
         </button>
       </div>
     </header>
-
-    <div v-if="viewMode === 'list' && activeFilterLabels.length > 0" class="filter-chip-row">
-      <span v-for="label in activeFilterLabels" :key="label" class="filter-chip">
-        {{ label }}
-      </span>
-      <button class="text-action" type="button" @click="resetAppliedFilters">
-        <RotateCcw aria-hidden="true" />
-        清空筛选
-      </button>
-    </div>
 
     <div v-if="viewMode === 'list'" class="table-page">
       <div class="excerpt-table">
