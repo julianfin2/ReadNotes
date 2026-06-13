@@ -185,7 +185,7 @@ async function runSaving(task: () => Promise<void>) {
 </script>
 
 <template>
-  <section class="workspace-panel desktop-view tag-page" :class="{ embedded }">
+  <section class="page-panel workspace-panel desktop-view tag-page" :class="{ embedded }">
     <header class="page-header list-toolbar-header">
       <div class="page-title-block">
         <h2>标签管理</h2>

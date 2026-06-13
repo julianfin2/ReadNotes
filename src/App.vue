@@ -2,16 +2,17 @@
 import { onMounted, ref } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import AppSidebar from "./components/AppSidebar.vue";
+import BookManager from "./components/BookManager.vue";
 import ExcerptList from "./components/ExcerptList.vue";
-import ManagementView from "./components/ManagementView.vue";
 import SettingsView from "./components/SettingsView.vue";
+import TagManager from "./components/TagManager.vue";
 import TopicWorkspace from "./components/TopicWorkspace.vue";
 import type { Book } from "./types/book";
 import type { DatabaseInfo } from "./types/database";
 import type { Excerpt, ExcerptFilters, UpdateExcerptInput } from "./types/excerpt";
 import type { Tag } from "./types/tag";
 
-type ViewKey = "excerpts" | "topics" | "management" | "settings";
+type ViewKey = "excerpts" | "topics" | "tags" | "books" | "settings";
 
 const activeView = ref<ViewKey>("excerpts");
 const excerpts = ref<Excerpt[]>([]);
@@ -205,11 +206,18 @@ function createDefaultExcerptFilters(): ExcerptFilters {
 
       <TopicWorkspace v-else-if="activeView === 'topics'" :excerpts="excerpts" />
 
-      <ManagementView
-        v-else-if="activeView === 'management'"
-        @books-changed="handleBooksChanged"
-        @tags-changed="handleTagsChanged"
-      />
+      <TagManager v-else-if="activeView === 'tags'" @tags-changed="handleTagsChanged" />
+
+      <section v-else-if="activeView === 'books'" class="page-panel workspace-panel desktop-view book-page">
+        <header class="page-header list-toolbar-header">
+          <div class="page-title-block">
+            <h2>书籍管理</h2>
+            <p class="subtle-text">管理摘抄录入时可选的书籍和章节</p>
+          </div>
+        </header>
+
+        <BookManager @books-changed="handleBooksChanged" />
+      </section>
 
       <SettingsView
         v-else-if="activeView === 'settings'"
@@ -382,6 +390,12 @@ nav {
   gap: 6px;
 }
 
+.nav-separator {
+  height: 1px;
+  margin: 8px 0;
+  background: rgba(249, 245, 237, 0.14);
+}
+
 .nav-item {
   min-height: 38px;
   padding: 0 12px;
@@ -402,7 +416,8 @@ nav {
 }
 
 .management-page > .tag-page,
-.management-page > .book-manager {
+.management-page > .book-manager,
+.book-page > .book-manager {
   flex: 1 1 auto;
   min-height: 0;
 }
