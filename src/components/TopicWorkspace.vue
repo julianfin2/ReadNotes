@@ -998,7 +998,10 @@ async function runSaving(task: () => Promise<void>) {
         </div>
       </section>
 
-      <p v-if="selectedNode?.summary" class="topic-node-summary">{{ selectedNode.summary }}</p>
+      <div v-if="selectedNode?.summary" class="topic-scope-note">
+        <span class="scope-note-label">摘要</span>
+        <span>{{ selectedNode.summary }}</span>
+      </div>
 
       <div class="topic-workspace-grid">
         <aside class="topic-material-pane">

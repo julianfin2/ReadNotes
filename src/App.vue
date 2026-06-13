@@ -1594,11 +1594,37 @@ select:focus {
   gap: 8px;
 }
 
-.topic-node-summary {
+.topic-scope-note {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   flex: 0 0 auto;
-  margin: -4px 0 0;
-  color: #6e7678;
+  min-width: 0;
+  margin: -2px 0 0;
+  padding: 9px 12px;
+  border: 1px solid #d9e3dc;
+  border-radius: 8px;
+  background: #f7faf6;
+  color: #4c5b60;
   font-size: 0.88rem;
+}
+
+.topic-scope-note span:last-child {
+  min-width: 0;
+  overflow: hidden;
+  color: #6e7678;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.scope-note-label {
+  flex: 0 0 auto;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: #e8eee6;
+  color: #2e6f62;
+  font-size: 0.76rem;
+  font-weight: 700;
 }
 
 .topic-material-pane {
