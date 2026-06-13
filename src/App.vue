@@ -1079,8 +1079,25 @@ form,
 }
 
 .table-tags {
+  position: relative;
   overflow: hidden;
   white-space: nowrap;
+}
+
+.responsive-tag-list {
+  width: 100%;
+}
+
+.responsive-tag-measure {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: flex;
+  gap: 6px;
+  height: 0;
+  visibility: hidden;
+  overflow: hidden;
+  pointer-events: none;
 }
 
 .table-tag,

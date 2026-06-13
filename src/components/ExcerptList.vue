@@ -14,6 +14,7 @@ import {
 import BaseModal from "./BaseModal.vue";
 import CustomSelect from "./CustomSelect.vue";
 import EditableCombobox from "./EditableCombobox.vue";
+import ResponsiveTagList from "./ResponsiveTagList.vue";
 import type { Book } from "../types/book";
 import type { Excerpt, ExcerptFilters, UpdateExcerptInput } from "../types/excerpt";
 import type { Tag } from "../types/tag";
@@ -963,22 +964,7 @@ function cancelDiscardEditor() {
               <small v-if="excerpt.reflection">{{ excerpt.reflection }}</small>
             </span>
             <span class="table-source">{{ excerptSource(excerpt) }}</span>
-            <span
-              class="table-tags"
-              :title="excerpt.tags.map((tag) => `#${tag.name}`).join(' ')"
-            >
-              <span
-                v-for="tag in excerpt.tags.slice(0, 2)"
-                :key="tag.id"
-                class="table-tag"
-                :style="tagStyle(tag)"
-              >
-                #{{ tag.name }}
-              </span>
-              <span v-if="excerpt.tags.length > 2" class="table-tag-more">
-                +{{ excerpt.tags.length - 2 }}
-              </span>
-            </span>
+            <ResponsiveTagList :tags="excerpt.tags" />
             <span class="item-meta" :title="formatDateTime(excerpt.createdAt)">
               {{ formatDateOnly(excerpt.createdAt) }}
             </span>
