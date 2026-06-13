@@ -224,7 +224,6 @@ function createDefaultExcerptFilters(): ExcerptFilters {
         <header class="page-header list-toolbar-header">
           <div class="page-title-block">
             <h2>书籍管理</h2>
-            <p class="subtle-text">管理摘抄录入时可选的书籍和章节</p>
           </div>
         </header>
 
@@ -585,7 +584,31 @@ nav {
 }
 
 .page-title-block {
+  display: flex;
+  align-items: center;
   min-width: 0;
+}
+
+.page-title-line {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+}
+
+.count-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: #e8eee6;
+  color: #2e6f62;
+  font-size: 0.78rem;
+  font-weight: 800;
+  line-height: 1;
 }
 
 .desktop-toolbar {

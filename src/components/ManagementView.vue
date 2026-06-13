@@ -16,7 +16,6 @@ const activeSection = ref<"tags" | "books">("tags");
     <header class="page-header list-toolbar-header">
       <div class="page-title-block">
         <h2>管理</h2>
-        <p class="subtle-text">管理标签、书籍和章节这些基础资料</p>
       </div>
 
       <div class="management-tabs" role="tablist" aria-label="管理内容">

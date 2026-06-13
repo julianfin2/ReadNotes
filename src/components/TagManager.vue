@@ -189,8 +189,10 @@ async function runSaving(task: () => Promise<void>) {
   <section class="page-panel workspace-panel desktop-view tag-page" :class="{ embedded }">
     <header class="page-header list-toolbar-header">
       <div class="page-title-block">
-        <h2>标签管理</h2>
-        <p class="subtle-text">{{ tags.length }} 个标签</p>
+        <h2 class="page-title-line">
+          <span>标签管理</span>
+          <span class="count-badge">{{ tags.length }}</span>
+        </h2>
       </div>
 
       <div class="toolbar list-toolbar">

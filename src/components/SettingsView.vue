@@ -51,7 +51,6 @@ async function chooseExistingDatabase() {
     <header class="page-header list-toolbar-header">
       <div class="page-title-block">
         <h2>设置</h2>
-        <p class="subtle-text">管理当前使用的数据库文件</p>
       </div>
     </header>
 

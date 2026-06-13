@@ -878,10 +878,10 @@ function cancelDiscardEditor() {
       }"
     >
       <div class="page-title-block">
-        <h2>{{ pageTitle }}</h2>
-        <p v-if="viewMode === 'list'" class="subtle-text">
-          {{ props.excerpts.length }} 条摘抄
-        </p>
+        <h2 class="page-title-line">
+          <span>{{ pageTitle }}</span>
+          <span v-if="viewMode === 'list'" class="count-badge">{{ props.excerpts.length }}</span>
+        </h2>
       </div>
 
       <form

@@ -1579,12 +1579,10 @@ async function runSaving(task: () => Promise<void>) {
       }"
     >
       <div class="page-title-block">
-        <h2>{{ pageTitle }}</h2>
-        <p v-if="viewMode === 'workspace' && selectedTopic?.researchQuestion" class="subtle-text">
-          {{ selectedTopic.researchQuestion }}
-        </p>
-        <p v-else-if="viewMode === 'workspace'" class="subtle-text">管理当前主题的子主题和材料</p>
-        <p v-else-if="viewMode === 'list'" class="subtle-text">{{ topics.length }} 个主题</p>
+        <h2 class="page-title-line">
+          <span>{{ pageTitle }}</span>
+          <span v-if="viewMode === 'list'" class="count-badge">{{ topics.length }}</span>
+        </h2>
       </div>
 
       <div v-if="viewMode === 'list'" class="toolbar topic-toolbar">
