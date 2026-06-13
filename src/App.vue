@@ -1750,7 +1750,7 @@ select:focus {
 .topic-workspace {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 10px;
   flex: 1 1 auto;
   min-height: 0;
 }
@@ -1807,8 +1807,8 @@ select:focus {
   gap: 10px;
   flex: 0 0 auto;
   min-width: 0;
-  margin: -2px 0 0;
-  padding: 9px 12px;
+  margin: -1px 0 0;
+  padding: 6px 12px;
   border: 1px solid #d9e3dc;
   border-radius: 8px;
   background: #f7faf6;
