@@ -1181,7 +1181,7 @@ function cancelDiscardEditor() {
     <form class="modal-form" @submit.prevent="applyFilters">
       <label>
         搜索
-        <input v-model="filterDraft.search" placeholder="搜索原文、理解、书籍或章节" />
+        <input v-model="filterDraft.search" placeholder="搜索原文、笔记、书籍或章节" />
       </label>
       <label>
         标签

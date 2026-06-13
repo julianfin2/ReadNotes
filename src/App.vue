@@ -609,7 +609,13 @@ nav {
 }
 
 .toolbar-search {
+  box-sizing: border-box;
   width: min(420px, 42vw);
+  height: 34px;
+  min-height: 34px;
+  padding: 0 11px;
+  font-size: 0.9rem;
+  line-height: 1;
 }
 
 .custom-select {
