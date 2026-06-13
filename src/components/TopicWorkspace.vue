@@ -813,7 +813,6 @@ async function runSaving(task: () => Promise<void>) {
         </p>
         <p v-else-if="viewMode === 'workspace'" class="subtle-text">管理当前主题的子主题和材料</p>
         <p v-else-if="viewMode === 'list'" class="subtle-text">{{ topics.length }} 个主题</p>
-        <p v-else class="subtle-text">保存或取消后返回主题列表</p>
       </div>
 
       <div v-if="viewMode === 'list'" class="toolbar topic-toolbar">
