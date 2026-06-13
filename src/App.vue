@@ -1247,11 +1247,30 @@ form,
   line-height: 1.2;
 }
 
-.reader-section h3::after {
+.reader-section h3::after,
+.topic-note-section h3::after {
   content: "";
   flex: 1 1 auto;
   height: 1px;
   background: #eee7da;
+}
+
+.topic-note-section {
+  display: grid;
+  gap: 8px;
+  width: 100%;
+}
+
+.topic-note-section h3 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  margin: 0;
+  color: #6e4e40;
+  font-size: 0.82rem;
+  font-weight: 800;
+  line-height: 1.2;
 }
 
 .item-title {

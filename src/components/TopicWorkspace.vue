@@ -1977,12 +1977,14 @@ async function runSaving(task: () => Promise<void>) {
           <div class="detail-scroll document-scroll">
             <div class="reading-body topic-reading-body document-body">
               <blockquote>{{ selectedTopicExcerpt.excerpt.quote }}</blockquote>
-              <p v-if="selectedTopicExcerpt.reason" class="reflection">
-                收录理由：{{ selectedTopicExcerpt.reason }}
-              </p>
-              <p v-if="selectedTopicExcerpt.topicReflection" class="reflection">
-                主题理解：{{ selectedTopicExcerpt.topicReflection }}
-              </p>
+              <section v-if="selectedTopicExcerpt.reason" class="topic-note-section">
+                <h3>收录理由</h3>
+                <p class="reflection">{{ selectedTopicExcerpt.reason }}</p>
+              </section>
+              <section v-if="selectedTopicExcerpt.topicReflection" class="topic-note-section">
+                <h3>主题理解</h3>
+                <p class="reflection">{{ selectedTopicExcerpt.topicReflection }}</p>
+              </section>
               <div v-if="selectedTopicExcerpt.excerpt.tags.length > 0" class="tag-row">
                 <span
                   v-for="tag in selectedTopicExcerpt.excerpt.tags"
