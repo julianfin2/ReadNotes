@@ -986,7 +986,7 @@ form,
 .table-tag,
 .table-tag-more {
   flex: 0 0 auto;
-  max-width: 78px;
+  max-width: 96px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
