@@ -1236,6 +1236,24 @@ form,
   gap: 10px;
 }
 
+.reader-section h3 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  color: #6e4e40;
+  font-size: 0.82rem;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.reader-section h3::after {
+  content: "";
+  flex: 1 1 auto;
+  height: 1px;
+  background: #eee7da;
+}
+
 .item-title {
   display: -webkit-box;
   overflow: hidden;
