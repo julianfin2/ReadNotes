@@ -532,6 +532,10 @@ nav {
   margin-bottom: 18px;
 }
 
+.compact-page-header {
+  align-items: center;
+}
+
 .page-title-block {
   min-width: 0;
 }

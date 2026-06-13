@@ -805,7 +805,13 @@ async function runSaving(task: () => Promise<void>) {
 
 <template>
   <section class="page-panel workspace-panel desktop-view topic-page">
-    <header class="page-header" :class="{ 'list-toolbar-header': viewMode === 'list' }">
+    <header
+      class="page-header"
+      :class="{
+        'list-toolbar-header': viewMode === 'list',
+        'compact-page-header': viewMode === 'edit',
+      }"
+    >
       <div class="page-title-block">
         <h2>{{ pageTitle }}</h2>
         <p v-if="viewMode === 'workspace' && selectedTopic?.researchQuestion" class="subtle-text">

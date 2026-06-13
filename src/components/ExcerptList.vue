@@ -579,7 +579,13 @@ function cancelDiscardEditor() {
 
 <template>
   <section class="page-panel desktop-view library-workbench">
-    <header class="page-header desktop-toolbar" :class="{ 'list-toolbar-header': viewMode === 'list' }">
+    <header
+      class="page-header desktop-toolbar"
+      :class="{
+        'list-toolbar-header': viewMode === 'list',
+        'compact-page-header': viewMode !== 'list',
+      }"
+    >
       <div class="page-title-block">
         <h2>{{ pageTitle }}</h2>
         <p v-if="viewMode === 'list'" class="subtle-text">
