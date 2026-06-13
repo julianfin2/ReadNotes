@@ -1789,8 +1789,10 @@ async function runSaving(task: () => Promise<void>) {
           <section class="context-section material-context-section">
             <div class="card-header">
               <div>
-                <h3>材料</h3>
-                <p class="subtle-text">{{ visibleTopicExcerpts.length }} 条材料</p>
+                <h3 class="card-title-line">
+                  <span>材料</span>
+                  <span class="count-badge">{{ visibleTopicExcerpts.length }}</span>
+                </h3>
               </div>
               <button class="primary-action" type="button" @click="openAddExcerptModal">
                 <Link aria-hidden="true" />

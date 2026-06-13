@@ -596,6 +596,13 @@ nav {
   min-height: 34px;
 }
 
+.card-title-line {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 28px;
+}
+
 .count-badge {
   display: inline-flex;
   align-items: center;

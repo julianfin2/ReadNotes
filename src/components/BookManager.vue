@@ -187,8 +187,10 @@ async function runSaving(task: () => Promise<void>) {
     <aside class="book-list-pane">
       <div class="card-header">
         <div>
-          <h3>书籍</h3>
-          <p class="subtle-text">{{ books.length }} 本书</p>
+          <h3 class="card-title-line">
+            <span>书籍</span>
+            <span class="count-badge">{{ books.length }}</span>
+          </h3>
         </div>
         <button class="primary-action" type="button" @click="createBookModalOpen = true">
           <Plus aria-hidden="true" />
@@ -239,7 +241,6 @@ async function runSaving(task: () => Promise<void>) {
         <div class="card-header">
           <div>
             <h3>章节</h3>
-            <p class="subtle-text">用于摘抄录入时快速选择</p>
           </div>
           <button class="primary-action" type="button" @click="createChapterModalOpen = true">
             <Plus aria-hidden="true" />
