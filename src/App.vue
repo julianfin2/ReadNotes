@@ -383,9 +383,11 @@ button {
 }
 
 .sidebar-version {
+  width: 100%;
   margin: auto 0 0;
   color: rgba(249, 245, 237, 0.58);
   font-size: 0.78rem;
+  text-align: center;
 }
 
 h1,
