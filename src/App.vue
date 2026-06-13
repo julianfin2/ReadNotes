@@ -938,7 +938,7 @@ form,
 
 .topic-table-head,
 .topic-table-row {
-  grid-template-columns: minmax(260px, 1.3fr) minmax(300px, 1.7fr) 120px 120px 210px;
+  grid-template-columns: minmax(280px, 1.4fr) minmax(360px, 2fr) 110px 120px 142px;
 }
 
 .tag-table-head,

@@ -1637,9 +1637,6 @@ async function runSaving(task: () => Promise<void>) {
               {{ formatDateOnly(topic.updatedAt) }}
             </span>
             <span class="row-actions" @click.stop>
-              <button class="secondary-action" type="button" @click="openTopicWorkspace(topic)">
-                打开
-              </button>
               <button class="secondary-action" type="button" @click="startEditingTopic(topic)">
                 编辑
               </button>
