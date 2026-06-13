@@ -2083,8 +2083,8 @@ select:focus {
 
 .excerpt-picker-item:hover,
 .excerpt-picker-item.active {
-  border-color: #bfd0c8;
-  background: #e8eee6;
+  border-color: #d8b996;
+  background: #fbf2e6;
 }
 
 .excerpt-picker-preview {
