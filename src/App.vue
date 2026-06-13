@@ -2176,6 +2176,7 @@ blockquote {
   padding-left: 14px;
   border-left: 3px solid #2e6f62;
   color: #1d2528;
+  font-weight: 700;
 }
 
 .reflection {
