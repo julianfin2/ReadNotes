@@ -1084,6 +1084,31 @@ form,
   font-weight: 700;
 }
 
+.topic-status-collecting {
+  background: #edf1f6;
+  color: #3d647f;
+}
+
+.topic-status-organizing {
+  background: #e9e6f4;
+  color: #5b4b8a;
+}
+
+.topic-status-drafting {
+  background: #f7ead7;
+  color: #8a5a24;
+}
+
+.topic-status-finished {
+  background: #e2efe9;
+  color: #287051;
+}
+
+.topic-status-paused {
+  background: #eee9e1;
+  color: #74665a;
+}
+
 .row-actions {
   justify-content: flex-end;
 }

@@ -1540,6 +1540,10 @@ function topicStatusLabel(status: TopicStatus) {
   return labels[status];
 }
 
+function topicStatusClass(status: TopicStatus) {
+  return `topic-status-${status}`;
+}
+
 async function runSaving(task: () => Promise<void>) {
   errorMessage.value = "";
   isSaving.value = true;
@@ -1632,7 +1636,9 @@ async function runSaving(task: () => Promise<void>) {
               <small v-if="topic.description">{{ topic.description }}</small>
             </span>
             <span class="table-source">{{ topic.researchQuestion || "未记录" }}</span>
-            <span class="topic-status">{{ topicStatusLabel(topic.status) }}</span>
+            <span class="topic-status" :class="topicStatusClass(topic.status)">
+              {{ topicStatusLabel(topic.status) }}
+            </span>
             <span class="item-meta" :title="formatDateTime(topic.updatedAt)">
               {{ formatDateOnly(topic.updatedAt) }}
             </span>
