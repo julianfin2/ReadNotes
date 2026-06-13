@@ -98,13 +98,14 @@ async function createExcerpt(input: {
   bookTitle: string;
   chapterTitle: string;
   tagNames: string[];
-}) {
+}, onSaved?: () => void) {
   clearError();
   isSaving.value = true;
 
   try {
     await invoke<Excerpt>("create_excerpt", { input });
     await Promise.all([loadExcerpts(excerptFilters.value), loadTags(), loadBooks()]);
+    onSaved?.();
   } catch (error) {
     showError(error);
   } finally {

@@ -29,12 +29,20 @@ const emit = defineEmits<{
       chapterTitle: string;
       tagNames: string[];
     },
+    onSaved?: () => void,
   ];
   deleteExcerpt: [id: string];
   updateExcerpt: [input: UpdateExcerptInput, onSaved?: () => void];
 }>();
 
 type PendingEditorAction = () => void;
+type ExcerptCreateDraftPayload = {
+  quote: string;
+  reflection: string;
+  bookTitle: string;
+  chapterTitle: string;
+  tagInput: string;
+};
 type ExcerptEditDraftPayload = {
   quote: string;
   reflection: string;
@@ -46,6 +54,8 @@ type ExcerptEditDraftPayload = {
 };
 
 const EXCERPT_DRAFT_TYPE = "excerpt";
+const EXCERPT_CREATE_DRAFT_TYPE = "excerptCreate";
+const ACTIVE_CREATE_DRAFT_ID = "active";
 
 const filterModalOpen = ref(false);
 const deleteModalOpen = ref(false);
@@ -56,9 +66,12 @@ const activeExcerptId = ref("");
 const deletingExcerptId = ref("");
 const discardModalMessage = ref("");
 const toolbarSearch = ref("");
+const restoreDraftKind = ref<"create" | "edit" | null>(null);
+const pendingCreateExcerptDraft = ref<ExcerptCreateDraftPayload | null>(null);
 const pendingExcerptDraft = ref<ExcerptEditDraftPayload | null>(null);
 const pendingEditorAction = shallowRef<PendingEditorAction | null>(null);
 let searchDebounceTimer: number | undefined;
+let createDraftSaveTimer: number | undefined;
 let editDraftSaveTimer: number | undefined;
 
 const appliedFilters = reactive<ExcerptFilters>({
@@ -246,6 +259,18 @@ watch(toolbarSearch, (search) => {
 watch(
   () => ({
     viewMode: viewMode.value,
+    quote: createDraft.quote,
+    reflection: createDraft.reflection,
+    bookTitle: createDraft.bookTitle,
+    chapterTitle: createDraft.chapterTitle,
+    tagInput: createDraft.tagInput,
+  }),
+  () => scheduleCreateDraftSave(),
+);
+
+watch(
+  () => ({
+    viewMode: viewMode.value,
     id: editDraft.id,
     quote: editDraft.quote,
     reflection: editDraft.reflection,
@@ -259,9 +284,13 @@ watch(
 );
 
 onBeforeUnmount(() => {
+  saveCreateDraftNow();
   saveExcerptDraftNow();
   if (searchDebounceTimer) {
     window.clearTimeout(searchDebounceTimer);
+  }
+  if (createDraftSaveTimer) {
+    window.clearTimeout(createDraftSaveTimer);
   }
   if (editDraftSaveTimer) {
     window.clearTimeout(editDraftSaveTimer);
@@ -281,9 +310,11 @@ function submitCreate() {
     bookTitle: createDraft.bookTitle,
     chapterTitle: createDraft.chapterTitle,
     tagNames: parseTagInput(createDraft.tagInput),
+  }, () => {
+    void deleteDraftPayload(EXCERPT_CREATE_DRAFT_TYPE, ACTIVE_CREATE_DRAFT_ID);
+    resetCreateDraft();
+    viewMode.value = "list";
   });
-  resetCreateDraft();
-  viewMode.value = "list";
 }
 
 function selectCreateBook(title: string) {
@@ -385,6 +416,7 @@ function startCreate() {
   runAfterEditorDiscard(() => {
     resetCreateDraft();
     viewMode.value = "create";
+    void checkCreateDraft();
   });
 }
 
@@ -488,6 +520,24 @@ function resetCreateDraft() {
   createDraft.tagInput = "";
 }
 
+function createDraftPayload(): ExcerptCreateDraftPayload {
+  return {
+    quote: createDraft.quote,
+    reflection: createDraft.reflection,
+    bookTitle: createDraft.bookTitle,
+    chapterTitle: createDraft.chapterTitle,
+    tagInput: createDraft.tagInput,
+  };
+}
+
+function applyCreateDraftPayload(payload: ExcerptCreateDraftPayload) {
+  createDraft.quote = payload.quote;
+  createDraft.reflection = payload.reflection;
+  createDraft.bookTitle = payload.bookTitle;
+  createDraft.chapterTitle = payload.chapterTitle;
+  createDraft.tagInput = payload.tagInput;
+}
+
 function resetEditDraft() {
   editDraft.id = "";
   editDraft.quote = "";
@@ -498,6 +548,42 @@ function resetEditDraft() {
   editDraft.chapterTitle = "";
   editDraft.tagNames = [];
   editDraft.tagInput = "";
+}
+
+function scheduleCreateDraftSave() {
+  if (createDraftSaveTimer) {
+    window.clearTimeout(createDraftSaveTimer);
+    createDraftSaveTimer = undefined;
+  }
+
+  if (viewMode.value !== "create" || !isCreateDirty.value) {
+    return;
+  }
+
+  createDraftSaveTimer = window.setTimeout(() => {
+    createDraftSaveTimer = undefined;
+    if (viewMode.value !== "create" || !isCreateDirty.value) {
+      return;
+    }
+
+    void saveDraftPayload(
+      EXCERPT_CREATE_DRAFT_TYPE,
+      ACTIVE_CREATE_DRAFT_ID,
+      createDraftPayload(),
+    );
+  }, 800);
+}
+
+function saveCreateDraftNow() {
+  if (viewMode.value !== "create" || !isCreateDirty.value) {
+    return;
+  }
+
+  void saveDraftPayload(
+    EXCERPT_CREATE_DRAFT_TYPE,
+    ACTIVE_CREATE_DRAFT_ID,
+    createDraftPayload(),
+  );
 }
 
 function excerptDraftPayload(): ExcerptEditDraftPayload {
@@ -526,6 +612,33 @@ function applyExcerptDraftPayload(payload: ExcerptEditDraftPayload) {
 function isPendingExcerptDraftDifferent(payload: ExcerptEditDraftPayload) {
   const current = excerptDraftPayload();
   return JSON.stringify(current) !== JSON.stringify(payload);
+}
+
+async function checkCreateDraft() {
+  try {
+    const draft = await getDraftPayload<ExcerptCreateDraftPayload>(
+      EXCERPT_CREATE_DRAFT_TYPE,
+      ACTIVE_CREATE_DRAFT_ID,
+    );
+    if (!draft || viewMode.value !== "create") {
+      return;
+    }
+
+    if (JSON.stringify(createDraftPayload()) === JSON.stringify(draft.payload)) {
+      await deleteDraftPayload(EXCERPT_CREATE_DRAFT_TYPE, ACTIVE_CREATE_DRAFT_ID);
+      return;
+    }
+
+    pendingCreateExcerptDraft.value = draft.payload;
+    pendingExcerptDraft.value = null;
+    restoreDraftKind.value = "create";
+    restoreDraftModalOpen.value = true;
+  } catch {
+    pendingCreateExcerptDraft.value = null;
+    pendingExcerptDraft.value = null;
+    restoreDraftKind.value = null;
+    restoreDraftModalOpen.value = false;
+  }
 }
 
 function scheduleExcerptDraftSave() {
@@ -569,28 +682,44 @@ async function checkExcerptDraft(excerptId: string) {
     }
 
     pendingExcerptDraft.value = draft.payload;
+    pendingCreateExcerptDraft.value = null;
+    restoreDraftKind.value = "edit";
     restoreDraftModalOpen.value = true;
   } catch {
+    restoreDraftKind.value = null;
+    pendingCreateExcerptDraft.value = null;
     pendingExcerptDraft.value = null;
     restoreDraftModalOpen.value = false;
   }
 }
 
 function restoreExcerptDraft() {
-  if (pendingExcerptDraft.value) {
+  if (restoreDraftKind.value === "create" && pendingCreateExcerptDraft.value) {
+    applyCreateDraftPayload(pendingCreateExcerptDraft.value);
+  }
+
+  if (restoreDraftKind.value === "edit" && pendingExcerptDraft.value) {
     applyExcerptDraftPayload(pendingExcerptDraft.value);
   }
 
+  restoreDraftKind.value = null;
+  pendingCreateExcerptDraft.value = null;
   pendingExcerptDraft.value = null;
   restoreDraftModalOpen.value = false;
 }
 
 function discardRestoredExcerptDraft() {
-  const excerptId = editDraft.id;
-  if (excerptId) {
+  if (restoreDraftKind.value === "create") {
+    void deleteDraftPayload(EXCERPT_CREATE_DRAFT_TYPE, ACTIVE_CREATE_DRAFT_ID);
+  }
+
+  if (restoreDraftKind.value === "edit" && editDraft.id) {
+    const excerptId = editDraft.id;
     void deleteDraftPayload(EXCERPT_DRAFT_TYPE, excerptId);
   }
 
+  restoreDraftKind.value = null;
+  pendingCreateExcerptDraft.value = null;
   pendingExcerptDraft.value = null;
   restoreDraftModalOpen.value = false;
 }
@@ -689,6 +818,9 @@ function runAfterEditorDiscard(action: PendingEditorAction) {
   const message = editorDiscardMessage();
 
   if (!message) {
+    if (viewMode.value === "create") {
+      void deleteDraftPayload(EXCERPT_CREATE_DRAFT_TYPE, ACTIVE_CREATE_DRAFT_ID);
+    }
     action();
     return;
   }
@@ -700,9 +832,14 @@ function runAfterEditorDiscard(action: PendingEditorAction) {
 
 function confirmDiscardEditor() {
   const action = pendingEditorAction.value;
+  const discardedCreate = viewMode.value === "create";
   const discardedExcerptId = viewMode.value === "edit" ? editDraft.id : "";
   discardModalOpen.value = false;
   pendingEditorAction.value = null;
+
+  if (discardedCreate) {
+    void deleteDraftPayload(EXCERPT_CREATE_DRAFT_TYPE, ACTIVE_CREATE_DRAFT_ID);
+  }
 
   if (discardedExcerptId) {
     void deleteDraftPayload(EXCERPT_DRAFT_TYPE, discardedExcerptId);
@@ -974,7 +1111,13 @@ function cancelDiscardEditor() {
 
   <BaseModal :open="restoreDraftModalOpen" title="发现未保存草稿" @close="discardRestoredExcerptDraft">
     <div class="modal-form">
-      <p class="reflection">这条摘抄存在上次未保存的编辑内容，是否恢复草稿？</p>
+      <p class="reflection">
+        {{
+          restoreDraftKind === "create"
+            ? "存在上次未保存的新增摘抄内容，是否恢复草稿？"
+            : "这条摘抄存在上次未保存的编辑内容，是否恢复草稿？"
+        }}
+      </p>
       <div class="modal-actions">
         <button class="secondary-action" type="button" @click="discardRestoredExcerptDraft">
           忽略草稿
