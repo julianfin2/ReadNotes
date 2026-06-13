@@ -1,7 +1,7 @@
 [package]
 name = "readnotes"
-version = "0.1.0"
-description = "A Tauri App"
+version = "0.1.1"
+description = "A Reading Notes App"
 authors = ["Julian F."]
 edition = "2021"
 
