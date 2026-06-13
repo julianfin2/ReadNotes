@@ -1777,14 +1777,15 @@ select:focus {
 
 .topic-tab {
   flex: 0 0 auto;
-  min-height: 34px;
-  padding: 0 12px;
+  min-height: 30px;
+  padding: 0 11px;
   border: 1px solid transparent;
   border-radius: 999px;
   background: transparent;
   color: #2d3a3f;
   cursor: pointer;
-  font-weight: 700;
+  font-size: 0.9rem;
+  font-weight: 600;
 }
 
 .topic-tab:hover,
