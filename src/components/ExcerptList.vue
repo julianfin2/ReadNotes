@@ -6,6 +6,7 @@ import EditableCombobox from "./EditableCombobox.vue";
 import type { Book } from "../types/book";
 import type { Excerpt, ExcerptFilters, UpdateExcerptInput } from "../types/excerpt";
 import type { Tag } from "../types/tag";
+import { deleteDraftPayload, getDraftPayload, saveDraftPayload } from "../utils/drafts";
 import { formatDateOnly, formatDateTime } from "../utils/date";
 
 const props = defineProps<{
@@ -30,21 +31,35 @@ const emit = defineEmits<{
     },
   ];
   deleteExcerpt: [id: string];
-  updateExcerpt: [input: UpdateExcerptInput];
+  updateExcerpt: [input: UpdateExcerptInput, onSaved?: () => void];
 }>();
 
 type PendingEditorAction = () => void;
+type ExcerptEditDraftPayload = {
+  quote: string;
+  reflection: string;
+  bookId: string | null;
+  chapterId: string | null;
+  bookTitle: string;
+  chapterTitle: string;
+  tagInput: string;
+};
+
+const EXCERPT_DRAFT_TYPE = "excerpt";
 
 const filterModalOpen = ref(false);
 const deleteModalOpen = ref(false);
 const discardModalOpen = ref(false);
+const restoreDraftModalOpen = ref(false);
 const viewMode = ref<"list" | "detail" | "create" | "edit">("list");
 const activeExcerptId = ref("");
 const deletingExcerptId = ref("");
 const discardModalMessage = ref("");
 const toolbarSearch = ref("");
+const pendingExcerptDraft = ref<ExcerptEditDraftPayload | null>(null);
 const pendingEditorAction = shallowRef<PendingEditorAction | null>(null);
 let searchDebounceTimer: number | undefined;
+let editDraftSaveTimer: number | undefined;
 
 const appliedFilters = reactive<ExcerptFilters>({
   search: "",
@@ -228,9 +243,28 @@ watch(toolbarSearch, (search) => {
   }, 300);
 });
 
+watch(
+  () => ({
+    viewMode: viewMode.value,
+    id: editDraft.id,
+    quote: editDraft.quote,
+    reflection: editDraft.reflection,
+    bookId: editDraft.bookId || null,
+    chapterId: editDraft.chapterId || null,
+    bookTitle: editDraft.bookTitle,
+    chapterTitle: editDraft.chapterTitle,
+    tagInput: editDraft.tagInput,
+  }),
+  () => scheduleExcerptDraftSave(),
+);
+
 onBeforeUnmount(() => {
+  saveExcerptDraftNow();
   if (searchDebounceTimer) {
     window.clearTimeout(searchDebounceTimer);
+  }
+  if (editDraftSaveTimer) {
+    window.clearTimeout(editDraftSaveTimer);
   }
 });
 
@@ -268,19 +302,24 @@ function selectEditBook(title: string) {
   editDraft.chapterTitle = "";
 }
 
+function fillEditDraftFromExcerpt(excerpt: Excerpt) {
+  editDraft.id = excerpt.id;
+  editDraft.quote = excerpt.quote;
+  editDraft.reflection = excerpt.reflection || "";
+  editDraft.bookId = excerpt.bookId || null;
+  editDraft.chapterId = excerpt.chapterId || null;
+  editDraft.bookTitle = excerpt.bookTitle || "";
+  editDraft.chapterTitle = excerpt.chapterTitle || "";
+  editDraft.tagNames = excerpt.tags.map((tag) => tag.name);
+  editDraft.tagInput = excerpt.tags.map((tag) => `#${tag.name}`).join(" ");
+}
+
 function startEditing(excerpt: Excerpt) {
   runAfterEditorDiscard(() => {
     activeExcerptId.value = excerpt.id;
-    editDraft.id = excerpt.id;
-    editDraft.quote = excerpt.quote;
-    editDraft.reflection = excerpt.reflection || "";
-    editDraft.bookId = excerpt.bookId || null;
-    editDraft.chapterId = excerpt.chapterId || null;
-    editDraft.bookTitle = excerpt.bookTitle || "";
-    editDraft.chapterTitle = excerpt.chapterTitle || "";
-    editDraft.tagNames = excerpt.tags.map((tag) => tag.name);
-    editDraft.tagInput = excerpt.tags.map((tag) => `#${tag.name}`).join(" ");
+    fillEditDraftFromExcerpt(excerpt);
     viewMode.value = "edit";
+    void checkExcerptDraft(excerpt.id);
   });
 }
 
@@ -304,6 +343,7 @@ function confirmDeleteExcerpt() {
 
   const deletedCurrentExcerpt = deletingExcerptId.value === activeExcerptId.value;
 
+  void deleteDraftPayload(EXCERPT_DRAFT_TYPE, deletingExcerptId.value);
   emit("deleteExcerpt", deletingExcerptId.value);
   deletingExcerptId.value = "";
   deleteModalOpen.value = false;
@@ -323,6 +363,7 @@ function submitEdit() {
     return;
   }
 
+  const excerptId = editDraft.id;
   emit("updateExcerpt", {
     id: editDraft.id,
     quote: editDraft.quote,
@@ -332,10 +373,12 @@ function submitEdit() {
     bookTitle: editDraft.bookTitle,
     chapterTitle: editDraft.chapterTitle,
     tagNames: parseTagInput(editDraft.tagInput),
+  }, () => {
+    void deleteDraftPayload(EXCERPT_DRAFT_TYPE, excerptId);
+    activeExcerptId.value = excerptId;
+    resetEditDraft();
+    viewMode.value = "detail";
   });
-  activeExcerptId.value = editDraft.id;
-  resetEditDraft();
-  viewMode.value = "detail";
 }
 
 function startCreate() {
@@ -457,6 +500,101 @@ function resetEditDraft() {
   editDraft.tagInput = "";
 }
 
+function excerptDraftPayload(): ExcerptEditDraftPayload {
+  return {
+    quote: editDraft.quote,
+    reflection: editDraft.reflection,
+    bookId: editDraft.bookId || null,
+    chapterId: editDraft.chapterId || null,
+    bookTitle: editDraft.bookTitle,
+    chapterTitle: editDraft.chapterTitle,
+    tagInput: editDraft.tagInput,
+  };
+}
+
+function applyExcerptDraftPayload(payload: ExcerptEditDraftPayload) {
+  editDraft.quote = payload.quote;
+  editDraft.reflection = payload.reflection;
+  editDraft.bookId = payload.bookId;
+  editDraft.chapterId = payload.chapterId;
+  editDraft.bookTitle = payload.bookTitle;
+  editDraft.chapterTitle = payload.chapterTitle;
+  editDraft.tagInput = payload.tagInput;
+  editDraft.tagNames = parseTagInput(payload.tagInput);
+}
+
+function isPendingExcerptDraftDifferent(payload: ExcerptEditDraftPayload) {
+  const current = excerptDraftPayload();
+  return JSON.stringify(current) !== JSON.stringify(payload);
+}
+
+function scheduleExcerptDraftSave() {
+  if (editDraftSaveTimer) {
+    window.clearTimeout(editDraftSaveTimer);
+    editDraftSaveTimer = undefined;
+  }
+
+  if (viewMode.value !== "edit" || !editDraft.id || !isEditDirty.value) {
+    return;
+  }
+
+  editDraftSaveTimer = window.setTimeout(() => {
+    editDraftSaveTimer = undefined;
+    if (viewMode.value !== "edit" || !editDraft.id || !isEditDirty.value) {
+      return;
+    }
+
+    void saveDraftPayload(EXCERPT_DRAFT_TYPE, editDraft.id, excerptDraftPayload());
+  }, 800);
+}
+
+function saveExcerptDraftNow() {
+  if (viewMode.value !== "edit" || !editDraft.id || !isEditDirty.value) {
+    return;
+  }
+
+  void saveDraftPayload(EXCERPT_DRAFT_TYPE, editDraft.id, excerptDraftPayload());
+}
+
+async function checkExcerptDraft(excerptId: string) {
+  try {
+    const draft = await getDraftPayload<ExcerptEditDraftPayload>(EXCERPT_DRAFT_TYPE, excerptId);
+    if (!draft || viewMode.value !== "edit" || editDraft.id !== excerptId) {
+      return;
+    }
+
+    if (!isPendingExcerptDraftDifferent(draft.payload)) {
+      await deleteDraftPayload(EXCERPT_DRAFT_TYPE, excerptId);
+      return;
+    }
+
+    pendingExcerptDraft.value = draft.payload;
+    restoreDraftModalOpen.value = true;
+  } catch {
+    pendingExcerptDraft.value = null;
+    restoreDraftModalOpen.value = false;
+  }
+}
+
+function restoreExcerptDraft() {
+  if (pendingExcerptDraft.value) {
+    applyExcerptDraftPayload(pendingExcerptDraft.value);
+  }
+
+  pendingExcerptDraft.value = null;
+  restoreDraftModalOpen.value = false;
+}
+
+function discardRestoredExcerptDraft() {
+  const excerptId = editDraft.id;
+  if (excerptId) {
+    void deleteDraftPayload(EXCERPT_DRAFT_TYPE, excerptId);
+  }
+
+  pendingExcerptDraft.value = null;
+  restoreDraftModalOpen.value = false;
+}
+
 function parseTagInput(value: string) {
   return value
     .split(/[\s,，#]+/)
@@ -562,8 +700,13 @@ function runAfterEditorDiscard(action: PendingEditorAction) {
 
 function confirmDiscardEditor() {
   const action = pendingEditorAction.value;
+  const discardedExcerptId = viewMode.value === "edit" ? editDraft.id : "";
   discardModalOpen.value = false;
   pendingEditorAction.value = null;
+
+  if (discardedExcerptId) {
+    void deleteDraftPayload(EXCERPT_DRAFT_TYPE, discardedExcerptId);
+  }
 
   if (action) {
     action();
@@ -824,6 +967,20 @@ function cancelDiscardEditor() {
         </button>
         <button class="danger-action" type="button" @click="confirmDiscardEditor">
           放弃更改
+        </button>
+      </div>
+    </div>
+  </BaseModal>
+
+  <BaseModal :open="restoreDraftModalOpen" title="发现未保存草稿" @close="discardRestoredExcerptDraft">
+    <div class="modal-form">
+      <p class="reflection">这条摘抄存在上次未保存的编辑内容，是否恢复草稿？</p>
+      <div class="modal-actions">
+        <button class="secondary-action" type="button" @click="discardRestoredExcerptDraft">
+          忽略草稿
+        </button>
+        <button class="primary-action" type="button" @click="restoreExcerptDraft">
+          恢复草稿
         </button>
       </div>
     </div>

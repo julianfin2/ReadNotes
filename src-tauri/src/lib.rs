@@ -1,5 +1,6 @@
 mod book;
 mod db;
+mod draft;
 mod excerpt;
 mod tag;
 mod topic;
@@ -28,6 +29,9 @@ pub fn run() {
             db::get_database_info,
             db::switch_database,
             db::use_default_database,
+            draft::delete_draft,
+            draft::get_draft,
+            draft::save_draft,
             excerpt::create_excerpt,
             excerpt::delete_excerpt,
             excerpt::list_excerpts,

@@ -48,13 +48,14 @@ async function loadExcerpts(filters: ExcerptFilters = excerptFilters.value) {
   });
 }
 
-async function updateExcerpt(input: UpdateExcerptInput) {
+async function updateExcerpt(input: UpdateExcerptInput, onSaved?: () => void) {
   clearError();
   isSaving.value = true;
 
   try {
     await invoke<Excerpt>("update_excerpt", { input });
     await Promise.all([loadExcerpts(excerptFilters.value), loadTags(), loadBooks()]);
+    onSaved?.();
   } catch (error) {
     showError(error);
   } finally {

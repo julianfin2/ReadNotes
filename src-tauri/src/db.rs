@@ -192,6 +192,14 @@ fn create_schema(connection: &Connection) -> Result<(), String> {
               FOREIGN KEY (node_id) REFERENCES topic_nodes(id) ON DELETE SET NULL
             );
 
+            CREATE TABLE IF NOT EXISTS drafts (
+              entity_type TEXT NOT NULL,
+              entity_id TEXT NOT NULL,
+              payload TEXT NOT NULL,
+              updated_at TEXT NOT NULL,
+              PRIMARY KEY (entity_type, entity_id)
+            );
+
             CREATE INDEX IF NOT EXISTS idx_excerpts_created_at ON excerpts(created_at);
             CREATE INDEX IF NOT EXISTS idx_excerpts_updated_at ON excerpts(updated_at);
             CREATE INDEX IF NOT EXISTS idx_excerpts_book_id ON excerpts(book_id);
@@ -205,6 +213,7 @@ fn create_schema(connection: &Connection) -> Result<(), String> {
             CREATE INDEX IF NOT EXISTS idx_topic_nodes_topic_id ON topic_nodes(topic_id);
             CREATE INDEX IF NOT EXISTS idx_topic_excerpts_topic_id ON topic_excerpts(topic_id);
             CREATE INDEX IF NOT EXISTS idx_topic_excerpts_excerpt_id ON topic_excerpts(excerpt_id);
+            CREATE INDEX IF NOT EXISTS idx_drafts_updated_at ON drafts(updated_at);
             ",
         )
         .map_err(|error| format!("failed to create database schema: {error}"))

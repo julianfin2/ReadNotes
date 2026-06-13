@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref, shallowRef, watch } from "vue";
+import { computed, onBeforeUnmount, onMounted, reactive, ref, shallowRef, watch } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import BaseModal from "./BaseModal.vue";
 import CustomSelect from "./CustomSelect.vue";
 import type { Excerpt } from "../types/excerpt";
 import type { Tag } from "../types/tag";
 import type { Topic, TopicExcerpt, TopicNode, TopicStatus } from "../types/topic";
+import { deleteDraftPayload, getDraftPayload, saveDraftPayload } from "../utils/drafts";
 import { formatDateOnly, formatDateTime } from "../utils/date";
 
 const props = defineProps<{
@@ -63,11 +64,21 @@ type TopicExcerptDraft = {
 };
 
 type ConfirmAction = () => void | Promise<void>;
+type RestoreDraftKind = "topic" | "topicExcerpt";
+
+const TOPIC_DRAFT_TYPE = "topic";
+const TOPIC_EXCERPT_DRAFT_TYPE = "topicExcerpt";
 
 const editingTopics = reactive<Record<string, TopicDraft>>({});
 const editingNodes = reactive<Record<string, NodeDraft>>({});
 const editingTopicExcerpts = reactive<Record<string, TopicExcerptDraft>>({});
 const confirmAction = shallowRef<ConfirmAction | null>(null);
+const restoreDraftModalOpen = ref(false);
+const restoreDraftKind = ref<RestoreDraftKind | null>(null);
+const pendingTopicDraft = ref<TopicDraft | null>(null);
+const pendingTopicExcerptDraft = ref<TopicExcerptDraft | null>(null);
+let topicDraftSaveTimer: number | undefined;
+let topicExcerptDraftSaveTimer: number | undefined;
 
 const selectedTopic = computed(() =>
   topics.value.find((topic) => topic.id === selectedTopicId.value),
@@ -165,6 +176,14 @@ const canSaveTopicEdit = computed(() => {
   );
 });
 
+const restoreDraftMessage = computed(() => {
+  if (restoreDraftKind.value === "topic") {
+    return "当前主题存在上次未保存的编辑内容，是否恢复草稿？";
+  }
+
+  return "当前收录信息存在上次未保存的编辑内容，是否恢复草稿？";
+});
+
 const topicStatusOptions = [
   { value: "collecting", label: "收集中" },
   { value: "organizing", label: "整理中" },
@@ -221,6 +240,17 @@ onMounted(async () => {
   await loadTopics();
 });
 
+onBeforeUnmount(() => {
+  saveTopicDraftNow();
+  saveTopicExcerptDraftNow();
+  if (topicDraftSaveTimer) {
+    window.clearTimeout(topicDraftSaveTimer);
+  }
+  if (topicExcerptDraftSaveTimer) {
+    window.clearTimeout(topicExcerptDraftSaveTimer);
+  }
+});
+
 watch(selectedTopicId, async (topicId) => {
   selectedNodeId.value = "";
   selectedTopicExcerptId.value = "";
@@ -232,6 +262,40 @@ watch(selectedTopicId, async (topicId) => {
     await Promise.all([loadTopicNodes(topicId), loadTopicExcerpts(topicId)]);
   }
 });
+
+watch(
+  () => {
+    const topicId = editingTopicId.value;
+    const draft = topicId ? editingTopics[topicId] : null;
+    return draft
+      ? {
+          topicId,
+          title: draft.title,
+          description: draft.description,
+          researchQuestion: draft.researchQuestion,
+          status: draft.status,
+        }
+      : null;
+  },
+  () => scheduleTopicDraftSave(),
+);
+
+watch(
+  () => {
+    const topicExcerptId = editingTopicExcerptId.value;
+    const draft = topicExcerptId ? editingTopicExcerpts[topicExcerptId] : null;
+    return draft
+      ? {
+          topicExcerptId,
+          nodeId: draft.nodeId,
+          reason: draft.reason,
+          topicReflection: draft.topicReflection,
+          sortOrder: draft.sortOrder,
+        }
+      : null;
+  },
+  () => scheduleTopicExcerptDraftSave(),
+);
 
 watch(
   visibleTopicExcerpts,
@@ -312,6 +376,7 @@ async function updateTopic(topicId: string) {
       },
     });
 
+    await deleteDraftPayload(TOPIC_DRAFT_TYPE, topicId);
     delete editingTopics[topicId];
     editingTopicId.value = "";
     await reloadSelectedTopic();
@@ -322,6 +387,7 @@ async function updateTopic(topicId: string) {
 async function deleteTopic(topicId: string) {
   await runSaving(async () => {
     await invoke("delete_topic", { id: topicId });
+    await deleteDraftPayload(TOPIC_DRAFT_TYPE, topicId);
     if (selectedTopicId.value === topicId) {
       selectedTopicId.value = "";
     }
@@ -448,6 +514,7 @@ async function updateTopicExcerpt(topicExcerptId: string) {
       },
     });
 
+    await deleteDraftPayload(TOPIC_EXCERPT_DRAFT_TYPE, topicExcerptId);
     delete editingTopicExcerpts[topicExcerptId];
     editingTopicExcerptId.value = "";
     await loadTopicExcerpts(selectedTopicId.value);
@@ -461,6 +528,7 @@ async function removeTopicExcerpt(topicExcerptId: string) {
 
   await runSaving(async () => {
     await invoke("remove_excerpt_from_topic", { id: topicExcerptId });
+    await deleteDraftPayload(TOPIC_EXCERPT_DRAFT_TYPE, topicExcerptId);
     await loadTopicExcerpts(selectedTopicId.value);
   });
 }
@@ -475,6 +543,7 @@ function startEditingTopic(topic: Topic) {
       status: topic.status,
     };
     viewMode.value = "edit";
+    void checkTopicDraft(topic.id);
   });
 }
 
@@ -497,6 +566,7 @@ function startEditingTopicExcerpt(topicExcerpt: TopicExcerpt) {
     topicReflection: topicExcerpt.topicReflection || "",
     sortOrder: topicExcerpt.sortOrder,
   };
+  void checkTopicExcerptDraft(topicExcerpt.id);
 }
 
 function cancelEditingTopic() {
@@ -672,6 +742,167 @@ function isTopicDraftDirty(topicId: string) {
   );
 }
 
+function isTopicDraftPayloadDifferent(topicId: string, payload: TopicDraft) {
+  const draft = editingTopics[topicId];
+  return Boolean(draft && JSON.stringify(draft) !== JSON.stringify(payload));
+}
+
+function isTopicExcerptDraftPayloadDifferent(
+  topicExcerptId: string,
+  payload: TopicExcerptDraft,
+) {
+  const draft = editingTopicExcerpts[topicExcerptId];
+  return Boolean(draft && JSON.stringify(draft) !== JSON.stringify(payload));
+}
+
+function scheduleTopicDraftSave() {
+  if (topicDraftSaveTimer) {
+    window.clearTimeout(topicDraftSaveTimer);
+    topicDraftSaveTimer = undefined;
+  }
+
+  if (viewMode.value !== "edit" || !editingTopicId.value || !isTopicEditDirty.value) {
+    return;
+  }
+
+  topicDraftSaveTimer = window.setTimeout(() => {
+    topicDraftSaveTimer = undefined;
+    const topicId = editingTopicId.value;
+    const draft = topicId ? editingTopics[topicId] : null;
+    if (viewMode.value !== "edit" || !topicId || !draft || !isTopicEditDirty.value) {
+      return;
+    }
+
+    void saveDraftPayload(TOPIC_DRAFT_TYPE, topicId, { ...draft });
+  }, 800);
+}
+
+function saveTopicDraftNow() {
+  const topicId = editingTopicId.value;
+  const draft = topicId ? editingTopics[topicId] : null;
+  if (viewMode.value !== "edit" || !topicId || !draft || !isTopicEditDirty.value) {
+    return;
+  }
+
+  void saveDraftPayload(TOPIC_DRAFT_TYPE, topicId, { ...draft });
+}
+
+function scheduleTopicExcerptDraftSave() {
+  if (topicExcerptDraftSaveTimer) {
+    window.clearTimeout(topicExcerptDraftSaveTimer);
+    topicExcerptDraftSaveTimer = undefined;
+  }
+
+  if (!editingTopicExcerptId.value || !isTopicExcerptEditDirty.value) {
+    return;
+  }
+
+  topicExcerptDraftSaveTimer = window.setTimeout(() => {
+    topicExcerptDraftSaveTimer = undefined;
+    const topicExcerptId = editingTopicExcerptId.value;
+    const draft = topicExcerptId ? editingTopicExcerpts[topicExcerptId] : null;
+    if (!topicExcerptId || !draft || !isTopicExcerptEditDirty.value) {
+      return;
+    }
+
+    void saveDraftPayload(TOPIC_EXCERPT_DRAFT_TYPE, topicExcerptId, { ...draft });
+  }, 800);
+}
+
+function saveTopicExcerptDraftNow() {
+  const topicExcerptId = editingTopicExcerptId.value;
+  const draft = topicExcerptId ? editingTopicExcerpts[topicExcerptId] : null;
+  if (!topicExcerptId || !draft || !isTopicExcerptEditDirty.value) {
+    return;
+  }
+
+  void saveDraftPayload(TOPIC_EXCERPT_DRAFT_TYPE, topicExcerptId, { ...draft });
+}
+
+async function checkTopicDraft(topicId: string) {
+  try {
+    const draft = await getDraftPayload<TopicDraft>(TOPIC_DRAFT_TYPE, topicId);
+    if (!draft || viewMode.value !== "edit" || editingTopicId.value !== topicId) {
+      return;
+    }
+
+    if (!isTopicDraftPayloadDifferent(topicId, draft.payload)) {
+      await deleteDraftPayload(TOPIC_DRAFT_TYPE, topicId);
+      return;
+    }
+
+    pendingTopicDraft.value = draft.payload;
+    pendingTopicExcerptDraft.value = null;
+    restoreDraftKind.value = "topic";
+    restoreDraftModalOpen.value = true;
+  } catch {
+    clearPendingRestoreDraft();
+  }
+}
+
+async function checkTopicExcerptDraft(topicExcerptId: string) {
+  try {
+    const draft = await getDraftPayload<TopicExcerptDraft>(
+      TOPIC_EXCERPT_DRAFT_TYPE,
+      topicExcerptId,
+    );
+    if (!draft || editingTopicExcerptId.value !== topicExcerptId) {
+      return;
+    }
+
+    if (!isTopicExcerptDraftPayloadDifferent(topicExcerptId, draft.payload)) {
+      await deleteDraftPayload(TOPIC_EXCERPT_DRAFT_TYPE, topicExcerptId);
+      return;
+    }
+
+    pendingTopicExcerptDraft.value = draft.payload;
+    pendingTopicDraft.value = null;
+    restoreDraftKind.value = "topicExcerpt";
+    restoreDraftModalOpen.value = true;
+  } catch {
+    clearPendingRestoreDraft();
+  }
+}
+
+function restorePendingDraft() {
+  if (
+    restoreDraftKind.value === "topic" &&
+    editingTopicId.value &&
+    pendingTopicDraft.value
+  ) {
+    editingTopics[editingTopicId.value] = { ...pendingTopicDraft.value };
+  }
+
+  if (
+    restoreDraftKind.value === "topicExcerpt" &&
+    editingTopicExcerptId.value &&
+    pendingTopicExcerptDraft.value
+  ) {
+    editingTopicExcerpts[editingTopicExcerptId.value] = { ...pendingTopicExcerptDraft.value };
+  }
+
+  clearPendingRestoreDraft();
+}
+
+function discardPendingDraft() {
+  if (restoreDraftKind.value === "topic" && editingTopicId.value) {
+    void deleteDraftPayload(TOPIC_DRAFT_TYPE, editingTopicId.value);
+  }
+
+  if (restoreDraftKind.value === "topicExcerpt" && editingTopicExcerptId.value) {
+    void deleteDraftPayload(TOPIC_EXCERPT_DRAFT_TYPE, editingTopicExcerptId.value);
+  }
+
+  clearPendingRestoreDraft();
+}
+
+function clearPendingRestoreDraft() {
+  restoreDraftModalOpen.value = false;
+  restoreDraftKind.value = null;
+  pendingTopicDraft.value = null;
+  pendingTopicExcerptDraft.value = null;
+}
+
 function topicEditorDiscardMessage() {
   if (viewMode.value === "create" && isCreateTopicDirty.value) {
     return "当前新建主题还没有保存，确定放弃这些修改并离开吗？";
@@ -692,7 +923,17 @@ function runAfterTopicEditorDiscard(action: ConfirmAction) {
     return;
   }
 
-  requestConfirmation("放弃更改", message, action, "放弃更改");
+  requestConfirmation(
+    "放弃更改",
+    message,
+    async () => {
+      if (viewMode.value === "edit" && editingTopicId.value) {
+        await deleteDraftPayload(TOPIC_DRAFT_TYPE, editingTopicId.value);
+      }
+      await action();
+    },
+    "放弃更改",
+  );
 }
 
 function runAfterTopicExcerptDiscard(action: ConfirmAction) {
@@ -711,6 +952,7 @@ function runAfterTopicExcerptDiscard(action: ConfirmAction) {
     "放弃更改",
     "当前收录信息有未保存修改，确定放弃吗？",
     async () => {
+      await deleteDraftPayload(TOPIC_EXCERPT_DRAFT_TYPE, editingTopicExcerptId.value);
       clearTopicExcerptEditing();
       await action();
     },
@@ -1360,6 +1602,20 @@ async function runSaving(task: () => Promise<void>) {
         <button class="secondary-action" type="button" @click="cancelConfirmation">取消</button>
         <button class="danger-action" type="button" @click="confirmDestructiveAction">
           {{ confirmActionLabel }}
+        </button>
+      </div>
+    </div>
+  </BaseModal>
+
+  <BaseModal :open="restoreDraftModalOpen" title="发现未保存草稿" @close="discardPendingDraft">
+    <div class="modal-form">
+      <p class="reflection">{{ restoreDraftMessage }}</p>
+      <div class="modal-actions">
+        <button class="secondary-action" type="button" @click="discardPendingDraft">
+          忽略草稿
+        </button>
+        <button class="primary-action" type="button" @click="restorePendingDraft">
+          恢复草稿
         </button>
       </div>
     </div>
