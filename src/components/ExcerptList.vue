@@ -582,12 +582,8 @@ function cancelDiscardEditor() {
     <header class="page-header desktop-toolbar" :class="{ 'list-toolbar-header': viewMode === 'list' }">
       <div class="page-title-block">
         <h2>{{ pageTitle }}</h2>
-        <p class="subtle-text">
-          <template v-if="viewMode === 'list'">{{ props.excerpts.length }} 条摘抄</template>
-          <template v-else-if="viewMode === 'detail'">
-            {{ activeExcerpt ? excerptSource(activeExcerpt) : "查看摘抄内容" }}
-          </template>
-          <template v-else>保存或取消后返回阅读页或列表</template>
+        <p v-if="viewMode === 'list'" class="subtle-text">
+          {{ props.excerpts.length }} 条摘抄
         </p>
       </div>
 
