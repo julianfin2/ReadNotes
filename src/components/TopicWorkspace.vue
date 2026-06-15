@@ -2061,22 +2061,6 @@ async function runSaving(task: () => Promise<void>) {
   <BaseModal :open="addMaterialModalOpen" title="收录材料" @close="closeAddMaterialModal">
     <form class="collect-excerpt-form" @submit.prevent="addMaterialToTopic">
       <div class="collect-search-row">
-        <button
-          class="segment-button"
-          :class="{ active: materialTypeToAdd === 'excerpt' }"
-          type="button"
-          @click="materialTypeToAdd = 'excerpt'; materialIdToAdd = ''"
-        >
-          摘抄
-        </button>
-        <button
-          class="segment-button"
-          :class="{ active: materialTypeToAdd === 'note' }"
-          type="button"
-          @click="materialTypeToAdd = 'note'; materialIdToAdd = ''"
-        >
-          笔记
-        </button>
         <label class="collect-search-field">
           搜索材料
           <input
@@ -2084,6 +2068,28 @@ async function runSaving(task: () => Promise<void>) {
             placeholder="搜索原文、笔记、书籍、章节或标签"
           />
         </label>
+        <div
+          class="material-type-toggle"
+          :class="{ 'is-note': materialTypeToAdd === 'note' }"
+          aria-label="材料类型"
+        >
+          <button
+            class="segment-button"
+            :class="{ active: materialTypeToAdd === 'excerpt' }"
+            type="button"
+            @click="materialTypeToAdd = 'excerpt'; materialIdToAdd = ''"
+          >
+            摘抄
+          </button>
+          <button
+            class="segment-button"
+            :class="{ active: materialTypeToAdd === 'note' }"
+            type="button"
+            @click="materialTypeToAdd = 'note'; materialIdToAdd = ''"
+          >
+            笔记
+          </button>
+        </div>
       </div>
 
       <section class="excerpt-picker">

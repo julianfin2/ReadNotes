@@ -2031,9 +2031,9 @@ select:focus {
 
 .collect-search-row {
   display: grid;
-  grid-template-columns: auto auto minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: end;
-  gap: 8px;
+  gap: 10px;
 }
 
 .collect-search-field {
@@ -2045,30 +2045,54 @@ select:focus {
 }
 
 .material-type-toggle {
+  position: relative;
   display: inline-flex;
   align-items: center;
-  width: fit-content;
+  flex: 0 0 auto;
+  width: 116px;
+  height: 40px;
   padding: 3px;
   border: 1px solid #ded7ca;
   border-radius: 8px;
   background: #fbf8f1;
 }
 
-.segment-button {
-  min-height: 28px;
-  padding: 0 12px;
-  border: 1px solid #ded7ca;
+.material-type-toggle::before {
+  position: absolute;
+  inset: 3px auto 3px 3px;
+  width: calc(50% - 3px);
+  border: 1px solid #bfd0c8;
   border-radius: 6px;
-  background: #fffdf9;
+  background: #e8eee6;
+  content: "";
+  transition: transform 160ms ease;
+}
+
+.material-type-toggle.is-note::before {
+  transform: translateX(100%);
+}
+
+.segment-button {
+  position: relative;
+  z-index: 1;
+  flex: 1 1 0;
+  height: 100%;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
   color: #4c5b60;
   cursor: pointer;
   font-size: 0.86rem;
   font-weight: 700;
+  transition: color 160ms ease;
 }
 
-.segment-button:hover,
 .segment-button.active {
-  background: #e8eee6;
+  color: #2e6f62;
+}
+
+.segment-button:hover {
   color: #2e6f62;
 }
 
