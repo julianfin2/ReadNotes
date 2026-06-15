@@ -622,6 +622,21 @@ function toTagBackground(color: string) {
         </button>
       </form>
 
+      <div v-else-if="viewMode === 'detail' && activeNote" class="toolbar">
+        <button class="secondary-action" type="button" @click="goToList">
+          <ArrowLeft aria-hidden="true" />
+          返回列表
+        </button>
+        <button class="secondary-action" type="button" @click="startEdit(activeNote)">
+          <Pencil aria-hidden="true" />
+          编辑
+        </button>
+        <button class="danger-action" type="button" @click="requestDelete(activeNote)">
+          <Trash2 aria-hidden="true" />
+          删除
+        </button>
+      </div>
+
       <div v-else class="toolbar">
         <button class="secondary-action" type="button" @click="goToList">
           <ArrowLeft aria-hidden="true" />
@@ -670,44 +685,35 @@ function toTagBackground(color: string) {
       </div>
     </div>
 
-    <article v-else-if="viewMode === 'detail' && activeNote" class="detail-pane document-detail-pane">
-      <div class="detail-document">
-        <header class="detail-header document-header">
-          <div>
-            <footer>
-              <span :title="formatDateTime(activeNote.createdAt)">
-                创建于 {{ formatDateOnly(activeNote.createdAt) }}
-              </span>
-            </footer>
-          </div>
-          <div class="action-row">
-            <button class="secondary-action" type="button" @click="startEdit(activeNote)">
-              <Pencil aria-hidden="true" />
-              编辑
-            </button>
-            <button class="danger-action" type="button" @click="requestDelete(activeNote)">
-              <Trash2 aria-hidden="true" />
-              删除
-            </button>
-          </div>
+    <article v-else-if="viewMode === 'detail' && activeNote" class="reader-page">
+      <section class="reader-surface">
+        <header class="reader-meta">
+          <footer>
+            <span :title="formatDateTime(activeNote.createdAt)">
+              创建于 {{ formatDateTime(activeNote.createdAt) }}
+            </span>
+            <span
+              v-if="activeNote.updatedAt !== activeNote.createdAt"
+              :title="formatDateTime(activeNote.updatedAt)"
+            >
+              更新于 {{ formatDateTime(activeNote.updatedAt) }}
+            </span>
+          </footer>
         </header>
 
-        <div class="detail-scroll document-scroll">
-          <div class="reading-body document-body">
-            <p class="note-content">{{ activeNote.content }}</p>
-            <div v-if="activeNote.tags.length > 0" class="tag-row">
-              <span
-                v-for="tag in activeNote.tags"
-                :key="tag.id"
-                class="tag-pill"
-                :style="tagStyle(tag)"
-              >
-                #{{ tag.name }}
-              </span>
-            </div>
-          </div>
+        <p class="note-content">{{ activeNote.content }}</p>
+
+        <div v-if="activeNote.tags.length > 0" class="tag-row">
+          <span
+            v-for="tag in activeNote.tags"
+            :key="tag.id"
+            class="tag-pill"
+            :style="tagStyle(tag)"
+          >
+            #{{ tag.name }}
+          </span>
         </div>
-      </div>
+      </section>
     </article>
 
     <form
