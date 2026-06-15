@@ -224,21 +224,6 @@ fn create_schema(connection: &Connection) -> Result<(), String> {
               FOREIGN KEY (parent_id) REFERENCES topic_nodes(id) ON DELETE CASCADE
             );
 
-            CREATE TABLE IF NOT EXISTS topic_excerpts (
-              id TEXT PRIMARY KEY,
-              topic_id TEXT NOT NULL,
-              excerpt_id TEXT NOT NULL,
-              node_id TEXT,
-              reason TEXT,
-              topic_reflection TEXT,
-              sort_order INTEGER NOT NULL DEFAULT 0,
-              added_at TEXT NOT NULL,
-              updated_at TEXT NOT NULL,
-              FOREIGN KEY (topic_id) REFERENCES topics(id) ON DELETE CASCADE,
-              FOREIGN KEY (excerpt_id) REFERENCES excerpts(id) ON DELETE CASCADE,
-              FOREIGN KEY (node_id) REFERENCES topic_nodes(id) ON DELETE SET NULL
-            );
-
             CREATE TABLE IF NOT EXISTS topic_materials (
               id TEXT PRIMARY KEY,
               topic_id TEXT NOT NULL,
@@ -275,20 +260,9 @@ fn create_schema(connection: &Connection) -> Result<(), String> {
               ON book_chapters(book_id, title COLLATE NOCASE);
             CREATE INDEX IF NOT EXISTS idx_book_chapters_book_id ON book_chapters(book_id);
             CREATE INDEX IF NOT EXISTS idx_topic_nodes_topic_id ON topic_nodes(topic_id);
-            CREATE INDEX IF NOT EXISTS idx_topic_excerpts_topic_id ON topic_excerpts(topic_id);
-            CREATE INDEX IF NOT EXISTS idx_topic_excerpts_excerpt_id ON topic_excerpts(excerpt_id);
             CREATE INDEX IF NOT EXISTS idx_topic_materials_topic_id ON topic_materials(topic_id);
             CREATE INDEX IF NOT EXISTS idx_topic_materials_material ON topic_materials(material_type, material_id);
             CREATE INDEX IF NOT EXISTS idx_drafts_updated_at ON drafts(updated_at);
-
-            INSERT OR IGNORE INTO topic_materials (
-              id, topic_id, material_type, material_id, node_id, reason, topic_reflection,
-              sort_order, added_at, updated_at
-            )
-            SELECT
-              id, topic_id, 'excerpt', excerpt_id, node_id, reason, topic_reflection,
-              sort_order, added_at, updated_at
-            FROM topic_excerpts;
             ",
         )
         .map_err(|error| format!("failed to create database schema: {error}"))
