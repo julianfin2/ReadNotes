@@ -1875,13 +1875,13 @@ async function runSaving(task: () => Promise<void>) {
               >
                 <span class="item-title">{{ materialTitle(topicMaterial) }}</span>
                 <span class="material-item-meta">
+                  <span class="item-meta">{{ materialSourceLabel(topicMaterial) }}</span>
+                </span>
+                <span class="material-date-row">
+                  <span class="item-meta">{{ formatDateOnly(topicMaterial.addedAt) }}</span>
                   <span class="material-kind" :class="`material-kind-${topicMaterial.materialType}`">
                     {{ materialKindLabel(topicMaterial) }}
                   </span>
-                  <span class="item-meta">{{ materialSourceLabel(topicMaterial) }}</span>
-                </span>
-                <span class="item-meta">
-                  {{ formatDateOnly(topicMaterial.addedAt) }}
                 </span>
               </button>
             </div>
