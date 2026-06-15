@@ -215,7 +215,7 @@ async function runSaving(task: () => Promise<void>) {
           <span>标签</span>
           <span>颜色</span>
           <span>父标签</span>
-          <span>摘抄数</span>
+          <span>材料数</span>
           <span>创建时间</span>
           <span>操作</span>
         </div>

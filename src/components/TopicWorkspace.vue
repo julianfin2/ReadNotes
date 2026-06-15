@@ -15,6 +15,7 @@ import {
 import BaseModal from "./BaseModal.vue";
 import CustomSelect from "./CustomSelect.vue";
 import type { Excerpt } from "../types/excerpt";
+import type { Note } from "../types/note";
 import type { Tag } from "../types/tag";
 import type { Topic, TopicExcerpt, TopicNode, TopicStatus } from "../types/topic";
 import { deleteDraftPayload, getDraftPayload, saveDraftPayload } from "../utils/drafts";
@@ -22,6 +23,7 @@ import { formatDateOnly, formatDateTime } from "../utils/date";
 
 const props = defineProps<{
   excerpts: Excerpt[];
+  notes: Note[];
 }>();
 
 const topics = ref<Topic[]>([]);
@@ -47,6 +49,7 @@ const nodeTitle = ref("");
 const nodeSummary = ref("");
 const nodeParentId = ref("");
 const excerptIdToAdd = ref("");
+const materialTypeToAdd = ref<"excerpt" | "note">("excerpt");
 const excerptSearch = ref("");
 const reason = ref("");
 const topicReflection = ref("");
@@ -87,6 +90,7 @@ type NodeCreateDraft = {
 
 type TopicCollectDraft = {
   nodeId: string;
+  materialType: "excerpt" | "note";
   excerptId: string;
   excerptSearch: string;
   reason: string;
@@ -269,10 +273,22 @@ const nodeParentOptions = computed(() => [
 
 const availableExcerptsToCollect = computed(() => {
   const collectedExcerptIds = new Set(
-    topicExcerpts.value.map((topicExcerpt) => topicExcerpt.excerptId),
+    topicExcerpts.value
+      .filter((topicExcerpt) => topicExcerpt.materialType === "excerpt")
+      .map((topicExcerpt) => topicExcerpt.materialId),
   );
 
   return props.excerpts.filter((excerpt) => !collectedExcerptIds.has(excerpt.id));
+});
+
+const availableNotesToCollect = computed(() => {
+  const collectedNoteIds = new Set(
+    topicExcerpts.value
+      .filter((topicExcerpt) => topicExcerpt.materialType === "note")
+      .map((topicExcerpt) => topicExcerpt.materialId),
+  );
+
+  return props.notes.filter((note) => !collectedNoteIds.has(note.id));
 });
 
 const filteredExcerptsToCollect = computed(() => {
@@ -297,8 +313,28 @@ const filteredExcerptsToCollect = computed(() => {
   });
 });
 
+const filteredNotesToCollect = computed(() => {
+  const query = excerptSearch.value.trim().toLowerCase();
+
+  if (!query) {
+    return availableNotesToCollect.value;
+  }
+
+  return availableNotesToCollect.value.filter((note) => {
+    const searchableText = [note.content, note.tags.map((tag) => tag.name).join(" ")]
+      .join(" ")
+      .toLowerCase();
+
+    return searchableText.includes(query);
+  });
+});
+
 const excerptToAdd = computed(() => {
   return props.excerpts.find((excerpt) => excerpt.id === excerptIdToAdd.value) || null;
+});
+
+const noteToAdd = computed(() => {
+  return props.notes.find((note) => note.id === excerptIdToAdd.value) || null;
 });
 
 onMounted(async () => {
@@ -375,6 +411,7 @@ watch(
     open: addExcerptModalOpen.value,
     topicId: selectedTopicId.value,
     nodeId: selectedNodeId.value,
+    materialType: materialTypeToAdd.value,
     excerptId: excerptIdToAdd.value,
     excerptSearch: excerptSearch.value,
     reason: reason.value,
@@ -455,7 +492,7 @@ async function loadTopicNodes(topicId: string) {
 }
 
 async function loadTopicExcerpts(topicId: string) {
-  topicExcerpts.value = await invoke<TopicExcerpt[]>("list_topic_excerpts", {
+  topicExcerpts.value = await invoke<TopicExcerpt[]>("list_topic_materials", {
     topicId,
   });
 }
@@ -608,15 +645,16 @@ async function addExcerptToTopic() {
   }
 
   if (!excerptIdToAdd.value) {
-    errorMessage.value = "请选择要收录的摘抄";
+    errorMessage.value = "请选择要收录的材料";
     return;
   }
 
   await runSaving(async () => {
-    await invoke<TopicExcerpt>("add_excerpt_to_topic", {
+    await invoke<TopicExcerpt>("add_material_to_topic", {
       input: {
         topicId: selectedTopicId.value,
-        excerptId: excerptIdToAdd.value,
+        materialType: materialTypeToAdd.value,
+        materialId: excerptIdToAdd.value,
         nodeId: selectedNodeId.value || null,
         reason: reason.value,
         topicReflection: topicReflection.value,
@@ -625,6 +663,7 @@ async function addExcerptToTopic() {
 
     await deleteDraftPayload(TOPIC_COLLECT_DRAFT_TYPE, selectedTopicId.value);
     excerptIdToAdd.value = "";
+    materialTypeToAdd.value = "excerpt";
     excerptSearch.value = "";
     reason.value = "";
     topicReflection.value = "";
@@ -640,7 +679,7 @@ async function updateTopicExcerpt(topicExcerptId: string) {
   }
 
   await runSaving(async () => {
-    await invoke<TopicExcerpt>("update_topic_excerpt", {
+    await invoke<TopicExcerpt>("update_topic_material", {
       input: {
         id: topicExcerptId,
         nodeId: draft.nodeId || null,
@@ -663,7 +702,7 @@ async function removeTopicExcerpt(topicExcerptId: string) {
   }
 
   await runSaving(async () => {
-    await invoke("remove_excerpt_from_topic", { id: topicExcerptId });
+    await invoke("remove_material_from_topic", { id: topicExcerptId });
     await deleteDraftPayload(TOPIC_EXCERPT_DRAFT_TYPE, topicExcerptId);
     await loadTopicExcerpts(selectedTopicId.value);
   });
@@ -787,13 +826,14 @@ function requestDeleteTopicNode(node: TopicNode) {
 function requestRemoveTopicExcerpt(topicExcerpt: TopicExcerpt) {
   requestConfirmation(
     "从主题移除",
-    "这只会把摘抄从当前主题中移除，不会删除摘抄原文。确认移除吗？",
+    "这只会把材料从当前主题中移除，不会删除原始内容。确认移除吗？",
     () => removeTopicExcerpt(topicExcerpt.id),
   );
 }
 
 function openAddExcerptModal() {
   excerptIdToAdd.value = "";
+  materialTypeToAdd.value = "excerpt";
   excerptSearch.value = "";
   reason.value = "";
   topicReflection.value = "";
@@ -807,6 +847,7 @@ function closeAddExcerptModal() {
   }
   addExcerptModalOpen.value = false;
   excerptIdToAdd.value = "";
+  materialTypeToAdd.value = "excerpt";
   excerptSearch.value = "";
   reason.value = "";
   topicReflection.value = "";
@@ -912,7 +953,8 @@ function isCollectDraftDirty() {
   return Boolean(
     addExcerptModalOpen.value &&
       selectedTopicId.value &&
-      (excerptIdToAdd.value ||
+      (materialTypeToAdd.value !== "excerpt" ||
+        excerptIdToAdd.value ||
         excerptSearch.value.trim() ||
         reason.value.trim() ||
         topicReflection.value.trim()),
@@ -953,6 +995,7 @@ function topicCreateDraftPayload(): TopicCreateDraft {
 function topicCollectDraftPayload(): TopicCollectDraft {
   return {
     nodeId: selectedNodeId.value,
+    materialType: materialTypeToAdd.value,
     excerptId: excerptIdToAdd.value,
     excerptSearch: excerptSearch.value,
     reason: reason.value,
@@ -1351,6 +1394,7 @@ function restorePendingDraft() {
     if (!draft.nodeId || topicNodes.value.some((node) => node.id === draft.nodeId)) {
       selectedNodeId.value = draft.nodeId;
     }
+    materialTypeToAdd.value = draft.materialType || "excerpt";
     excerptIdToAdd.value = draft.excerptId;
     excerptSearch.value = draft.excerptSearch;
     reason.value = draft.reason;
@@ -1510,6 +1554,26 @@ function excerptSourceLabel(excerpt: Excerpt) {
   }
 
   return excerpt.chapterTitle || "未记录书籍与章节";
+}
+
+function materialTitle(topicExcerpt: TopicExcerpt) {
+  return topicExcerpt.note?.content || topicExcerpt.excerpt?.quote || "未知材料";
+}
+
+function materialSourceLabel(topicExcerpt: TopicExcerpt) {
+  if (topicExcerpt.materialType === "note") {
+    return "笔记";
+  }
+
+  return topicExcerpt.excerpt ? excerptSourceLabel(topicExcerpt.excerpt) : "摘抄";
+}
+
+function materialTags(topicExcerpt: TopicExcerpt) {
+  return topicExcerpt.note?.tags || topicExcerpt.excerpt?.tags || [];
+}
+
+function materialKindLabel(topicExcerpt: TopicExcerpt) {
+  return topicExcerpt.materialType === "note" ? "笔记" : "摘抄";
 }
 
 function tagStyle(tag: Tag) {
@@ -1809,20 +1873,9 @@ async function runSaving(task: () => Promise<void>) {
                 type="button"
                 @click="selectTopicExcerpt(topicExcerpt.id)"
               >
-                <span class="item-title">{{ topicExcerpt.excerpt.quote }}</span>
-                <span
-                  v-if="topicExcerpt.excerpt.bookTitle || topicExcerpt.excerpt.chapterTitle"
-                  class="item-meta"
-                >
-                  <span v-if="topicExcerpt.excerpt.bookTitle">
-                    《{{ topicExcerpt.excerpt.bookTitle }}》
-                  </span>
-                  <span v-if="topicExcerpt.excerpt.bookTitle && topicExcerpt.excerpt.chapterTitle">
-                    /
-                  </span>
-                  <span v-if="topicExcerpt.excerpt.chapterTitle">
-                    {{ topicExcerpt.excerpt.chapterTitle }}
-                  </span>
+                <span class="item-title">{{ materialTitle(topicExcerpt) }}</span>
+                <span class="item-meta">
+                  {{ materialKindLabel(topicExcerpt) }} / {{ materialSourceLabel(topicExcerpt) }}
                 </span>
                 <span class="item-meta">
                   {{ formatDateOnly(topicExcerpt.addedAt) }}
@@ -1874,28 +1927,11 @@ async function runSaving(task: () => Promise<void>) {
             <div class="inline-editor-body topic-excerpt-editor">
               <section class="readonly-excerpt-preview">
                 <p
-                  v-if="
-                    selectedTopicExcerpt.excerpt.bookTitle ||
-                    selectedTopicExcerpt.excerpt.chapterTitle
-                  "
                   class="source-line"
                 >
-                  <span v-if="selectedTopicExcerpt.excerpt.bookTitle">
-                    《{{ selectedTopicExcerpt.excerpt.bookTitle }}》
-                  </span>
-                  <span
-                    v-if="
-                      selectedTopicExcerpt.excerpt.bookTitle &&
-                      selectedTopicExcerpt.excerpt.chapterTitle
-                    "
-                  >
-                    /
-                  </span>
-                  <span v-if="selectedTopicExcerpt.excerpt.chapterTitle">
-                    {{ selectedTopicExcerpt.excerpt.chapterTitle }}
-                  </span>
+                  {{ materialSourceLabel(selectedTopicExcerpt) }}
                 </p>
-                <blockquote>{{ selectedTopicExcerpt.excerpt.quote }}</blockquote>
+                <blockquote>{{ materialTitle(selectedTopicExcerpt) }}</blockquote>
               </section>
 
               <label>
@@ -1926,27 +1962,8 @@ async function runSaving(task: () => Promise<void>) {
         <div v-else class="detail-document">
           <header class="detail-header document-header">
             <div>
-              <p
-                v-if="
-                  selectedTopicExcerpt.excerpt.bookTitle ||
-                  selectedTopicExcerpt.excerpt.chapterTitle
-                "
-                class="source-line"
-              >
-                <span v-if="selectedTopicExcerpt.excerpt.bookTitle">
-                  《{{ selectedTopicExcerpt.excerpt.bookTitle }}》
-                </span>
-                <span
-                  v-if="
-                    selectedTopicExcerpt.excerpt.bookTitle &&
-                    selectedTopicExcerpt.excerpt.chapterTitle
-                  "
-                >
-                  /
-                </span>
-                <span v-if="selectedTopicExcerpt.excerpt.chapterTitle">
-                  {{ selectedTopicExcerpt.excerpt.chapterTitle }}
-                </span>
+              <p class="source-line">
+                {{ materialKindLabel(selectedTopicExcerpt) }} / {{ materialSourceLabel(selectedTopicExcerpt) }}
               </p>
               <footer>
                 <span>{{ formatDateTime(selectedTopicExcerpt.addedAt) }}</span>
@@ -1976,7 +1993,7 @@ async function runSaving(task: () => Promise<void>) {
 
           <div class="detail-scroll document-scroll">
             <div class="reading-body topic-reading-body document-body">
-              <blockquote>{{ selectedTopicExcerpt.excerpt.quote }}</blockquote>
+              <blockquote>{{ materialTitle(selectedTopicExcerpt) }}</blockquote>
               <section v-if="selectedTopicExcerpt.reason" class="topic-note-section">
                 <h3>收录理由</h3>
                 <p class="reflection">{{ selectedTopicExcerpt.reason }}</p>
@@ -1985,9 +2002,9 @@ async function runSaving(task: () => Promise<void>) {
                 <h3>主题理解</h3>
                 <p class="reflection">{{ selectedTopicExcerpt.topicReflection }}</p>
               </section>
-              <div v-if="selectedTopicExcerpt.excerpt.tags.length > 0" class="tag-row">
+              <div v-if="materialTags(selectedTopicExcerpt).length > 0" class="tag-row">
                 <span
-                  v-for="tag in selectedTopicExcerpt.excerpt.tags"
+                  v-for="tag in materialTags(selectedTopicExcerpt)"
                   :key="tag.id"
                   class="tag-pill"
                   :style="tagStyle(tag)"
@@ -2036,7 +2053,7 @@ async function runSaving(task: () => Promise<void>) {
     </form>
   </BaseModal>
 
-  <BaseModal :open="addExcerptModalOpen" title="收录摘抄" @close="closeAddExcerptModal">
+  <BaseModal :open="addExcerptModalOpen" title="收录材料" @close="closeAddExcerptModal">
     <form class="collect-excerpt-form" @submit.prevent="addExcerptToTopic">
       <label>
         搜索材料
@@ -2046,52 +2063,115 @@ async function runSaving(task: () => Promise<void>) {
         />
       </label>
 
+      <div class="segmented-control material-type-toggle">
+        <button
+          class="segment-button"
+          :class="{ active: materialTypeToAdd === 'excerpt' }"
+          type="button"
+          @click="materialTypeToAdd = 'excerpt'; excerptIdToAdd = ''"
+        >
+          摘抄
+        </button>
+        <button
+          class="segment-button"
+          :class="{ active: materialTypeToAdd === 'note' }"
+          type="button"
+          @click="materialTypeToAdd = 'note'; excerptIdToAdd = ''"
+        >
+          笔记
+        </button>
+      </div>
+
       <section class="excerpt-picker">
         <div class="excerpt-picker-list">
-          <button
-            v-for="excerpt in filteredExcerptsToCollect"
-            :key="excerpt.id"
-            class="excerpt-picker-item"
-            :class="{ active: excerpt.id === excerptIdToAdd }"
-            type="button"
-            @click="excerptIdToAdd = excerpt.id"
-          >
-            <span class="item-title">{{ excerpt.quote }}</span>
-            <span class="item-meta">{{ excerptSourceLabel(excerpt) }}</span>
-            <span v-if="excerpt.tags.length > 0" class="tag-row compact-tags">
-              <span
-                v-for="tag in excerpt.tags"
-                :key="tag.id"
-                class="tag-pill"
-                :style="tagStyle(tag)"
-              >
-                #{{ tag.name }}
+          <template v-if="materialTypeToAdd === 'excerpt'">
+            <button
+              v-for="excerpt in filteredExcerptsToCollect"
+              :key="excerpt.id"
+              class="excerpt-picker-item"
+              :class="{ active: excerpt.id === excerptIdToAdd }"
+              type="button"
+              @click="excerptIdToAdd = excerpt.id"
+            >
+              <span class="item-title">{{ excerpt.quote }}</span>
+              <span class="item-meta">{{ excerptSourceLabel(excerpt) }}</span>
+              <span v-if="excerpt.tags.length > 0" class="tag-row compact-tags">
+                <span
+                  v-for="tag in excerpt.tags"
+                  :key="tag.id"
+                  class="tag-pill"
+                  :style="tagStyle(tag)"
+                >
+                  #{{ tag.name }}
+                </span>
               </span>
-            </span>
-          </button>
+            </button>
+          </template>
+
+          <template v-else>
+            <button
+              v-for="note in filteredNotesToCollect"
+              :key="note.id"
+              class="excerpt-picker-item"
+              :class="{ active: note.id === excerptIdToAdd }"
+              type="button"
+              @click="excerptIdToAdd = note.id"
+            >
+              <span class="item-title">{{ note.content }}</span>
+              <span class="item-meta">笔记</span>
+              <span v-if="note.tags.length > 0" class="tag-row compact-tags">
+                <span
+                  v-for="tag in note.tags"
+                  :key="tag.id"
+                  class="tag-pill"
+                  :style="tagStyle(tag)"
+                >
+                  #{{ tag.name }}
+                </span>
+              </span>
+            </button>
+          </template>
 
           <p
-            v-if="availableExcerptsToCollect.length === 0"
+            v-if="materialTypeToAdd === 'excerpt' && availableExcerptsToCollect.length === 0"
             class="empty-state excerpt-picker-empty"
           >
             当前主题已经收录了全部摘抄。
           </p>
           <p
-            v-else-if="filteredExcerptsToCollect.length === 0"
+            v-else-if="materialTypeToAdd === 'excerpt' && filteredExcerptsToCollect.length === 0"
             class="empty-state excerpt-picker-empty"
           >
             没有匹配的摘抄。
           </p>
+          <p
+            v-else-if="materialTypeToAdd === 'note' && availableNotesToCollect.length === 0"
+            class="empty-state excerpt-picker-empty"
+          >
+            当前主题已经收录了全部笔记。
+          </p>
+          <p
+            v-else-if="materialTypeToAdd === 'note' && filteredNotesToCollect.length === 0"
+            class="empty-state excerpt-picker-empty"
+          >
+            没有匹配的笔记。
+          </p>
         </div>
 
         <aside class="excerpt-picker-preview">
-          <template v-if="excerptToAdd">
+          <template v-if="materialTypeToAdd === 'excerpt' && excerptToAdd">
             <section class="excerpt-picker-selected">
               <p class="source-line">{{ excerptSourceLabel(excerptToAdd) }}</p>
               <blockquote>{{ excerptToAdd.quote }}</blockquote>
             </section>
           </template>
-          <p v-else class="empty-state">选择一条摘抄后填写收录信息。</p>
+          <template v-else-if="materialTypeToAdd === 'note' && noteToAdd">
+            <section class="excerpt-picker-selected">
+              <p class="source-line">笔记</p>
+              <blockquote>{{ noteToAdd.content }}</blockquote>
+            </section>
+          </template>
+          <p v-else class="empty-state">选择一条材料后填写收录信息。</p>
 
           <label>
             收录理由
@@ -2102,7 +2182,7 @@ async function runSaving(task: () => Promise<void>) {
             <textarea
               v-model="topicReflection"
               rows="6"
-              placeholder="这条摘抄在当前主题下意味着什么？"
+              placeholder="这条材料在当前主题下意味着什么？"
             />
           </label>
         </aside>

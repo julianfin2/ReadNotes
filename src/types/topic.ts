@@ -1,4 +1,5 @@
 import type { Excerpt } from "./excerpt";
+import type { Note } from "./note";
 
 export type TopicStatus =
   | "collecting"
@@ -31,12 +32,16 @@ export type TopicNode = {
 export type TopicExcerpt = {
   id: string;
   topicId: string;
-  excerptId: string;
+  materialType: "excerpt" | "note";
+  materialId: string;
+  excerptId?: string | null;
+  noteId?: string | null;
   nodeId?: string | null;
   reason?: string | null;
   topicReflection?: string | null;
   sortOrder: number;
   addedAt: string;
   updatedAt: string;
-  excerpt: Excerpt;
+  excerpt?: Excerpt | null;
+  note?: Note | null;
 };

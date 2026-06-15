@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { BookOpen, FileText, GitBranch, Settings, Tags } from "@lucide/vue";
+import { BookOpen, FileText, GitBranch, NotebookText, Settings, Tags } from "@lucide/vue";
 import appIcon from "../assets/icon.png";
 import packageJson from "../../package.json";
 
-type ViewKey = "excerpts" | "topics" | "tags" | "books" | "settings";
+type ViewKey = "excerpts" | "notes" | "topics" | "tags" | "books" | "settings";
 
 defineProps<{
   activeView: ViewKey;
@@ -31,6 +31,14 @@ const appVersion = packageJson.version;
       >
         <FileText class="nav-item-icon" aria-hidden="true" />
         <span>摘抄</span>
+      </button>
+      <button
+        class="nav-item"
+        :class="{ active: activeView === 'notes' }"
+        @click="$emit('selectView', 'notes')"
+      >
+        <NotebookText class="nav-item-icon" aria-hidden="true" />
+        <span>笔记</span>
       </button>
       <button
         class="nav-item"

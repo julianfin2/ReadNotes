@@ -53,6 +53,13 @@ pub struct SetExcerptTagsRequest {
     pub tag_names: Vec<String>,
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SetNoteTagsRequest {
+    pub note_id: String,
+    pub tag_names: Vec<String>,
+}
+
 #[tauri::command]
 pub fn create_tag(state: State<'_, AppState>, input: CreateTagRequest) -> Result<Tag, String> {
     let connection = state
@@ -95,9 +102,10 @@ pub fn list_tags_with_counts(state: State<'_, AppState>) -> Result<Vec<TagWithCo
               tags.color,
               tags.created_at,
               tags.updated_at,
-              COUNT(excerpt_tags.excerpt_id) AS excerpt_count
+              COUNT(DISTINCT excerpt_tags.excerpt_id) + COUNT(DISTINCT note_tags.note_id) AS excerpt_count
             FROM tags
             LEFT JOIN excerpt_tags ON excerpt_tags.tag_id = tags.id
+            LEFT JOIN note_tags ON note_tags.tag_id = tags.id
             GROUP BY tags.id
             ORDER BY lower(tags.name) ASC
             ",
@@ -200,6 +208,29 @@ pub fn set_excerpt_tags(
 }
 
 #[tauri::command]
+pub fn set_note_tags(
+    state: State<'_, AppState>,
+    input: SetNoteTagsRequest,
+) -> Result<Vec<Tag>, String> {
+    let mut connection = state
+        .db
+        .lock()
+        .map_err(|_| "database lock was poisoned".to_string())?;
+
+    let transaction = connection
+        .transaction()
+        .map_err(|error| format!("failed to start note tag transaction: {error}"))?;
+
+    replace_note_tags(&transaction, &input.note_id, input.tag_names)?;
+
+    transaction
+        .commit()
+        .map_err(|error| format!("failed to save note tags: {error}"))?;
+
+    list_tags_for_note(&connection, &input.note_id)
+}
+
+#[tauri::command]
 pub fn list_excerpt_tags(
     state: State<'_, AppState>,
     excerpt_id: String,
@@ -298,6 +329,64 @@ pub fn list_tags_for_excerpt(
 
     rows.collect::<Result<Vec<_>, _>>()
         .map_err(|error| format!("failed to read excerpt tags: {error}"))
+}
+
+pub fn replace_note_tags(
+    connection: &Connection,
+    note_id: &str,
+    tag_names: Vec<String>,
+) -> Result<(), String> {
+    let exists = connection
+        .query_row(
+            "SELECT EXISTS(SELECT 1 FROM notes WHERE id = ?1)",
+            params![note_id],
+            |row| row.get::<_, bool>(0),
+        )
+        .map_err(|error| format!("failed to check note: {error}"))?;
+
+    if !exists {
+        return Err("note not found".to_string());
+    }
+
+    connection
+        .execute("DELETE FROM note_tags WHERE note_id = ?1", params![note_id])
+        .map_err(|error| format!("failed to clear note tags: {error}"))?;
+
+    let tags = find_or_create_tags_by_names(connection, tag_names)?;
+    for tag in tags {
+        connection
+            .execute(
+                "
+                INSERT OR IGNORE INTO note_tags (note_id, tag_id)
+                VALUES (?1, ?2)
+                ",
+                params![note_id, tag.id],
+            )
+            .map_err(|error| format!("failed to attach note tag: {error}"))?;
+    }
+
+    Ok(())
+}
+
+pub fn list_tags_for_note(connection: &Connection, note_id: &str) -> Result<Vec<Tag>, String> {
+    let mut statement = connection
+        .prepare(
+            "
+            SELECT tags.id, tags.name, tags.parent_id, tags.color, tags.created_at, tags.updated_at
+            FROM tags
+            INNER JOIN note_tags ON note_tags.tag_id = tags.id
+            WHERE note_tags.note_id = ?1
+            ORDER BY lower(tags.name) ASC
+            ",
+        )
+        .map_err(|error| format!("failed to prepare note tags: {error}"))?;
+
+    let rows = statement
+        .query_map(params![note_id], map_tag_row)
+        .map_err(|error| format!("failed to list note tags: {error}"))?;
+
+    rows.collect::<Result<Vec<_>, _>>()
+        .map_err(|error| format!("failed to read note tags: {error}"))
 }
 
 fn list_all_tags(connection: &Connection) -> Result<Vec<Tag>, String> {

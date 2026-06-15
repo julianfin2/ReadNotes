@@ -6,6 +6,7 @@ use uuid::Uuid;
 
 use crate::db::AppState;
 use crate::excerpt::{get_excerpt_by_id, Excerpt};
+use crate::note::{get_note_by_id, Note};
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -37,14 +38,18 @@ pub struct TopicNode {
 pub struct TopicExcerpt {
     pub id: String,
     pub topic_id: String,
-    pub excerpt_id: String,
+    pub material_type: String,
+    pub material_id: String,
+    pub excerpt_id: Option<String>,
+    pub note_id: Option<String>,
     pub node_id: Option<String>,
     pub reason: Option<String>,
     pub topic_reflection: Option<String>,
     pub sort_order: i64,
     pub added_at: String,
     pub updated_at: String,
-    pub excerpt: Excerpt,
+    pub excerpt: Option<Excerpt>,
+    pub note: Option<Note>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -88,9 +93,10 @@ pub struct UpdateTopicNodeRequest {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct AddExcerptToTopicRequest {
+pub struct AddMaterialToTopicRequest {
     pub topic_id: String,
-    pub excerpt_id: String,
+    pub material_type: String,
+    pub material_id: String,
     pub node_id: Option<String>,
     pub reason: Option<String>,
     pub topic_reflection: Option<String>,
@@ -356,9 +362,9 @@ pub fn delete_topic_node(state: State<'_, AppState>, id: String) -> Result<(), S
 }
 
 #[tauri::command]
-pub fn add_excerpt_to_topic(
+pub fn add_material_to_topic(
     state: State<'_, AppState>,
-    input: AddExcerptToTopicRequest,
+    input: AddMaterialToTopicRequest,
 ) -> Result<TopicExcerpt, String> {
     let now = now_rfc3339()?;
     let id = Uuid::new_v4().to_string();
@@ -368,7 +374,7 @@ pub fn add_excerpt_to_topic(
         .map_err(|_| "database lock was poisoned".to_string())?;
 
     ensure_topic_exists(&connection, &input.topic_id)?;
-    ensure_excerpt_exists(&connection, &input.excerpt_id)?;
+    ensure_material_exists(&connection, &input.material_type, &input.material_id)?;
     if let Some(node_id) = input.node_id.as_deref() {
         ensure_topic_node_exists(&connection, node_id)?;
     }
@@ -376,16 +382,17 @@ pub fn add_excerpt_to_topic(
     connection
         .execute(
             "
-            INSERT INTO topic_excerpts (
-              id, topic_id, excerpt_id, node_id, reason, topic_reflection,
+            INSERT INTO topic_materials (
+              id, topic_id, material_type, material_id, node_id, reason, topic_reflection,
               sort_order, added_at, updated_at
             )
-            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
+            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)
             ",
             params![
                 id,
                 input.topic_id,
-                input.excerpt_id,
+                input.material_type,
+                input.material_id,
                 empty_to_none(input.node_id),
                 empty_to_none(input.reason),
                 empty_to_none(input.topic_reflection),
@@ -394,13 +401,13 @@ pub fn add_excerpt_to_topic(
                 now
             ],
         )
-        .map_err(|error| format!("failed to add excerpt to topic: {error}"))?;
+        .map_err(|error| format!("failed to add material to topic: {error}"))?;
 
     get_topic_excerpt_by_id(&connection, &id)
 }
 
 #[tauri::command]
-pub fn list_topic_excerpts(
+pub fn list_topic_materials(
     state: State<'_, AppState>,
     topic_id: String,
 ) -> Result<Vec<TopicExcerpt>, String> {
@@ -412,22 +419,22 @@ pub fn list_topic_excerpts(
     let mut statement = connection
         .prepare(
             "
-            SELECT id, topic_id, excerpt_id, node_id, reason, topic_reflection,
+            SELECT id, topic_id, material_type, material_id, node_id, reason, topic_reflection,
                    sort_order, added_at, updated_at
-            FROM topic_excerpts
+            FROM topic_materials
             WHERE topic_id = ?1
             ORDER BY sort_order ASC, added_at DESC
             ",
         )
-        .map_err(|error| format!("failed to prepare topic excerpts: {error}"))?;
+        .map_err(|error| format!("failed to prepare topic materials: {error}"))?;
 
     let rows = statement
         .query_map(params![topic_id], map_topic_excerpt_base_row)
-        .map_err(|error| format!("failed to list topic excerpts: {error}"))?;
+        .map_err(|error| format!("failed to list topic materials: {error}"))?;
 
     let bases = rows
         .collect::<Result<Vec<_>, _>>()
-        .map_err(|error| format!("failed to read topic excerpts: {error}"))?;
+        .map_err(|error| format!("failed to read topic materials: {error}"))?;
 
     bases
         .into_iter()
@@ -436,7 +443,7 @@ pub fn list_topic_excerpts(
 }
 
 #[tauri::command]
-pub fn update_topic_excerpt(
+pub fn update_topic_material(
     state: State<'_, AppState>,
     input: UpdateTopicExcerptRequest,
 ) -> Result<TopicExcerpt, String> {
@@ -453,7 +460,7 @@ pub fn update_topic_excerpt(
     let changed = connection
         .execute(
             "
-            UPDATE topic_excerpts
+            UPDATE topic_materials
             SET node_id = ?2, reason = ?3, topic_reflection = ?4, sort_order = ?5, updated_at = ?6
             WHERE id = ?1
             ",
@@ -466,28 +473,28 @@ pub fn update_topic_excerpt(
                 now
             ],
         )
-        .map_err(|error| format!("failed to update topic excerpt: {error}"))?;
+        .map_err(|error| format!("failed to update topic material: {error}"))?;
 
     if changed == 0 {
-        return Err("topic excerpt not found".to_string());
+        return Err("topic material not found".to_string());
     }
 
     get_topic_excerpt_by_id(&connection, &input.id)
 }
 
 #[tauri::command]
-pub fn remove_excerpt_from_topic(state: State<'_, AppState>, id: String) -> Result<(), String> {
+pub fn remove_material_from_topic(state: State<'_, AppState>, id: String) -> Result<(), String> {
     let connection = state
         .db
         .lock()
         .map_err(|_| "database lock was poisoned".to_string())?;
 
     let changed = connection
-        .execute("DELETE FROM topic_excerpts WHERE id = ?1", params![id])
-        .map_err(|error| format!("failed to remove topic excerpt: {error}"))?;
+        .execute("DELETE FROM topic_materials WHERE id = ?1", params![id])
+        .map_err(|error| format!("failed to remove topic material: {error}"))?;
 
     if changed == 0 {
-        return Err("topic excerpt not found".to_string());
+        return Err("topic material not found".to_string());
     }
 
     Ok(())
@@ -525,9 +532,9 @@ fn get_topic_excerpt_by_id(connection: &Connection, id: &str) -> Result<TopicExc
     let base = connection
         .query_row(
             "
-            SELECT id, topic_id, excerpt_id, node_id, reason, topic_reflection,
+            SELECT id, topic_id, material_type, material_id, node_id, reason, topic_reflection,
                    sort_order, added_at, updated_at
-            FROM topic_excerpts
+            FROM topic_materials
             WHERE id = ?1
             ",
             params![id],
@@ -541,7 +548,8 @@ fn get_topic_excerpt_by_id(connection: &Connection, id: &str) -> Result<TopicExc
 struct TopicExcerptBase {
     id: String,
     topic_id: String,
-    excerpt_id: String,
+    material_type: String,
+    material_id: String,
     node_id: Option<String>,
     reason: Option<String>,
     topic_reflection: Option<String>,
@@ -554,11 +562,24 @@ fn hydrate_topic_excerpt(
     connection: &Connection,
     base: TopicExcerptBase,
 ) -> Result<TopicExcerpt, String> {
-    let excerpt = get_excerpt_by_id(connection, &base.excerpt_id)?;
+    let excerpt = if base.material_type == "excerpt" {
+        Some(get_excerpt_by_id(connection, &base.material_id)?)
+    } else {
+        None
+    };
+    let note = if base.material_type == "note" {
+        Some(get_note_by_id(connection, &base.material_id)?)
+    } else {
+        None
+    };
+
     Ok(TopicExcerpt {
         id: base.id,
         topic_id: base.topic_id,
-        excerpt_id: base.excerpt_id,
+        material_type: base.material_type.clone(),
+        material_id: base.material_id.clone(),
+        excerpt_id: (base.material_type == "excerpt").then_some(base.material_id.clone()),
+        note_id: (base.material_type == "note").then_some(base.material_id),
         node_id: base.node_id,
         reason: base.reason,
         topic_reflection: base.topic_reflection,
@@ -566,6 +587,7 @@ fn hydrate_topic_excerpt(
         added_at: base.added_at,
         updated_at: base.updated_at,
         excerpt,
+        note,
     })
 }
 
@@ -598,13 +620,14 @@ fn map_topic_excerpt_base_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Topic
     Ok(TopicExcerptBase {
         id: row.get(0)?,
         topic_id: row.get(1)?,
-        excerpt_id: row.get(2)?,
-        node_id: row.get(3)?,
-        reason: row.get(4)?,
-        topic_reflection: row.get(5)?,
-        sort_order: row.get(6)?,
-        added_at: row.get(7)?,
-        updated_at: row.get(8)?,
+        material_type: row.get(2)?,
+        material_id: row.get(3)?,
+        node_id: row.get(4)?,
+        reason: row.get(5)?,
+        topic_reflection: row.get(6)?,
+        sort_order: row.get(7)?,
+        added_at: row.get(8)?,
+        updated_at: row.get(9)?,
     })
 }
 
@@ -618,6 +641,22 @@ fn ensure_topic_node_exists(connection: &Connection, id: &str) -> Result<(), Str
 
 fn ensure_excerpt_exists(connection: &Connection, id: &str) -> Result<(), String> {
     ensure_exists(connection, "excerpts", id, "excerpt not found")
+}
+
+fn ensure_note_exists(connection: &Connection, id: &str) -> Result<(), String> {
+    ensure_exists(connection, "notes", id, "note not found")
+}
+
+fn ensure_material_exists(
+    connection: &Connection,
+    material_type: &str,
+    material_id: &str,
+) -> Result<(), String> {
+    match material_type {
+        "excerpt" => ensure_excerpt_exists(connection, material_id),
+        "note" => ensure_note_exists(connection, material_id),
+        _ => Err("material type must be excerpt or note".to_string()),
+    }
 }
 
 fn ensure_exists(

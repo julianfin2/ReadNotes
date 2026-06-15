@@ -168,6 +168,13 @@ fn create_schema(connection: &Connection) -> Result<(), String> {
               FOREIGN KEY (chapter_id) REFERENCES book_chapters(id) ON DELETE SET NULL
             );
 
+            CREATE TABLE IF NOT EXISTS notes (
+              id TEXT PRIMARY KEY,
+              content TEXT NOT NULL,
+              created_at TEXT NOT NULL,
+              updated_at TEXT NOT NULL
+            );
+
             CREATE TABLE IF NOT EXISTS tags (
               id TEXT PRIMARY KEY,
               name TEXT NOT NULL,
@@ -183,6 +190,14 @@ fn create_schema(connection: &Connection) -> Result<(), String> {
               tag_id TEXT NOT NULL,
               PRIMARY KEY (excerpt_id, tag_id),
               FOREIGN KEY (excerpt_id) REFERENCES excerpts(id) ON DELETE CASCADE,
+              FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE
+            );
+
+            CREATE TABLE IF NOT EXISTS note_tags (
+              note_id TEXT NOT NULL,
+              tag_id TEXT NOT NULL,
+              PRIMARY KEY (note_id, tag_id),
+              FOREIGN KEY (note_id) REFERENCES notes(id) ON DELETE CASCADE,
               FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE
             );
 
@@ -224,6 +239,21 @@ fn create_schema(connection: &Connection) -> Result<(), String> {
               FOREIGN KEY (node_id) REFERENCES topic_nodes(id) ON DELETE SET NULL
             );
 
+            CREATE TABLE IF NOT EXISTS topic_materials (
+              id TEXT PRIMARY KEY,
+              topic_id TEXT NOT NULL,
+              material_type TEXT NOT NULL,
+              material_id TEXT NOT NULL,
+              node_id TEXT,
+              reason TEXT,
+              topic_reflection TEXT,
+              sort_order INTEGER NOT NULL DEFAULT 0,
+              added_at TEXT NOT NULL,
+              updated_at TEXT NOT NULL,
+              FOREIGN KEY (topic_id) REFERENCES topics(id) ON DELETE CASCADE,
+              FOREIGN KEY (node_id) REFERENCES topic_nodes(id) ON DELETE SET NULL
+            );
+
             CREATE TABLE IF NOT EXISTS drafts (
               entity_type TEXT NOT NULL,
               entity_id TEXT NOT NULL,
@@ -236,6 +266,8 @@ fn create_schema(connection: &Connection) -> Result<(), String> {
             CREATE INDEX IF NOT EXISTS idx_excerpts_updated_at ON excerpts(updated_at);
             CREATE INDEX IF NOT EXISTS idx_excerpts_book_id ON excerpts(book_id);
             CREATE INDEX IF NOT EXISTS idx_excerpts_chapter_id ON excerpts(chapter_id);
+            CREATE INDEX IF NOT EXISTS idx_notes_created_at ON notes(created_at);
+            CREATE INDEX IF NOT EXISTS idx_notes_updated_at ON notes(updated_at);
             CREATE UNIQUE INDEX IF NOT EXISTS idx_tags_name_nocase ON tags(name COLLATE NOCASE);
             CREATE INDEX IF NOT EXISTS idx_tags_parent_id ON tags(parent_id);
             CREATE UNIQUE INDEX IF NOT EXISTS idx_books_title_nocase ON books(title COLLATE NOCASE);
@@ -245,7 +277,18 @@ fn create_schema(connection: &Connection) -> Result<(), String> {
             CREATE INDEX IF NOT EXISTS idx_topic_nodes_topic_id ON topic_nodes(topic_id);
             CREATE INDEX IF NOT EXISTS idx_topic_excerpts_topic_id ON topic_excerpts(topic_id);
             CREATE INDEX IF NOT EXISTS idx_topic_excerpts_excerpt_id ON topic_excerpts(excerpt_id);
+            CREATE INDEX IF NOT EXISTS idx_topic_materials_topic_id ON topic_materials(topic_id);
+            CREATE INDEX IF NOT EXISTS idx_topic_materials_material ON topic_materials(material_type, material_id);
             CREATE INDEX IF NOT EXISTS idx_drafts_updated_at ON drafts(updated_at);
+
+            INSERT OR IGNORE INTO topic_materials (
+              id, topic_id, material_type, material_id, node_id, reason, topic_reflection,
+              sort_order, added_at, updated_at
+            )
+            SELECT
+              id, topic_id, 'excerpt', excerpt_id, node_id, reason, topic_reflection,
+              sort_order, added_at, updated_at
+            FROM topic_excerpts;
             ",
         )
         .map_err(|error| format!("failed to create database schema: {error}"))

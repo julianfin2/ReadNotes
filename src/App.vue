@@ -5,18 +5,21 @@ import AppSidebar from "./components/AppSidebar.vue";
 import BookManager from "./components/BookManager.vue";
 import DatabaseRecoveryModal from "./components/DatabaseRecoveryModal.vue";
 import ExcerptList from "./components/ExcerptList.vue";
+import NoteList from "./components/NoteList.vue";
 import SettingsView from "./components/SettingsView.vue";
 import TagManager from "./components/TagManager.vue";
 import TopicWorkspace from "./components/TopicWorkspace.vue";
 import type { Book } from "./types/book";
 import type { DatabaseInfo } from "./types/database";
 import type { Excerpt, ExcerptFilters, UpdateExcerptInput } from "./types/excerpt";
+import type { Note, NoteFilters, UpdateNoteInput } from "./types/note";
 import type { Tag } from "./types/tag";
 
-type ViewKey = "excerpts" | "topics" | "tags" | "books" | "settings";
+type ViewKey = "excerpts" | "notes" | "topics" | "tags" | "books" | "settings";
 
 const activeView = ref<ViewKey>("excerpts");
 const excerpts = ref<Excerpt[]>([]);
+const notes = ref<Note[]>([]);
 const tags = ref<Tag[]>([]);
 const books = ref<Book[]>([]);
 const databaseInfo = ref<DatabaseInfo>({
@@ -28,6 +31,7 @@ const databaseInfo = ref<DatabaseInfo>({
 const errorMessage = ref("");
 const isSaving = ref(false);
 const excerptFilters = ref<ExcerptFilters>(createDefaultExcerptFilters());
+const noteFilters = ref<NoteFilters>(createDefaultNoteFilters());
 let errorDismissTimer: number | undefined;
 
 onMounted(async () => {
@@ -45,6 +49,13 @@ async function loadExcerpts(filters: ExcerptFilters = excerptFilters.value) {
   excerptFilters.value = { ...filters };
   excerpts.value = await invoke<Excerpt[]>("list_excerpts", {
     input: toExcerptQuery(excerptFilters.value),
+  });
+}
+
+async function loadNotes(filters: NoteFilters = noteFilters.value) {
+  noteFilters.value = { ...filters };
+  notes.value = await invoke<Note[]>("list_notes", {
+    input: toNoteQuery(noteFilters.value),
   });
 }
 
@@ -74,6 +85,47 @@ async function deleteExcerpt(id: string) {
   }
 }
 
+async function createNote(input: { content: string; tagNames: string[] }, onSaved?: () => void) {
+  clearError();
+  isSaving.value = true;
+
+  try {
+    await invoke<Note>("create_note", { input });
+    await Promise.all([loadNotes(noteFilters.value), loadTags()]);
+    onSaved?.();
+  } catch (error) {
+    showError(error);
+  } finally {
+    isSaving.value = false;
+  }
+}
+
+async function updateNote(input: UpdateNoteInput, onSaved?: () => void) {
+  clearError();
+  isSaving.value = true;
+
+  try {
+    await invoke<Note>("update_note", { input });
+    await Promise.all([loadNotes(noteFilters.value), loadTags()]);
+    onSaved?.();
+  } catch (error) {
+    showError(error);
+  } finally {
+    isSaving.value = false;
+  }
+}
+
+async function deleteNote(id: string) {
+  clearError();
+
+  try {
+    await invoke("delete_note", { id });
+    await Promise.all([loadNotes(noteFilters.value), loadTags()]);
+  } catch (error) {
+    showError(error);
+  }
+}
+
 async function loadTags() {
   tags.value = await invoke<Tag[]>("list_tags");
 }
@@ -85,6 +137,7 @@ async function loadBooks() {
 async function loadWorkspaceData() {
   await Promise.all([
     loadExcerpts(excerptFilters.value),
+    loadNotes(noteFilters.value),
     loadTags(),
     loadBooks(),
   ]);
@@ -95,7 +148,7 @@ async function handleBooksChanged() {
 }
 
 async function handleTagsChanged() {
-  await Promise.all([loadTags(), loadExcerpts(excerptFilters.value)]);
+  await Promise.all([loadTags(), loadExcerpts(excerptFilters.value), loadNotes(noteFilters.value)]);
 }
 
 async function createExcerpt(input: {
@@ -141,6 +194,7 @@ async function changeDatabase(action: () => Promise<DatabaseInfo>) {
     const info = await action();
     databaseInfo.value = info;
     excerptFilters.value = createDefaultExcerptFilters();
+    noteFilters.value = createDefaultNoteFilters();
     await loadWorkspaceData();
     return true;
   } catch (error) {
@@ -180,12 +234,26 @@ function toExcerptQuery(filters: ExcerptFilters) {
   };
 }
 
+function toNoteQuery(filters: NoteFilters) {
+  return {
+    search: filters.search || null,
+    tagName: filters.tagName || null,
+  };
+}
+
 function createDefaultExcerptFilters(): ExcerptFilters {
   return {
     search: "",
     tagName: "",
     sortBy: "createdAt",
     sortDirection: "desc",
+  };
+}
+
+function createDefaultNoteFilters(): NoteFilters {
+  return {
+    search: "",
+    tagName: "",
   };
 }
 </script>
@@ -216,7 +284,19 @@ function createDefaultExcerptFilters(): ExcerptFilters {
       />
       </template>
 
-      <TopicWorkspace v-else-if="activeView === 'topics'" :excerpts="excerpts" />
+      <NoteList
+        v-else-if="activeView === 'notes'"
+        :notes="notes"
+        :tags="tags"
+        :filters="noteFilters"
+        :is-saving="isSaving"
+        @apply-filters="loadNotes"
+        @create-note="createNote"
+        @update-note="updateNote"
+        @delete-note="deleteNote"
+      />
+
+      <TopicWorkspace v-else-if="activeView === 'topics'" :excerpts="excerpts" :notes="notes" />
 
       <TagManager v-else-if="activeView === 'tags'" @tags-changed="handleTagsChanged" />
 
@@ -1000,6 +1080,11 @@ form,
   grid-template-columns: minmax(300px, 2fr) minmax(190px, 1fr) minmax(150px, 0.62fr) 120px 150px;
 }
 
+.note-table-grid.excerpt-table-head,
+.note-table-grid.excerpt-table-row {
+  grid-template-columns: minmax(420px, 2fr) minmax(180px, 0.8fr) 120px 150px;
+}
+
 .topic-table-head,
 .topic-table-row {
   grid-template-columns: minmax(280px, 1.4fr) minmax(360px, 2fr) 110px 120px 142px;
@@ -1045,6 +1130,7 @@ form,
 }
 
 .table-quote,
+.table-primary,
 .table-source,
 .table-tags {
   min-width: 0;
@@ -1057,10 +1143,21 @@ form,
 
 .table-quote strong,
 .table-quote small,
+.table-primary strong,
 .table-source {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.table-primary {
+  display: grid;
+  gap: 4px;
+}
+
+.table-primary strong {
+  color: #1d2528;
+  font-weight: 800;
 }
 
 .table-quote small {
@@ -1253,6 +1350,11 @@ form,
 .reader-section {
   display: grid;
   gap: 10px;
+}
+
+.note-content {
+  margin: 0;
+  white-space: pre-wrap;
 }
 
 .reader-section h3 {
@@ -1855,6 +1957,33 @@ select:focus {
   display: flex;
   flex: 0 0 auto;
   gap: 8px;
+}
+
+.material-type-toggle {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  padding: 3px;
+  border: 1px solid #ded7ca;
+  border-radius: 8px;
+  background: #fbf8f1;
+}
+
+.segment-button {
+  min-height: 28px;
+  padding: 0 12px;
+  border-radius: 6px;
+  background: transparent;
+  color: #4c5b60;
+  cursor: pointer;
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+.segment-button:hover,
+.segment-button.active {
+  background: #e8eee6;
+  color: #2e6f62;
 }
 
 .topic-scope-note {

@@ -2,6 +2,7 @@ mod book;
 mod db;
 mod draft;
 mod excerpt;
+mod note;
 mod tag;
 mod topic;
 
@@ -36,24 +37,29 @@ pub fn run() {
             excerpt::delete_excerpt,
             excerpt::list_excerpts,
             excerpt::update_excerpt,
+            note::create_note,
+            note::delete_note,
+            note::list_notes,
+            note::update_note,
             tag::create_tag,
             tag::delete_tag,
             tag::list_excerpt_tags,
             tag::list_tags,
             tag::list_tags_with_counts,
             tag::set_excerpt_tags,
+            tag::set_note_tags,
             tag::update_tag,
-            topic::add_excerpt_to_topic,
+            topic::add_material_to_topic,
             topic::create_topic,
             topic::create_topic_node,
             topic::delete_topic,
             topic::delete_topic_node,
-            topic::list_topic_excerpts,
+            topic::list_topic_materials,
             topic::list_topic_nodes,
             topic::list_topics,
-            topic::remove_excerpt_from_topic,
+            topic::remove_material_from_topic,
             topic::update_topic,
-            topic::update_topic_excerpt,
+            topic::update_topic_material,
             topic::update_topic_node
         ])
         .run(tauri::generate_context!())
