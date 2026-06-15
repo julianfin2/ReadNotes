@@ -715,7 +715,7 @@ function toTagBackground(color: string) {
       class="editor-page"
       @submit.prevent="saveCreate"
     >
-      <section class="form-card">
+      <section class="editor-surface">
         <label>
           笔记
           <textarea v-model="createDraft.content" rows="14" placeholder="记录一个想法、判断、问题或提纲" />
@@ -725,7 +725,7 @@ function toTagBackground(color: string) {
           <input v-model="createDraft.tagInput" placeholder="#主题 #概念 #写作素材" />
         </label>
       </section>
-      <div class="editor-footer">
+      <div class="editor-actions">
         <button class="secondary-action" type="button" @click="goToList">
           <X aria-hidden="true" />
           取消
@@ -738,7 +738,7 @@ function toTagBackground(color: string) {
     </form>
 
     <form v-else-if="viewMode === 'edit'" class="editor-page" @submit.prevent="saveEdit">
-      <section class="form-card">
+      <section class="editor-surface">
         <label>
           笔记
           <textarea v-model="editDraft.content" rows="14" />
@@ -748,7 +748,7 @@ function toTagBackground(color: string) {
           <input v-model="editDraft.tagInput" placeholder="#主题 #概念 #写作素材" />
         </label>
       </section>
-      <div class="editor-footer">
+      <div class="editor-actions">
         <button class="secondary-action" type="button" @click="goToList">
           <X aria-hidden="true" />
           取消
