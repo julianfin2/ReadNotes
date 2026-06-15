@@ -2180,6 +2180,29 @@ select:focus {
   flex: 0 0 auto;
 }
 
+.topic-material-header {
+  align-items: center;
+  padding: 10px 14px;
+}
+
+.topic-material-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.topic-material-title-row .source-line {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.topic-material-title-row .item-meta {
+  flex: 0 0 auto;
+}
+
 .document-detail-pane .document-scroll {
   display: block;
   flex: 1 1 auto;

@@ -1930,7 +1930,7 @@ async function runSaving(task: () => Promise<void>) {
             <div class="inline-editor-body topic-excerpt-editor">
               <section class="readonly-excerpt-preview">
                 <p class="source-line">
-                  {{ materialKindLabel(selectedTopicMaterial) }} / {{ materialSourceLabel(selectedTopicMaterial) }}
+                  {{ materialSourceLabel(selectedTopicMaterial) }}
                 </p>
                 <blockquote v-if="selectedTopicMaterial.materialType === 'excerpt'">
                   {{ materialTitle(selectedTopicMaterial) }}
@@ -1964,14 +1964,12 @@ async function runSaving(task: () => Promise<void>) {
         </form>
 
         <div v-else class="detail-document">
-          <header class="detail-header document-header">
-            <div>
+          <header class="detail-header document-header topic-material-header">
+            <div class="topic-material-title-row">
               <p class="source-line">
-                {{ materialKindLabel(selectedTopicMaterial) }} / {{ materialSourceLabel(selectedTopicMaterial) }}
+                {{ materialSourceLabel(selectedTopicMaterial) }}
               </p>
-              <footer>
-                <span>{{ formatDateTime(selectedTopicMaterial.addedAt) }}</span>
-              </footer>
+              <span class="item-meta">@ {{ formatDateTime(selectedTopicMaterial.addedAt) }}</span>
             </div>
             <div class="action-row">
               <button
