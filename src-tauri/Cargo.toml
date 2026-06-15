@@ -1,6 +1,6 @@
 [package]
 name = "readnotes"
-version = "0.1.2"
+version = "0.2.0"
 description = "A Reading Notes App"
 authors = ["Julian F."]
 edition = "2021"
