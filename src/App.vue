@@ -2059,8 +2059,9 @@ select:focus {
 
 .material-type-toggle::before {
   position: absolute;
+  box-sizing: border-box;
   inset: 3px auto 3px 3px;
-  width: calc(50% - 3px);
+  width: calc((100% - 6px) / 2);
   border: 1px solid #bfd0c8;
   border-radius: 6px;
   background: #e8eee6;

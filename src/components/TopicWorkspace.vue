@@ -2180,7 +2180,7 @@ async function runSaving(task: () => Promise<void>) {
           <template v-else-if="materialTypeToAdd === 'note' && noteToAdd">
             <section class="excerpt-picker-selected">
               <p class="source-line">笔记</p>
-              <blockquote>{{ noteToAdd.content }}</blockquote>
+              <p class="material-note-body">{{ noteToAdd.content }}</p>
             </section>
           </template>
           <p v-else class="empty-state">选择一条材料后填写收录信息。</p>
