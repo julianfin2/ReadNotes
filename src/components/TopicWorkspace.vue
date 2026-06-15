@@ -17,7 +17,7 @@ import CustomSelect from "./CustomSelect.vue";
 import type { Excerpt } from "../types/excerpt";
 import type { Note } from "../types/note";
 import type { Tag } from "../types/tag";
-import type { Topic, TopicExcerpt, TopicNode, TopicStatus } from "../types/topic";
+import type { Topic, TopicMaterial, TopicNode, TopicStatus } from "../types/topic";
 import { deleteDraftPayload, getDraftPayload, saveDraftPayload } from "../utils/drafts";
 import { formatDateOnly, formatDateTime } from "../utils/date";
 
@@ -28,18 +28,18 @@ const props = defineProps<{
 
 const topics = ref<Topic[]>([]);
 const topicNodes = ref<TopicNode[]>([]);
-const topicExcerpts = ref<TopicExcerpt[]>([]);
+const topicMaterials = ref<TopicMaterial[]>([]);
 const viewMode = ref<"list" | "create" | "edit" | "workspace">("list");
 const selectedTopicId = ref("");
 const selectedNodeId = ref("");
-const selectedTopicExcerptId = ref("");
+const selectedTopicMaterialId = ref("");
 const nodeModalOpen = ref(false);
-const addExcerptModalOpen = ref(false);
+const addMaterialModalOpen = ref(false);
 const editNodeModalOpen = ref(false);
 const confirmModalOpen = ref(false);
 const editingTopicId = ref("");
 const editingNodeId = ref("");
-const editingTopicExcerptId = ref("");
+const editingTopicMaterialId = ref("");
 const confirmTitle = ref("");
 const confirmMessage = ref("");
 const confirmActionLabel = ref("确认");
@@ -48,9 +48,9 @@ const topicQuestion = ref("");
 const nodeTitle = ref("");
 const nodeSummary = ref("");
 const nodeParentId = ref("");
-const excerptIdToAdd = ref("");
+const materialIdToAdd = ref("");
 const materialTypeToAdd = ref<"excerpt" | "note">("excerpt");
-const excerptSearch = ref("");
+const materialSearch = ref("");
 const reason = ref("");
 const topicReflection = ref("");
 const errorMessage = ref("");
@@ -70,7 +70,7 @@ type NodeDraft = {
   sortOrder: number;
 };
 
-type TopicExcerptDraft = {
+type TopicMaterialDraft = {
   nodeId: string;
   reason: string;
   topicReflection: string;
@@ -91,8 +91,8 @@ type NodeCreateDraft = {
 type TopicCollectDraft = {
   nodeId: string;
   materialType: "excerpt" | "note";
-  excerptId: string;
-  excerptSearch: string;
+  materialId: string;
+  materialSearch: string;
   reason: string;
   topicReflection: string;
 };
@@ -104,7 +104,7 @@ type RestoreDraftKind =
   | "topicCollect"
   | "topicNodeCreate"
   | "topicNode"
-  | "topicExcerpt";
+  | "topicMaterial";
 
 const ACTIVE_CREATE_DRAFT_ID = "active";
 const TOPIC_CREATE_DRAFT_TYPE = "topicCreate";
@@ -112,11 +112,11 @@ const TOPIC_DRAFT_TYPE = "topic";
 const TOPIC_COLLECT_DRAFT_TYPE = "topicCollect";
 const TOPIC_NODE_CREATE_DRAFT_TYPE = "topicNodeCreate";
 const TOPIC_NODE_DRAFT_TYPE = "topicNode";
-const TOPIC_EXCERPT_DRAFT_TYPE = "topicExcerpt";
+const TOPIC_MATERIAL_DRAFT_TYPE = "topicMaterial";
 
 const editingTopics = reactive<Record<string, TopicDraft>>({});
 const editingNodes = reactive<Record<string, NodeDraft>>({});
-const editingTopicExcerpts = reactive<Record<string, TopicExcerptDraft>>({});
+const editingTopicMaterials = reactive<Record<string, TopicMaterialDraft>>({});
 const confirmAction = shallowRef<ConfirmAction | null>(null);
 const restoreDraftModalOpen = ref(false);
 const restoreDraftKind = ref<RestoreDraftKind | null>(null);
@@ -125,13 +125,13 @@ const pendingTopicDraft = ref<TopicDraft | null>(null);
 const pendingTopicCollectDraft = ref<TopicCollectDraft | null>(null);
 const pendingNodeCreateDraft = ref<NodeCreateDraft | null>(null);
 const pendingNodeDraft = ref<NodeDraft | null>(null);
-const pendingTopicExcerptDraft = ref<TopicExcerptDraft | null>(null);
+const pendingTopicMaterialDraft = ref<TopicMaterialDraft | null>(null);
 let topicCreateDraftSaveTimer: number | undefined;
 let topicDraftSaveTimer: number | undefined;
 let topicCollectDraftSaveTimer: number | undefined;
 let nodeCreateDraftSaveTimer: number | undefined;
 let nodeDraftSaveTimer: number | undefined;
-let topicExcerptDraftSaveTimer: number | undefined;
+let topicMaterialDraftSaveTimer: number | undefined;
 
 const selectedTopic = computed(() =>
   topics.value.find((topic) => topic.id === selectedTopicId.value),
@@ -157,52 +157,52 @@ const selectedNode = computed(() =>
   topicNodes.value.find((node) => node.id === selectedNodeId.value),
 );
 
-const visibleTopicExcerpts = computed(() => {
+const visibleTopicMaterials = computed(() => {
   if (!selectedNodeId.value) {
-    return topicExcerpts.value;
+    return topicMaterials.value;
   }
 
-  return topicExcerpts.value.filter(
-    (topicExcerpt) => topicExcerpt.nodeId === selectedNodeId.value,
+  return topicMaterials.value.filter(
+    (topicMaterial) => topicMaterial.nodeId === selectedNodeId.value,
   );
 });
 
-const selectedTopicExcerpt = computed(() =>
-  visibleTopicExcerpts.value.find(
-    (topicExcerpt) => topicExcerpt.id === selectedTopicExcerptId.value,
+const selectedTopicMaterial = computed(() =>
+  visibleTopicMaterials.value.find(
+    (topicMaterial) => topicMaterial.id === selectedTopicMaterialId.value,
   ) || null,
 );
 
-const isEditingSelectedTopicExcerpt = computed(() => {
+const isEditingSelectedTopicMaterial = computed(() => {
   return Boolean(
-    selectedTopicExcerpt.value &&
-      selectedTopicExcerpt.value.id === editingTopicExcerptId.value &&
-      editingTopicExcerpts[editingTopicExcerptId.value],
+    selectedTopicMaterial.value &&
+      selectedTopicMaterial.value.id === editingTopicMaterialId.value &&
+      editingTopicMaterials[editingTopicMaterialId.value],
   );
 });
 
-const isTopicExcerptEditDirty = computed(() => {
-  const topicExcerpt = selectedTopicExcerpt.value;
+const isTopicMaterialEditDirty = computed(() => {
+  const topicMaterial = selectedTopicMaterial.value;
 
-  if (!topicExcerpt || topicExcerpt.id !== editingTopicExcerptId.value) {
+  if (!topicMaterial || topicMaterial.id !== editingTopicMaterialId.value) {
     return false;
   }
 
-  const draft = editingTopicExcerpts[topicExcerpt.id];
+  const draft = editingTopicMaterials[topicMaterial.id];
   if (!draft) {
     return false;
   }
 
   return (
-    draft.nodeId !== (topicExcerpt.nodeId || "") ||
-    draft.reason !== (topicExcerpt.reason || "") ||
-    draft.topicReflection !== (topicExcerpt.topicReflection || "") ||
-    draft.sortOrder !== topicExcerpt.sortOrder
+    draft.nodeId !== (topicMaterial.nodeId || "") ||
+    draft.reason !== (topicMaterial.reason || "") ||
+    draft.topicReflection !== (topicMaterial.topicReflection || "") ||
+    draft.sortOrder !== topicMaterial.sortOrder
   );
 });
 
-const canSaveTopicExcerptEdit = computed(() => {
-  return isTopicExcerptEditDirty.value && !isSaving.value;
+const canSaveTopicMaterialEdit = computed(() => {
+  return isTopicMaterialEditDirty.value && !isSaving.value;
 });
 
 const isCreateTopicDirty = computed(() => {
@@ -273,9 +273,9 @@ const nodeParentOptions = computed(() => [
 
 const availableExcerptsToCollect = computed(() => {
   const collectedExcerptIds = new Set(
-    topicExcerpts.value
-      .filter((topicExcerpt) => topicExcerpt.materialType === "excerpt")
-      .map((topicExcerpt) => topicExcerpt.materialId),
+    topicMaterials.value
+      .filter((topicMaterial) => topicMaterial.materialType === "excerpt")
+      .map((topicMaterial) => topicMaterial.materialId),
   );
 
   return props.excerpts.filter((excerpt) => !collectedExcerptIds.has(excerpt.id));
@@ -283,16 +283,16 @@ const availableExcerptsToCollect = computed(() => {
 
 const availableNotesToCollect = computed(() => {
   const collectedNoteIds = new Set(
-    topicExcerpts.value
-      .filter((topicExcerpt) => topicExcerpt.materialType === "note")
-      .map((topicExcerpt) => topicExcerpt.materialId),
+    topicMaterials.value
+      .filter((topicMaterial) => topicMaterial.materialType === "note")
+      .map((topicMaterial) => topicMaterial.materialId),
   );
 
   return props.notes.filter((note) => !collectedNoteIds.has(note.id));
 });
 
 const filteredExcerptsToCollect = computed(() => {
-  const query = excerptSearch.value.trim().toLowerCase();
+  const query = materialSearch.value.trim().toLowerCase();
 
   if (!query) {
     return availableExcerptsToCollect.value;
@@ -314,7 +314,7 @@ const filteredExcerptsToCollect = computed(() => {
 });
 
 const filteredNotesToCollect = computed(() => {
-  const query = excerptSearch.value.trim().toLowerCase();
+  const query = materialSearch.value.trim().toLowerCase();
 
   if (!query) {
     return availableNotesToCollect.value;
@@ -330,11 +330,11 @@ const filteredNotesToCollect = computed(() => {
 });
 
 const excerptToAdd = computed(() => {
-  return props.excerpts.find((excerpt) => excerpt.id === excerptIdToAdd.value) || null;
+  return props.excerpts.find((excerpt) => excerpt.id === materialIdToAdd.value) || null;
 });
 
 const noteToAdd = computed(() => {
-  return props.notes.find((note) => note.id === excerptIdToAdd.value) || null;
+  return props.notes.find((note) => note.id === materialIdToAdd.value) || null;
 });
 
 onMounted(async () => {
@@ -347,7 +347,7 @@ onBeforeUnmount(() => {
   saveTopicCollectDraftNow();
   saveNodeCreateDraftNow();
   saveNodeDraftNow();
-  saveTopicExcerptDraftNow();
+  saveTopicMaterialDraftNow();
   if (topicCreateDraftSaveTimer) {
     window.clearTimeout(topicCreateDraftSaveTimer);
   }
@@ -363,20 +363,20 @@ onBeforeUnmount(() => {
   if (nodeDraftSaveTimer) {
     window.clearTimeout(nodeDraftSaveTimer);
   }
-  if (topicExcerptDraftSaveTimer) {
-    window.clearTimeout(topicExcerptDraftSaveTimer);
+  if (topicMaterialDraftSaveTimer) {
+    window.clearTimeout(topicMaterialDraftSaveTimer);
   }
 });
 
 watch(selectedTopicId, async (topicId) => {
   selectedNodeId.value = "";
-  selectedTopicExcerptId.value = "";
+  selectedTopicMaterialId.value = "";
   topicNodes.value = [];
-  topicExcerpts.value = [];
+  topicMaterials.value = [];
   clearEditingState();
 
   if (topicId) {
-    await Promise.all([loadTopicNodes(topicId), loadTopicExcerpts(topicId)]);
+    await Promise.all([loadTopicNodes(topicId), loadTopicMaterials(topicId)]);
   }
 });
 
@@ -408,12 +408,12 @@ watch(
 
 watch(
   () => ({
-    open: addExcerptModalOpen.value,
+    open: addMaterialModalOpen.value,
     topicId: selectedTopicId.value,
     nodeId: selectedNodeId.value,
     materialType: materialTypeToAdd.value,
-    excerptId: excerptIdToAdd.value,
-    excerptSearch: excerptSearch.value,
+    materialId: materialIdToAdd.value,
+    materialSearch: materialSearch.value,
     reason: reason.value,
     topicReflection: topicReflection.value,
   }),
@@ -450,11 +450,11 @@ watch(
 
 watch(
   () => {
-    const topicExcerptId = editingTopicExcerptId.value;
-    const draft = topicExcerptId ? editingTopicExcerpts[topicExcerptId] : null;
+    const topicMaterialId = editingTopicMaterialId.value;
+    const draft = topicMaterialId ? editingTopicMaterials[topicMaterialId] : null;
     return draft
       ? {
-          topicExcerptId,
+          topicMaterialId,
           nodeId: draft.nodeId,
           reason: draft.reason,
           topicReflection: draft.topicReflection,
@@ -462,19 +462,19 @@ watch(
         }
       : null;
   },
-  () => scheduleTopicExcerptDraftSave(),
+  () => scheduleTopicMaterialDraftSave(),
 );
 
 watch(
-  visibleTopicExcerpts,
+  visibleTopicMaterials,
   (items) => {
     if (items.length === 0) {
-      selectedTopicExcerptId.value = "";
+      selectedTopicMaterialId.value = "";
       return;
     }
 
-    if (!items.some((topicExcerpt) => topicExcerpt.id === selectedTopicExcerptId.value)) {
-      selectedTopicExcerptId.value = items[0].id;
+    if (!items.some((topicMaterial) => topicMaterial.id === selectedTopicMaterialId.value)) {
+      selectedTopicMaterialId.value = items[0].id;
     }
   },
   { immediate: true },
@@ -491,8 +491,8 @@ async function loadTopicNodes(topicId: string) {
   topicNodes.value = await invoke<TopicNode[]>("list_topic_nodes", { topicId });
 }
 
-async function loadTopicExcerpts(topicId: string) {
-  topicExcerpts.value = await invoke<TopicExcerpt[]>("list_topic_materials", {
+async function loadTopicMaterials(topicId: string) {
+  topicMaterials.value = await invoke<TopicMaterial[]>("list_topic_materials", {
     topicId,
   });
 }
@@ -502,7 +502,7 @@ async function reloadSelectedTopic() {
   if (selectedTopicId.value) {
     await Promise.all([
       loadTopicNodes(selectedTopicId.value),
-      loadTopicExcerpts(selectedTopicId.value),
+      loadTopicMaterials(selectedTopicId.value),
     ]);
   }
 }
@@ -633,28 +633,28 @@ async function deleteTopicNode(nodeId: string) {
     }
     await Promise.all([
       loadTopicNodes(selectedTopicId.value),
-      loadTopicExcerpts(selectedTopicId.value),
+      loadTopicMaterials(selectedTopicId.value),
     ]);
   });
 }
 
-async function addExcerptToTopic() {
+async function addMaterialToTopic() {
   if (!selectedTopicId.value) {
     errorMessage.value = "请先选择主题";
     return;
   }
 
-  if (!excerptIdToAdd.value) {
+  if (!materialIdToAdd.value) {
     errorMessage.value = "请选择要收录的材料";
     return;
   }
 
   await runSaving(async () => {
-    await invoke<TopicExcerpt>("add_material_to_topic", {
+    await invoke<TopicMaterial>("add_material_to_topic", {
       input: {
         topicId: selectedTopicId.value,
         materialType: materialTypeToAdd.value,
-        materialId: excerptIdToAdd.value,
+        materialId: materialIdToAdd.value,
         nodeId: selectedNodeId.value || null,
         reason: reason.value,
         topicReflection: topicReflection.value,
@@ -662,26 +662,26 @@ async function addExcerptToTopic() {
     });
 
     await deleteDraftPayload(TOPIC_COLLECT_DRAFT_TYPE, selectedTopicId.value);
-    excerptIdToAdd.value = "";
+    materialIdToAdd.value = "";
     materialTypeToAdd.value = "excerpt";
-    excerptSearch.value = "";
+    materialSearch.value = "";
     reason.value = "";
     topicReflection.value = "";
-    addExcerptModalOpen.value = false;
-    await loadTopicExcerpts(selectedTopicId.value);
+    addMaterialModalOpen.value = false;
+    await loadTopicMaterials(selectedTopicId.value);
   });
 }
 
-async function updateTopicExcerpt(topicExcerptId: string) {
-  const draft = editingTopicExcerpts[topicExcerptId];
-  if (!draft || !selectedTopicId.value || !canSaveTopicExcerptEdit.value) {
+async function updateTopicMaterial(topicMaterialId: string) {
+  const draft = editingTopicMaterials[topicMaterialId];
+  if (!draft || !selectedTopicId.value || !canSaveTopicMaterialEdit.value) {
     return;
   }
 
   await runSaving(async () => {
-    await invoke<TopicExcerpt>("update_topic_material", {
+    await invoke<TopicMaterial>("update_topic_material", {
       input: {
-        id: topicExcerptId,
+        id: topicMaterialId,
         nodeId: draft.nodeId || null,
         reason: draft.reason,
         topicReflection: draft.topicReflection,
@@ -689,27 +689,27 @@ async function updateTopicExcerpt(topicExcerptId: string) {
       },
     });
 
-    await deleteDraftPayload(TOPIC_EXCERPT_DRAFT_TYPE, topicExcerptId);
-    delete editingTopicExcerpts[topicExcerptId];
-    editingTopicExcerptId.value = "";
-    await loadTopicExcerpts(selectedTopicId.value);
+    await deleteDraftPayload(TOPIC_MATERIAL_DRAFT_TYPE, topicMaterialId);
+    delete editingTopicMaterials[topicMaterialId];
+    editingTopicMaterialId.value = "";
+    await loadTopicMaterials(selectedTopicId.value);
   });
 }
 
-async function removeTopicExcerpt(topicExcerptId: string) {
+async function removeTopicMaterial(topicMaterialId: string) {
   if (!selectedTopicId.value) {
     return;
   }
 
   await runSaving(async () => {
-    await invoke("remove_material_from_topic", { id: topicExcerptId });
-    await deleteDraftPayload(TOPIC_EXCERPT_DRAFT_TYPE, topicExcerptId);
-    await loadTopicExcerpts(selectedTopicId.value);
+    await invoke("remove_material_from_topic", { id: topicMaterialId });
+    await deleteDraftPayload(TOPIC_MATERIAL_DRAFT_TYPE, topicMaterialId);
+    await loadTopicMaterials(selectedTopicId.value);
   });
 }
 
 function startEditingTopic(topic: Topic) {
-  runAfterTopicExcerptDiscard(() => {
+  runAfterTopicMaterialDiscard(() => {
     editingTopicId.value = topic.id;
     editingTopics[topic.id] = {
       title: topic.title,
@@ -734,15 +734,15 @@ function startEditingNode(node: TopicNode) {
   void checkNodeDraft(node.id);
 }
 
-function startEditingTopicExcerpt(topicExcerpt: TopicExcerpt) {
-  editingTopicExcerptId.value = topicExcerpt.id;
-  editingTopicExcerpts[topicExcerpt.id] = {
-    nodeId: topicExcerpt.nodeId || "",
-    reason: topicExcerpt.reason || "",
-    topicReflection: topicExcerpt.topicReflection || "",
-    sortOrder: topicExcerpt.sortOrder,
+function startEditingTopicMaterial(topicMaterial: TopicMaterial) {
+  editingTopicMaterialId.value = topicMaterial.id;
+  editingTopicMaterials[topicMaterial.id] = {
+    nodeId: topicMaterial.nodeId || "",
+    reason: topicMaterial.reason || "",
+    topicReflection: topicMaterial.topicReflection || "",
+    sortOrder: topicMaterial.sortOrder,
   };
-  void checkTopicExcerptDraft(topicExcerpt.id);
+  void checkTopicMaterialDraft(topicMaterial.id);
 }
 
 function cancelEditingTopic() {
@@ -757,7 +757,7 @@ function startCreatingTopic() {
 }
 
 function openTopicWorkspace(topic: Topic) {
-  runAfterTopicExcerptDiscard(() => {
+  runAfterTopicMaterialDiscard(() => {
     selectedTopicId.value = topic.id;
     viewMode.value = "workspace";
   });
@@ -765,7 +765,7 @@ function openTopicWorkspace(topic: Topic) {
 
 function returnToTopicList() {
   runAfterTopicEditorDiscard(() => {
-    runAfterTopicExcerptDiscard(() => {
+    runAfterTopicMaterialDiscard(() => {
       if (viewMode.value === "create") {
         void deleteDraftPayload(TOPIC_CREATE_DRAFT_TYPE, ACTIVE_CREATE_DRAFT_ID);
       }
@@ -786,12 +786,12 @@ function cancelEditingNode(nodeId: string) {
   editNodeModalOpen.value = false;
 }
 
-function cancelEditingTopicExcerpt(topicExcerptId: string) {
-  if (!topicExcerptId || topicExcerptId !== editingTopicExcerptId.value) {
+function cancelEditingTopicMaterial(topicMaterialId: string) {
+  if (!topicMaterialId || topicMaterialId !== editingTopicMaterialId.value) {
     return;
   }
 
-  runAfterTopicExcerptDiscard(() => {});
+  runAfterTopicMaterialDiscard(() => {});
 }
 
 function requestConfirmation(
@@ -823,32 +823,32 @@ function requestDeleteTopicNode(node: TopicNode) {
   );
 }
 
-function requestRemoveTopicExcerpt(topicExcerpt: TopicExcerpt) {
+function requestRemoveTopicMaterial(topicMaterial: TopicMaterial) {
   requestConfirmation(
     "从主题移除",
     "这只会把材料从当前主题中移除，不会删除原始内容。确认移除吗？",
-    () => removeTopicExcerpt(topicExcerpt.id),
+    () => removeTopicMaterial(topicMaterial.id),
   );
 }
 
-function openAddExcerptModal() {
-  excerptIdToAdd.value = "";
+function openAddMaterialModal() {
+  materialIdToAdd.value = "";
   materialTypeToAdd.value = "excerpt";
-  excerptSearch.value = "";
+  materialSearch.value = "";
   reason.value = "";
   topicReflection.value = "";
-  addExcerptModalOpen.value = true;
+  addMaterialModalOpen.value = true;
   void checkTopicCollectDraft();
 }
 
-function closeAddExcerptModal() {
+function closeAddMaterialModal() {
   if (selectedTopicId.value) {
     void deleteDraftPayload(TOPIC_COLLECT_DRAFT_TYPE, selectedTopicId.value);
   }
-  addExcerptModalOpen.value = false;
-  excerptIdToAdd.value = "";
+  addMaterialModalOpen.value = false;
+  materialIdToAdd.value = "";
   materialTypeToAdd.value = "excerpt";
-  excerptSearch.value = "";
+  materialSearch.value = "";
   reason.value = "";
   topicReflection.value = "";
 }
@@ -876,18 +876,18 @@ function selectTopicNode(nodeId: string) {
     return;
   }
 
-  runAfterTopicExcerptDiscard(() => {
+  runAfterTopicMaterialDiscard(() => {
     selectedNodeId.value = nodeId;
   });
 }
 
-function selectTopicExcerpt(topicExcerptId: string) {
-  if (topicExcerptId === selectedTopicExcerptId.value) {
+function selectTopicMaterial(topicMaterialId: string) {
+  if (topicMaterialId === selectedTopicMaterialId.value) {
     return;
   }
 
-  runAfterTopicExcerptDiscard(() => {
-    selectedTopicExcerptId.value = topicExcerptId;
+  runAfterTopicMaterialDiscard(() => {
+    selectedTopicMaterialId.value = topicMaterialId;
   });
 }
 
@@ -916,21 +916,21 @@ function clearEditingState() {
   for (const key of Object.keys(editingNodes)) {
     delete editingNodes[key];
   }
-  for (const key of Object.keys(editingTopicExcerpts)) {
-    delete editingTopicExcerpts[key];
+  for (const key of Object.keys(editingTopicMaterials)) {
+    delete editingTopicMaterials[key];
   }
   editingTopicId.value = "";
   editingNodeId.value = "";
-  editingTopicExcerptId.value = "";
+  editingTopicMaterialId.value = "";
 }
 
-function clearTopicExcerptEditing() {
-  if (!editingTopicExcerptId.value) {
+function clearTopicMaterialEditing() {
+  if (!editingTopicMaterialId.value) {
     return;
   }
 
-  delete editingTopicExcerpts[editingTopicExcerptId.value];
-  editingTopicExcerptId.value = "";
+  delete editingTopicMaterials[editingTopicMaterialId.value];
+  editingTopicMaterialId.value = "";
 }
 
 function isTopicDraftDirty(topicId: string) {
@@ -951,11 +951,11 @@ function isTopicDraftDirty(topicId: string) {
 
 function isCollectDraftDirty() {
   return Boolean(
-    addExcerptModalOpen.value &&
+    addMaterialModalOpen.value &&
       selectedTopicId.value &&
       (materialTypeToAdd.value !== "excerpt" ||
-        excerptIdToAdd.value ||
-        excerptSearch.value.trim() ||
+        materialIdToAdd.value ||
+        materialSearch.value.trim() ||
         reason.value.trim() ||
         topicReflection.value.trim()),
   );
@@ -996,8 +996,8 @@ function topicCollectDraftPayload(): TopicCollectDraft {
   return {
     nodeId: selectedNodeId.value,
     materialType: materialTypeToAdd.value,
-    excerptId: excerptIdToAdd.value,
-    excerptSearch: excerptSearch.value,
+    materialId: materialIdToAdd.value,
+    materialSearch: materialSearch.value,
     reason: reason.value,
     topicReflection: topicReflection.value,
   };
@@ -1057,11 +1057,11 @@ function isNodeDraftPayloadDifferent(nodeId: string, payload: NodeDraft) {
   return Boolean(draft && JSON.stringify(draft) !== JSON.stringify(payload));
 }
 
-function isTopicExcerptDraftPayloadDifferent(
-  topicExcerptId: string,
-  payload: TopicExcerptDraft,
+function isTopicMaterialDraftPayloadDifferent(
+  topicMaterialId: string,
+  payload: TopicMaterialDraft,
 ) {
-  const draft = editingTopicExcerpts[topicExcerptId];
+  const draft = editingTopicMaterials[topicMaterialId];
   return Boolean(draft && JSON.stringify(draft) !== JSON.stringify(payload));
 }
 
@@ -1201,36 +1201,36 @@ function saveNodeDraftNow() {
   void saveDraftPayload(TOPIC_NODE_DRAFT_TYPE, nodeId, { ...draft });
 }
 
-function scheduleTopicExcerptDraftSave() {
-  if (topicExcerptDraftSaveTimer) {
-    window.clearTimeout(topicExcerptDraftSaveTimer);
-    topicExcerptDraftSaveTimer = undefined;
+function scheduleTopicMaterialDraftSave() {
+  if (topicMaterialDraftSaveTimer) {
+    window.clearTimeout(topicMaterialDraftSaveTimer);
+    topicMaterialDraftSaveTimer = undefined;
   }
 
-  if (!editingTopicExcerptId.value || !isTopicExcerptEditDirty.value) {
+  if (!editingTopicMaterialId.value || !isTopicMaterialEditDirty.value) {
     return;
   }
 
-  topicExcerptDraftSaveTimer = window.setTimeout(() => {
-    topicExcerptDraftSaveTimer = undefined;
-    const topicExcerptId = editingTopicExcerptId.value;
-    const draft = topicExcerptId ? editingTopicExcerpts[topicExcerptId] : null;
-    if (!topicExcerptId || !draft || !isTopicExcerptEditDirty.value) {
+  topicMaterialDraftSaveTimer = window.setTimeout(() => {
+    topicMaterialDraftSaveTimer = undefined;
+    const topicMaterialId = editingTopicMaterialId.value;
+    const draft = topicMaterialId ? editingTopicMaterials[topicMaterialId] : null;
+    if (!topicMaterialId || !draft || !isTopicMaterialEditDirty.value) {
       return;
     }
 
-    void saveDraftPayload(TOPIC_EXCERPT_DRAFT_TYPE, topicExcerptId, { ...draft });
+    void saveDraftPayload(TOPIC_MATERIAL_DRAFT_TYPE, topicMaterialId, { ...draft });
   }, 800);
 }
 
-function saveTopicExcerptDraftNow() {
-  const topicExcerptId = editingTopicExcerptId.value;
-  const draft = topicExcerptId ? editingTopicExcerpts[topicExcerptId] : null;
-  if (!topicExcerptId || !draft || !isTopicExcerptEditDirty.value) {
+function saveTopicMaterialDraftNow() {
+  const topicMaterialId = editingTopicMaterialId.value;
+  const draft = topicMaterialId ? editingTopicMaterials[topicMaterialId] : null;
+  if (!topicMaterialId || !draft || !isTopicMaterialEditDirty.value) {
     return;
   }
 
-  void saveDraftPayload(TOPIC_EXCERPT_DRAFT_TYPE, topicExcerptId, { ...draft });
+  void saveDraftPayload(TOPIC_MATERIAL_DRAFT_TYPE, topicMaterialId, { ...draft });
 }
 
 async function checkTopicCreateDraft() {
@@ -1269,7 +1269,7 @@ async function checkTopicDraft(topicId: string) {
     }
 
     pendingTopicDraft.value = draft.payload;
-    pendingTopicExcerptDraft.value = null;
+    pendingTopicMaterialDraft.value = null;
     restoreDraftKind.value = "topic";
     restoreDraftModalOpen.value = true;
   } catch {
@@ -1287,7 +1287,7 @@ async function checkTopicCollectDraft() {
       TOPIC_COLLECT_DRAFT_TYPE,
       selectedTopicId.value,
     );
-    if (!draft || !addExcerptModalOpen.value || !selectedTopicId.value) {
+    if (!draft || !addMaterialModalOpen.value || !selectedTopicId.value) {
       return;
     }
 
@@ -1351,24 +1351,24 @@ async function checkNodeDraft(nodeId: string) {
   }
 }
 
-async function checkTopicExcerptDraft(topicExcerptId: string) {
+async function checkTopicMaterialDraft(topicMaterialId: string) {
   try {
-    const draft = await getDraftPayload<TopicExcerptDraft>(
-      TOPIC_EXCERPT_DRAFT_TYPE,
-      topicExcerptId,
+    const draft = await getDraftPayload<TopicMaterialDraft>(
+      TOPIC_MATERIAL_DRAFT_TYPE,
+      topicMaterialId,
     );
-    if (!draft || editingTopicExcerptId.value !== topicExcerptId) {
+    if (!draft || editingTopicMaterialId.value !== topicMaterialId) {
       return;
     }
 
-    if (!isTopicExcerptDraftPayloadDifferent(topicExcerptId, draft.payload)) {
-      await deleteDraftPayload(TOPIC_EXCERPT_DRAFT_TYPE, topicExcerptId);
+    if (!isTopicMaterialDraftPayloadDifferent(topicMaterialId, draft.payload)) {
+      await deleteDraftPayload(TOPIC_MATERIAL_DRAFT_TYPE, topicMaterialId);
       return;
     }
 
-    pendingTopicExcerptDraft.value = draft.payload;
+    pendingTopicMaterialDraft.value = draft.payload;
     pendingTopicDraft.value = null;
-    restoreDraftKind.value = "topicExcerpt";
+    restoreDraftKind.value = "topicMaterial";
     restoreDraftModalOpen.value = true;
   } catch {
     clearPendingRestoreDraft();
@@ -1395,8 +1395,8 @@ function restorePendingDraft() {
       selectedNodeId.value = draft.nodeId;
     }
     materialTypeToAdd.value = draft.materialType || "excerpt";
-    excerptIdToAdd.value = draft.excerptId;
-    excerptSearch.value = draft.excerptSearch;
+    materialIdToAdd.value = draft.materialId;
+    materialSearch.value = draft.materialSearch;
     reason.value = draft.reason;
     topicReflection.value = draft.topicReflection;
   }
@@ -1412,11 +1412,11 @@ function restorePendingDraft() {
   }
 
   if (
-    restoreDraftKind.value === "topicExcerpt" &&
-    editingTopicExcerptId.value &&
-    pendingTopicExcerptDraft.value
+    restoreDraftKind.value === "topicMaterial" &&
+    editingTopicMaterialId.value &&
+    pendingTopicMaterialDraft.value
   ) {
-    editingTopicExcerpts[editingTopicExcerptId.value] = { ...pendingTopicExcerptDraft.value };
+    editingTopicMaterials[editingTopicMaterialId.value] = { ...pendingTopicMaterialDraft.value };
   }
 
   clearPendingRestoreDraft();
@@ -1443,8 +1443,8 @@ function discardPendingDraft() {
     void deleteDraftPayload(TOPIC_NODE_DRAFT_TYPE, editingNodeId.value);
   }
 
-  if (restoreDraftKind.value === "topicExcerpt" && editingTopicExcerptId.value) {
-    void deleteDraftPayload(TOPIC_EXCERPT_DRAFT_TYPE, editingTopicExcerptId.value);
+  if (restoreDraftKind.value === "topicMaterial" && editingTopicMaterialId.value) {
+    void deleteDraftPayload(TOPIC_MATERIAL_DRAFT_TYPE, editingTopicMaterialId.value);
   }
 
   clearPendingRestoreDraft();
@@ -1458,7 +1458,7 @@ function clearPendingRestoreDraft() {
   pendingTopicCollectDraft.value = null;
   pendingNodeCreateDraft.value = null;
   pendingNodeDraft.value = null;
-  pendingTopicExcerptDraft.value = null;
+  pendingTopicMaterialDraft.value = null;
 }
 
 function topicEditorDiscardMessage() {
@@ -1500,14 +1500,14 @@ function runAfterTopicEditorDiscard(action: ConfirmAction) {
   );
 }
 
-function runAfterTopicExcerptDiscard(action: ConfirmAction) {
-  if (!editingTopicExcerptId.value) {
+function runAfterTopicMaterialDiscard(action: ConfirmAction) {
+  if (!editingTopicMaterialId.value) {
     void action();
     return;
   }
 
-  if (!isTopicExcerptEditDirty.value) {
-    clearTopicExcerptEditing();
+  if (!isTopicMaterialEditDirty.value) {
+    clearTopicMaterialEditing();
     void action();
     return;
   }
@@ -1516,8 +1516,8 @@ function runAfterTopicExcerptDiscard(action: ConfirmAction) {
     "放弃更改",
     "当前收录信息有未保存修改，确定放弃吗？",
     async () => {
-      await deleteDraftPayload(TOPIC_EXCERPT_DRAFT_TYPE, editingTopicExcerptId.value);
-      clearTopicExcerptEditing();
+      await deleteDraftPayload(TOPIC_MATERIAL_DRAFT_TYPE, editingTopicMaterialId.value);
+      clearTopicMaterialEditing();
       await action();
     },
     "放弃更改",
@@ -1556,24 +1556,24 @@ function excerptSourceLabel(excerpt: Excerpt) {
   return excerpt.chapterTitle || "未记录书籍与章节";
 }
 
-function materialTitle(topicExcerpt: TopicExcerpt) {
-  return topicExcerpt.note?.content || topicExcerpt.excerpt?.quote || "未知材料";
+function materialTitle(topicMaterial: TopicMaterial) {
+  return topicMaterial.note?.content || topicMaterial.excerpt?.quote || "未知材料";
 }
 
-function materialSourceLabel(topicExcerpt: TopicExcerpt) {
-  if (topicExcerpt.materialType === "note") {
-    return "笔记";
+function materialSourceLabel(topicMaterial: TopicMaterial) {
+  if (topicMaterial.materialType === "note") {
+    return "独立笔记";
   }
 
-  return topicExcerpt.excerpt ? excerptSourceLabel(topicExcerpt.excerpt) : "摘抄";
+  return topicMaterial.excerpt ? excerptSourceLabel(topicMaterial.excerpt) : "摘抄";
 }
 
-function materialTags(topicExcerpt: TopicExcerpt) {
-  return topicExcerpt.note?.tags || topicExcerpt.excerpt?.tags || [];
+function materialTags(topicMaterial: TopicMaterial) {
+  return topicMaterial.note?.tags || topicMaterial.excerpt?.tags || [];
 }
 
-function materialKindLabel(topicExcerpt: TopicExcerpt) {
-  return topicExcerpt.materialType === "note" ? "笔记" : "摘抄";
+function materialKindLabel(topicMaterial: TopicMaterial) {
+  return topicMaterial.materialType === "note" ? "笔记" : "摘抄";
 }
 
 function tagStyle(tag: Tag) {
@@ -1803,7 +1803,7 @@ async function runSaving(task: () => Promise<void>) {
             type="button"
             @click="selectTopicNode('')"
           >
-            全部摘抄
+            全部材料
           </button>
           <button
             v-for="node in topicNodes"
@@ -1855,10 +1855,10 @@ async function runSaving(task: () => Promise<void>) {
               <div>
                 <h3 class="card-title-line">
                   <span>材料</span>
-                  <span class="count-badge">{{ visibleTopicExcerpts.length }}</span>
+                  <span class="count-badge">{{ visibleTopicMaterials.length }}</span>
                 </h3>
               </div>
-              <button class="primary-action" type="button" @click="openAddExcerptModal">
+              <button class="primary-action" type="button" @click="openAddMaterialModal">
                 <Link aria-hidden="true" />
                 收录
               </button>
@@ -1866,38 +1866,41 @@ async function runSaving(task: () => Promise<void>) {
 
             <div class="material-list-scroll">
               <button
-                v-for="topicExcerpt in visibleTopicExcerpts"
-                :key="topicExcerpt.id"
+                v-for="topicMaterial in visibleTopicMaterials"
+                :key="topicMaterial.id"
                 class="excerpt-list-item"
-                :class="{ active: topicExcerpt.id === selectedTopicExcerptId }"
+                :class="{ active: topicMaterial.id === selectedTopicMaterialId }"
                 type="button"
-                @click="selectTopicExcerpt(topicExcerpt.id)"
+                @click="selectTopicMaterial(topicMaterial.id)"
               >
-                <span class="item-title">{{ materialTitle(topicExcerpt) }}</span>
-                <span class="item-meta">
-                  {{ materialKindLabel(topicExcerpt) }} / {{ materialSourceLabel(topicExcerpt) }}
+                <span class="item-title">{{ materialTitle(topicMaterial) }}</span>
+                <span class="material-item-meta">
+                  <span class="material-kind" :class="`material-kind-${topicMaterial.materialType}`">
+                    {{ materialKindLabel(topicMaterial) }}
+                  </span>
+                  <span class="item-meta">{{ materialSourceLabel(topicMaterial) }}</span>
                 </span>
                 <span class="item-meta">
-                  {{ formatDateOnly(topicExcerpt.addedAt) }}
+                  {{ formatDateOnly(topicMaterial.addedAt) }}
                 </span>
               </button>
             </div>
 
-            <p v-if="visibleTopicExcerpts.length === 0" class="empty-state">
-              当前范围还没有收录摘抄。
+            <p v-if="visibleTopicMaterials.length === 0" class="empty-state">
+              当前范围还没有收录材料。
             </p>
           </section>
         </aside>
 
         <article
-          v-if="selectedTopicExcerpt"
+          v-if="selectedTopicMaterial"
           class="detail-pane excerpt-detail-pane topic-detail-pane document-detail-pane"
-          :class="{ 'is-editing': isEditingSelectedTopicExcerpt }"
+          :class="{ 'is-editing': isEditingSelectedTopicMaterial }"
         >
         <form
-          v-if="isEditingSelectedTopicExcerpt && editingTopicExcerpts[editingTopicExcerptId]"
+          v-if="isEditingSelectedTopicMaterial && editingTopicMaterials[editingTopicMaterialId]"
           class="detail-document edit-document"
-          @submit.prevent="updateTopicExcerpt(editingTopicExcerptId)"
+          @submit.prevent="updateTopicMaterial(editingTopicMaterialId)"
         >
           <header class="detail-header document-header">
             <div>
@@ -1907,14 +1910,14 @@ async function runSaving(task: () => Promise<void>) {
               <button
                 class="secondary-action"
                 type="button"
-                @click="cancelEditingTopicExcerpt(editingTopicExcerptId)"
+                @click="cancelEditingTopicMaterial(editingTopicMaterialId)"
               >
                 <X aria-hidden="true" />
                 取消
               </button>
               <button
                 class="primary-action"
-                :disabled="!canSaveTopicExcerptEdit"
+                :disabled="!canSaveTopicMaterialEdit"
                 type="submit"
               >
                 <Save aria-hidden="true" />
@@ -1926,32 +1929,33 @@ async function runSaving(task: () => Promise<void>) {
           <div class="detail-scroll document-scroll">
             <div class="inline-editor-body topic-excerpt-editor">
               <section class="readonly-excerpt-preview">
-                <p
-                  class="source-line"
-                >
-                  {{ materialSourceLabel(selectedTopicExcerpt) }}
+                <p class="source-line">
+                  {{ materialKindLabel(selectedTopicMaterial) }} / {{ materialSourceLabel(selectedTopicMaterial) }}
                 </p>
-                <blockquote>{{ materialTitle(selectedTopicExcerpt) }}</blockquote>
+                <blockquote v-if="selectedTopicMaterial.materialType === 'excerpt'">
+                  {{ materialTitle(selectedTopicMaterial) }}
+                </blockquote>
+                <p v-else class="material-note-body">{{ materialTitle(selectedTopicMaterial) }}</p>
               </section>
 
               <label>
                 子主题
                 <CustomSelect
-                  v-model="editingTopicExcerpts[editingTopicExcerptId].nodeId"
+                  v-model="editingTopicMaterials[editingTopicMaterialId].nodeId"
                   :options="topicNodeOptions"
                 />
               </label>
               <label>
                 收录理由
                 <textarea
-                  v-model="editingTopicExcerpts[editingTopicExcerptId].reason"
+                  v-model="editingTopicMaterials[editingTopicMaterialId].reason"
                   rows="5"
                 />
               </label>
               <label>
                 主题理解
                 <textarea
-                  v-model="editingTopicExcerpts[editingTopicExcerptId].topicReflection"
+                  v-model="editingTopicMaterials[editingTopicMaterialId].topicReflection"
                   rows="7"
                 />
               </label>
@@ -1963,10 +1967,10 @@ async function runSaving(task: () => Promise<void>) {
           <header class="detail-header document-header">
             <div>
               <p class="source-line">
-                {{ materialKindLabel(selectedTopicExcerpt) }} / {{ materialSourceLabel(selectedTopicExcerpt) }}
+                {{ materialKindLabel(selectedTopicMaterial) }} / {{ materialSourceLabel(selectedTopicMaterial) }}
               </p>
               <footer>
-                <span>{{ formatDateTime(selectedTopicExcerpt.addedAt) }}</span>
+                <span>{{ formatDateTime(selectedTopicMaterial.addedAt) }}</span>
               </footer>
             </div>
             <div class="action-row">
@@ -1974,7 +1978,7 @@ async function runSaving(task: () => Promise<void>) {
                 class="secondary-action"
                 type="button"
                 title="编辑这条材料在当前主题中的子主题、收录理由和主题理解"
-                @click="startEditingTopicExcerpt(selectedTopicExcerpt)"
+                @click="startEditingTopicMaterial(selectedTopicMaterial)"
               >
                 <Pencil aria-hidden="true" />
                 编辑收录
@@ -1983,7 +1987,7 @@ async function runSaving(task: () => Promise<void>) {
                 class="danger-action"
                 type="button"
                 title="只从当前主题移除，不删除摘抄原文"
-                @click="requestRemoveTopicExcerpt(selectedTopicExcerpt)"
+                @click="requestRemoveTopicMaterial(selectedTopicMaterial)"
               >
                 <Unlink aria-hidden="true" />
                 移出主题
@@ -1993,18 +1997,21 @@ async function runSaving(task: () => Promise<void>) {
 
           <div class="detail-scroll document-scroll">
             <div class="reading-body topic-reading-body document-body">
-              <blockquote>{{ materialTitle(selectedTopicExcerpt) }}</blockquote>
-              <section v-if="selectedTopicExcerpt.reason" class="topic-note-section">
+              <blockquote v-if="selectedTopicMaterial.materialType === 'excerpt'">
+                {{ materialTitle(selectedTopicMaterial) }}
+              </blockquote>
+              <p v-else class="material-note-body">{{ materialTitle(selectedTopicMaterial) }}</p>
+              <section v-if="selectedTopicMaterial.reason" class="topic-note-section">
                 <h3>收录理由</h3>
-                <p class="reflection">{{ selectedTopicExcerpt.reason }}</p>
+                <p class="reflection">{{ selectedTopicMaterial.reason }}</p>
               </section>
-              <section v-if="selectedTopicExcerpt.topicReflection" class="topic-note-section">
+              <section v-if="selectedTopicMaterial.topicReflection" class="topic-note-section">
                 <h3>主题理解</h3>
-                <p class="reflection">{{ selectedTopicExcerpt.topicReflection }}</p>
+                <p class="reflection">{{ selectedTopicMaterial.topicReflection }}</p>
               </section>
-              <div v-if="materialTags(selectedTopicExcerpt).length > 0" class="tag-row">
+              <div v-if="materialTags(selectedTopicMaterial).length > 0" class="tag-row">
                 <span
-                  v-for="tag in materialTags(selectedTopicExcerpt)"
+                  v-for="tag in materialTags(selectedTopicMaterial)"
                   :key="tag.id"
                   class="tag-pill"
                   :style="tagStyle(tag)"
@@ -2053,22 +2060,14 @@ async function runSaving(task: () => Promise<void>) {
     </form>
   </BaseModal>
 
-  <BaseModal :open="addExcerptModalOpen" title="收录材料" @close="closeAddExcerptModal">
-    <form class="collect-excerpt-form" @submit.prevent="addExcerptToTopic">
-      <label>
-        搜索材料
-        <input
-          v-model="excerptSearch"
-          placeholder="搜索原文、笔记、书籍、章节或标签"
-        />
-      </label>
-
-      <div class="segmented-control material-type-toggle">
+  <BaseModal :open="addMaterialModalOpen" title="收录材料" @close="closeAddMaterialModal">
+    <form class="collect-excerpt-form" @submit.prevent="addMaterialToTopic">
+      <div class="collect-search-row">
         <button
           class="segment-button"
           :class="{ active: materialTypeToAdd === 'excerpt' }"
           type="button"
-          @click="materialTypeToAdd = 'excerpt'; excerptIdToAdd = ''"
+          @click="materialTypeToAdd = 'excerpt'; materialIdToAdd = ''"
         >
           摘抄
         </button>
@@ -2076,10 +2075,17 @@ async function runSaving(task: () => Promise<void>) {
           class="segment-button"
           :class="{ active: materialTypeToAdd === 'note' }"
           type="button"
-          @click="materialTypeToAdd = 'note'; excerptIdToAdd = ''"
+          @click="materialTypeToAdd = 'note'; materialIdToAdd = ''"
         >
           笔记
         </button>
+        <label class="collect-search-field">
+          搜索材料
+          <input
+            v-model="materialSearch"
+            placeholder="搜索原文、笔记、书籍、章节或标签"
+          />
+        </label>
       </div>
 
       <section class="excerpt-picker">
@@ -2089,9 +2095,9 @@ async function runSaving(task: () => Promise<void>) {
               v-for="excerpt in filteredExcerptsToCollect"
               :key="excerpt.id"
               class="excerpt-picker-item"
-              :class="{ active: excerpt.id === excerptIdToAdd }"
+              :class="{ active: excerpt.id === materialIdToAdd }"
               type="button"
-              @click="excerptIdToAdd = excerpt.id"
+              @click="materialIdToAdd = excerpt.id"
             >
               <span class="item-title">{{ excerpt.quote }}</span>
               <span class="item-meta">{{ excerptSourceLabel(excerpt) }}</span>
@@ -2113,12 +2119,14 @@ async function runSaving(task: () => Promise<void>) {
               v-for="note in filteredNotesToCollect"
               :key="note.id"
               class="excerpt-picker-item"
-              :class="{ active: note.id === excerptIdToAdd }"
+              :class="{ active: note.id === materialIdToAdd }"
               type="button"
-              @click="excerptIdToAdd = note.id"
+              @click="materialIdToAdd = note.id"
             >
               <span class="item-title">{{ note.content }}</span>
-              <span class="item-meta">笔记</span>
+              <span class="item-meta" :title="formatDateTime(note.createdAt)">
+                {{ formatDateOnly(note.createdAt) }}
+              </span>
               <span v-if="note.tags.length > 0" class="tag-row compact-tags">
                 <span
                   v-for="tag in note.tags"
@@ -2189,11 +2197,11 @@ async function runSaving(task: () => Promise<void>) {
       </section>
 
       <div class="modal-actions">
-        <button class="secondary-action" type="button" @click="closeAddExcerptModal">
+        <button class="secondary-action" type="button" @click="closeAddMaterialModal">
           <X aria-hidden="true" />
           取消
         </button>
-        <button class="primary-action" :disabled="isSaving || !excerptIdToAdd" type="submit">
+        <button class="primary-action" :disabled="isSaving || !materialIdToAdd" type="submit">
           <Save aria-hidden="true" />
           保存
         </button>
@@ -2267,3 +2275,4 @@ async function runSaving(task: () => Promise<void>) {
     </div>
   </BaseModal>
 </template>
+

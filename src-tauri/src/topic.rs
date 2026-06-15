@@ -35,7 +35,7 @@ pub struct TopicNode {
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct TopicExcerpt {
+pub struct TopicMaterial {
     pub id: String,
     pub topic_id: String,
     pub material_type: String,
@@ -105,7 +105,7 @@ pub struct AddMaterialToTopicRequest {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct UpdateTopicExcerptRequest {
+pub struct UpdateTopicMaterialRequest {
     pub id: String,
     pub node_id: Option<String>,
     pub reason: Option<String>,
@@ -365,7 +365,7 @@ pub fn delete_topic_node(state: State<'_, AppState>, id: String) -> Result<(), S
 pub fn add_material_to_topic(
     state: State<'_, AppState>,
     input: AddMaterialToTopicRequest,
-) -> Result<TopicExcerpt, String> {
+) -> Result<TopicMaterial, String> {
     let now = now_rfc3339()?;
     let id = Uuid::new_v4().to_string();
     let connection = state
@@ -403,14 +403,14 @@ pub fn add_material_to_topic(
         )
         .map_err(|error| format!("failed to add material to topic: {error}"))?;
 
-    get_topic_excerpt_by_id(&connection, &id)
+    get_topic_material_by_id(&connection, &id)
 }
 
 #[tauri::command]
 pub fn list_topic_materials(
     state: State<'_, AppState>,
     topic_id: String,
-) -> Result<Vec<TopicExcerpt>, String> {
+) -> Result<Vec<TopicMaterial>, String> {
     let connection = state
         .db
         .lock()
@@ -429,7 +429,7 @@ pub fn list_topic_materials(
         .map_err(|error| format!("failed to prepare topic materials: {error}"))?;
 
     let rows = statement
-        .query_map(params![topic_id], map_topic_excerpt_base_row)
+        .query_map(params![topic_id], map_topic_material_base_row)
         .map_err(|error| format!("failed to list topic materials: {error}"))?;
 
     let bases = rows
@@ -438,15 +438,15 @@ pub fn list_topic_materials(
 
     bases
         .into_iter()
-        .map(|base| hydrate_topic_excerpt(&connection, base))
+        .map(|base| hydrate_topic_material(&connection, base))
         .collect()
 }
 
 #[tauri::command]
 pub fn update_topic_material(
     state: State<'_, AppState>,
-    input: UpdateTopicExcerptRequest,
-) -> Result<TopicExcerpt, String> {
+    input: UpdateTopicMaterialRequest,
+) -> Result<TopicMaterial, String> {
     let now = now_rfc3339()?;
     let connection = state
         .db
@@ -479,7 +479,7 @@ pub fn update_topic_material(
         return Err("topic material not found".to_string());
     }
 
-    get_topic_excerpt_by_id(&connection, &input.id)
+    get_topic_material_by_id(&connection, &input.id)
 }
 
 #[tauri::command]
@@ -528,7 +528,7 @@ fn get_topic_node_by_id(connection: &Connection, id: &str) -> Result<TopicNode, 
         .map_err(|error| format!("failed to find topic node: {error}"))
 }
 
-fn get_topic_excerpt_by_id(connection: &Connection, id: &str) -> Result<TopicExcerpt, String> {
+fn get_topic_material_by_id(connection: &Connection, id: &str) -> Result<TopicMaterial, String> {
     let base = connection
         .query_row(
             "
@@ -538,14 +538,14 @@ fn get_topic_excerpt_by_id(connection: &Connection, id: &str) -> Result<TopicExc
             WHERE id = ?1
             ",
             params![id],
-            map_topic_excerpt_base_row,
+            map_topic_material_base_row,
         )
         .map_err(|error| format!("failed to find topic excerpt: {error}"))?;
 
-    hydrate_topic_excerpt(connection, base)
+    hydrate_topic_material(connection, base)
 }
 
-struct TopicExcerptBase {
+struct TopicMaterialBase {
     id: String,
     topic_id: String,
     material_type: String,
@@ -558,10 +558,10 @@ struct TopicExcerptBase {
     updated_at: String,
 }
 
-fn hydrate_topic_excerpt(
+fn hydrate_topic_material(
     connection: &Connection,
-    base: TopicExcerptBase,
-) -> Result<TopicExcerpt, String> {
+    base: TopicMaterialBase,
+) -> Result<TopicMaterial, String> {
     let excerpt = if base.material_type == "excerpt" {
         Some(get_excerpt_by_id(connection, &base.material_id)?)
     } else {
@@ -573,7 +573,7 @@ fn hydrate_topic_excerpt(
         None
     };
 
-    Ok(TopicExcerpt {
+    Ok(TopicMaterial {
         id: base.id,
         topic_id: base.topic_id,
         material_type: base.material_type.clone(),
@@ -616,8 +616,8 @@ fn map_topic_node_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<TopicNode> {
     })
 }
 
-fn map_topic_excerpt_base_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<TopicExcerptBase> {
-    Ok(TopicExcerptBase {
+fn map_topic_material_base_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<TopicMaterialBase> {
+    Ok(TopicMaterialBase {
         id: row.get(0)?,
         topic_id: row.get(1)?,
         material_type: row.get(2)?,
@@ -711,3 +711,4 @@ fn now_rfc3339() -> Result<String, String> {
         .format(&Rfc3339)
         .map_err(|error| format!("failed to format timestamp: {error}"))
 }
+

@@ -29,7 +29,7 @@ export type TopicNode = {
   updatedAt: string;
 };
 
-export type TopicExcerpt = {
+export type TopicMaterial = {
   id: string;
   topicId: string;
   materialType: "excerpt" | "note";
@@ -45,3 +45,4 @@ export type TopicExcerpt = {
   excerpt?: Excerpt | null;
   note?: Note | null;
 };
+

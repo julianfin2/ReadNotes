@@ -1,10 +1,12 @@
 <script setup lang="ts">
-import { computed, reactive, ref, watch } from "vue";
+import { computed, onBeforeUnmount, reactive, ref, shallowRef, watch } from "vue";
 import { ArrowLeft, Check, Pencil, Plus, Save, Search, Trash2, X } from "@lucide/vue";
 import BaseModal from "./BaseModal.vue";
+import CustomSelect from "./CustomSelect.vue";
 import ResponsiveTagList from "./ResponsiveTagList.vue";
 import type { Note, NoteFilters, UpdateNoteInput } from "../types/note";
 import type { Tag } from "../types/tag";
+import { deleteDraftPayload, getDraftPayload, saveDraftPayload } from "../utils/drafts";
 import { formatDateOnly, formatDateTime } from "../utils/date";
 
 const props = defineProps<{
@@ -25,7 +27,28 @@ const viewMode = ref<"list" | "detail" | "create" | "edit">("list");
 const activeNoteId = ref("");
 const deletingNoteId = ref("");
 const deleteModalOpen = ref(false);
+const discardModalOpen = ref(false);
+const restoreDraftModalOpen = ref(false);
+const discardMessage = ref("");
+const restoreDraftMessage = ref("");
 const searchDraft = ref("");
+const pendingEditorAction = shallowRef<(() => void | Promise<void>) | null>(null);
+const restoreDraftKind = ref<"create" | "edit" | null>(null);
+const pendingCreateDraft = ref<NoteCreateDraftPayload | null>(null);
+const pendingEditDraft = ref<NoteEditDraftPayload | null>(null);
+let createDraftSaveTimer: number | undefined;
+let editDraftSaveTimer: number | undefined;
+
+type NoteCreateDraftPayload = {
+  content: string;
+  tagInput: string;
+};
+
+type NoteEditDraftPayload = NoteCreateDraftPayload;
+
+const NOTE_CREATE_DRAFT_TYPE = "noteCreate";
+const NOTE_EDIT_DRAFT_TYPE = "note";
+const ACTIVE_CREATE_DRAFT_ID = "active";
 
 const createDraft = reactive({
   content: "",
@@ -67,6 +90,11 @@ const canSaveEdit = computed(() => {
   return editDraft.content.trim().length > 0 && isEditDirty.value && !props.isSaving;
 });
 
+const tagFilterOptions = computed(() => [
+  { value: "", label: "全部标签" },
+  ...props.tags.map((tag) => ({ value: tag.name, label: `#${tag.name}` })),
+]);
+
 watch(
   () => props.filters,
   (filters) => {
@@ -76,13 +104,43 @@ watch(
 );
 
 watch(
+  () => ({
+    mode: viewMode.value,
+    content: createDraft.content,
+    tagInput: createDraft.tagInput,
+  }),
+  () => scheduleCreateDraftSave(),
+);
+
+watch(
+  () => ({
+    mode: viewMode.value,
+    id: editDraft.id,
+    content: editDraft.content,
+    tagInput: editDraft.tagInput,
+  }),
+  () => scheduleEditDraftSave(),
+);
+
+onBeforeUnmount(() => {
+  saveCreateDraftNow();
+  saveEditDraftNow();
+  if (createDraftSaveTimer) {
+    window.clearTimeout(createDraftSaveTimer);
+  }
+  if (editDraftSaveTimer) {
+    window.clearTimeout(editDraftSaveTimer);
+  }
+});
+
+watch(
   () => props.notes,
   (notes) => {
     if (viewMode.value === "detail" && activeNoteId.value && !notes.some((note) => note.id === activeNoteId.value)) {
-      goToList();
+      forceGoToList();
     }
     if (viewMode.value === "edit" && editDraft.id && !notes.some((note) => note.id === editDraft.id)) {
-      goToList();
+      forceGoToList();
     }
   },
 );
@@ -99,15 +157,25 @@ function clearSearch() {
   emit("applyFilters", { search: "", tagName: props.filters.tagName });
 }
 
+function applyTagFilter(tagName: string) {
+  emit("applyFilters", {
+    ...props.filters,
+    tagName,
+  });
+}
+
 function openDetail(note: Note) {
   activeNoteId.value = note.id;
   viewMode.value = "detail";
 }
 
 function startCreate() {
-  createDraft.content = "";
-  createDraft.tagInput = "";
-  viewMode.value = "create";
+  runAfterDiscard(() => {
+    createDraft.content = "";
+    createDraft.tagInput = "";
+    viewMode.value = "create";
+    void checkCreateDraft();
+  });
 }
 
 function saveCreate() {
@@ -122,17 +190,21 @@ function saveCreate() {
     () => {
       createDraft.content = "";
       createDraft.tagInput = "";
-      viewMode.value = "list";
+      void deleteDraftPayload(NOTE_CREATE_DRAFT_TYPE, ACTIVE_CREATE_DRAFT_ID);
+      forceGoToList();
     },
   );
 }
 
 function startEdit(note: Note) {
-  editDraft.id = note.id;
-  editDraft.content = note.content;
-  editDraft.tagNames = note.tags.map((tag) => tag.name);
-  editDraft.tagInput = note.tags.map((tag) => `#${tag.name}`).join(" ");
-  viewMode.value = "edit";
+  runAfterDiscard(() => {
+    editDraft.id = note.id;
+    editDraft.content = note.content;
+    editDraft.tagNames = note.tags.map((tag) => tag.name);
+    editDraft.tagInput = note.tags.map((tag) => `#${tag.name}`).join(" ");
+    viewMode.value = "edit";
+    void checkEditDraft(note.id);
+  });
 }
 
 function saveEdit() {
@@ -147,6 +219,7 @@ function saveEdit() {
     },
     () => {
       activeNoteId.value = editDraft.id;
+      void deleteDraftPayload(NOTE_EDIT_DRAFT_TYPE, editDraft.id);
       viewMode.value = "detail";
     },
   );
@@ -164,14 +237,193 @@ function confirmDelete() {
   deleteModalOpen.value = false;
   deletingNoteId.value = "";
   if (viewMode.value !== "list") {
-    goToList();
+    forceGoToList();
   }
 }
 
 function goToList() {
+  runAfterDiscard(() => forceGoToList());
+}
+
+function forceGoToList() {
   viewMode.value = "list";
   activeNoteId.value = "";
   editDraft.id = "";
+}
+
+function runAfterDiscard(action: () => void) {
+  if (viewMode.value === "create" && isCreateDraftDirty()) {
+    discardMessage.value = "当前新增笔记有未保存内容，确定放弃吗？";
+    pendingEditorAction.value = async () => {
+      await deleteDraftPayload(NOTE_CREATE_DRAFT_TYPE, ACTIVE_CREATE_DRAFT_ID);
+      action();
+    };
+    discardModalOpen.value = true;
+    return;
+  }
+
+  if (viewMode.value === "edit" && isEditDirty.value) {
+    discardMessage.value = "当前笔记有未保存修改，确定放弃吗？";
+    pendingEditorAction.value = async () => {
+      await deleteDraftPayload(NOTE_EDIT_DRAFT_TYPE, editDraft.id);
+      action();
+    };
+    discardModalOpen.value = true;
+    return;
+  }
+
+  action();
+}
+
+async function confirmDiscard() {
+  const action = pendingEditorAction.value;
+  discardModalOpen.value = false;
+  pendingEditorAction.value = null;
+  await action?.();
+}
+
+function isCreateDraftDirty() {
+  return Boolean(createDraft.content.trim() || createDraft.tagInput.trim());
+}
+
+function createDraftPayload(): NoteCreateDraftPayload {
+  return {
+    content: createDraft.content,
+    tagInput: createDraft.tagInput,
+  };
+}
+
+function editDraftPayload(): NoteEditDraftPayload {
+  return {
+    content: editDraft.content,
+    tagInput: editDraft.tagInput,
+  };
+}
+
+function scheduleCreateDraftSave() {
+  if (createDraftSaveTimer) {
+    window.clearTimeout(createDraftSaveTimer);
+    createDraftSaveTimer = undefined;
+  }
+
+  if (viewMode.value !== "create" || !isCreateDraftDirty()) {
+    return;
+  }
+
+  createDraftSaveTimer = window.setTimeout(() => {
+    createDraftSaveTimer = undefined;
+    saveCreateDraftNow();
+  }, 800);
+}
+
+function saveCreateDraftNow() {
+  if (viewMode.value !== "create" || !isCreateDraftDirty()) {
+    return;
+  }
+
+  void saveDraftPayload(NOTE_CREATE_DRAFT_TYPE, ACTIVE_CREATE_DRAFT_ID, createDraftPayload());
+}
+
+function scheduleEditDraftSave() {
+  if (editDraftSaveTimer) {
+    window.clearTimeout(editDraftSaveTimer);
+    editDraftSaveTimer = undefined;
+  }
+
+  if (viewMode.value !== "edit" || !editDraft.id || !isEditDirty.value) {
+    return;
+  }
+
+  editDraftSaveTimer = window.setTimeout(() => {
+    editDraftSaveTimer = undefined;
+    saveEditDraftNow();
+  }, 800);
+}
+
+function saveEditDraftNow() {
+  if (viewMode.value !== "edit" || !editDraft.id || !isEditDirty.value) {
+    return;
+  }
+
+  void saveDraftPayload(NOTE_EDIT_DRAFT_TYPE, editDraft.id, editDraftPayload());
+}
+
+async function checkCreateDraft() {
+  try {
+    const draft = await getDraftPayload<NoteCreateDraftPayload>(
+      NOTE_CREATE_DRAFT_TYPE,
+      ACTIVE_CREATE_DRAFT_ID,
+    );
+    if (!draft || viewMode.value !== "create") {
+      return;
+    }
+
+    if (JSON.stringify(createDraftPayload()) === JSON.stringify(draft.payload)) {
+      await deleteDraftPayload(NOTE_CREATE_DRAFT_TYPE, ACTIVE_CREATE_DRAFT_ID);
+      return;
+    }
+
+    pendingCreateDraft.value = draft.payload;
+    restoreDraftKind.value = "create";
+    restoreDraftMessage.value = "存在上次未保存的新建笔记内容，是否恢复草稿？";
+    restoreDraftModalOpen.value = true;
+  } catch {
+    clearPendingDraftRestore();
+  }
+}
+
+async function checkEditDraft(noteId: string) {
+  try {
+    const draft = await getDraftPayload<NoteEditDraftPayload>(NOTE_EDIT_DRAFT_TYPE, noteId);
+    if (!draft || viewMode.value !== "edit" || editDraft.id !== noteId) {
+      return;
+    }
+
+    if (JSON.stringify(editDraftPayload()) === JSON.stringify(draft.payload)) {
+      await deleteDraftPayload(NOTE_EDIT_DRAFT_TYPE, noteId);
+      return;
+    }
+
+    pendingEditDraft.value = draft.payload;
+    restoreDraftKind.value = "edit";
+    restoreDraftMessage.value = "当前笔记存在上次未保存的编辑内容，是否恢复草稿？";
+    restoreDraftModalOpen.value = true;
+  } catch {
+    clearPendingDraftRestore();
+  }
+}
+
+function restorePendingDraft() {
+  if (restoreDraftKind.value === "create" && pendingCreateDraft.value) {
+    createDraft.content = pendingCreateDraft.value.content;
+    createDraft.tagInput = pendingCreateDraft.value.tagInput;
+  }
+
+  if (restoreDraftKind.value === "edit" && pendingEditDraft.value) {
+    editDraft.content = pendingEditDraft.value.content;
+    editDraft.tagInput = pendingEditDraft.value.tagInput;
+  }
+
+  clearPendingDraftRestore();
+}
+
+function discardPendingDraft() {
+  if (restoreDraftKind.value === "create") {
+    void deleteDraftPayload(NOTE_CREATE_DRAFT_TYPE, ACTIVE_CREATE_DRAFT_ID);
+  }
+
+  if (restoreDraftKind.value === "edit" && editDraft.id) {
+    void deleteDraftPayload(NOTE_EDIT_DRAFT_TYPE, editDraft.id);
+  }
+
+  clearPendingDraftRestore();
+}
+
+function clearPendingDraftRestore() {
+  restoreDraftModalOpen.value = false;
+  restoreDraftKind.value = null;
+  pendingCreateDraft.value = null;
+  pendingEditDraft.value = null;
 }
 
 function parseTagInput(value: string) {
@@ -179,6 +431,47 @@ function parseTagInput(value: string) {
     .split(/[\s,，#]+/)
     .map((tag) => tag.trim())
     .filter(Boolean);
+}
+
+function noteSummary(note: Note) {
+  const normalized = note.content.replace(/\s+/g, " ").trim();
+  return normalized.slice(0, 36) || "未命名笔记";
+}
+
+function notePreview(note: Note) {
+  const normalized = note.content.replace(/\s+/g, " ").trim();
+  if (normalized.length <= 36) {
+    return "";
+  }
+
+  return normalized.slice(36, 110);
+}
+
+function tagStyle(tag: Tag) {
+  if (!tag.color) {
+    return {};
+  }
+
+  return {
+    "--tag-accent": tag.color,
+    "--tag-background": toTagBackground(tag.color),
+  };
+}
+
+function toTagBackground(color: string) {
+  const normalized = color.trim();
+  const hex = normalized.match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);
+  if (!hex) {
+    return color;
+  }
+
+  const value = hex[1].length === 3
+    ? hex[1].split("").map((part) => part + part).join("")
+    : hex[1];
+  const red = parseInt(value.slice(0, 2), 16);
+  const green = parseInt(value.slice(2, 4), 16);
+  const blue = parseInt(value.slice(4, 6), 16);
+  return `rgba(${red}, ${green}, ${blue}, 0.14)`;
 }
 </script>
 
@@ -193,6 +486,12 @@ function parseTagInput(value: string) {
       </div>
 
       <div v-if="viewMode === 'list'" class="toolbar">
+        <CustomSelect
+          :model-value="filters.tagName"
+          :options="tagFilterOptions"
+          class="toolbar-select"
+          @update:model-value="applyTagFilter"
+        />
         <form class="toolbar" @submit.prevent="applySearch">
           <input
             v-model="searchDraft"
@@ -227,23 +526,24 @@ function parseTagInput(value: string) {
       </div>
     </header>
 
-    <div v-if="viewMode === 'list'" class="excerpt-table">
-      <div class="excerpt-table-head note-table-grid">
+    <div v-if="viewMode === 'list'" class="note-table">
+      <div class="note-table-head note-table-grid">
         <span>笔记</span>
         <span>标签</span>
         <span>创建时间</span>
         <span>操作</span>
       </div>
-      <div class="excerpt-table-body">
+      <div class="note-table-body">
         <button
           v-for="note in notes"
           :key="note.id"
-          class="excerpt-table-row note-table-grid"
+          class="note-table-row note-table-grid"
           type="button"
           @click="openDetail(note)"
         >
-          <span class="table-primary">
-            <strong>{{ note.content }}</strong>
+          <span class="note-table-primary">
+            <strong>{{ noteSummary(note) }}</strong>
+            <small v-if="notePreview(note)">{{ notePreview(note) }}</small>
           </span>
           <span class="table-tags">
             <ResponsiveTagList :tags="note.tags" />
@@ -270,7 +570,6 @@ function parseTagInput(value: string) {
       <div class="detail-document">
         <header class="detail-header document-header">
           <div>
-            <h3>笔记</h3>
             <footer>
               <span :title="formatDateTime(activeNote.createdAt)">
                 创建于 {{ formatDateOnly(activeNote.createdAt) }}
@@ -297,7 +596,7 @@ function parseTagInput(value: string) {
                 v-for="tag in activeNote.tags"
                 :key="tag.id"
                 class="tag-pill"
-                :style="{ '--tag-accent': tag.color || undefined }"
+                :style="tagStyle(tag)"
               >
                 #{{ tag.name }}
               </span>
@@ -368,6 +667,38 @@ function parseTagInput(value: string) {
           <button class="danger-action" type="button" @click="confirmDelete">
             <Trash2 aria-hidden="true" />
             删除
+          </button>
+        </div>
+      </div>
+    </BaseModal>
+
+    <BaseModal :open="discardModalOpen" title="放弃更改" @close="discardModalOpen = false">
+      <div class="modal-form">
+        <p>{{ discardMessage }}</p>
+        <div class="modal-actions">
+          <button class="secondary-action" type="button" @click="discardModalOpen = false">
+            <X aria-hidden="true" />
+            继续编辑
+          </button>
+          <button class="danger-action" type="button" @click="confirmDiscard">
+            <Trash2 aria-hidden="true" />
+            放弃更改
+          </button>
+        </div>
+      </div>
+    </BaseModal>
+
+    <BaseModal :open="restoreDraftModalOpen" title="发现草稿" @close="discardPendingDraft">
+      <div class="modal-form">
+        <p>{{ restoreDraftMessage }}</p>
+        <div class="modal-actions">
+          <button class="secondary-action" type="button" @click="discardPendingDraft">
+            <X aria-hidden="true" />
+            不恢复
+          </button>
+          <button class="primary-action" type="button" @click="restorePendingDraft">
+            <Check aria-hidden="true" />
+            恢复草稿
           </button>
         </div>
       </div>
