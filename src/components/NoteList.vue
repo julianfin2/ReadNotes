@@ -1,6 +1,16 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, reactive, ref, shallowRef, watch } from "vue";
-import { ArrowLeft, Check, Pencil, Plus, Save, Search, Trash2, X } from "@lucide/vue";
+import {
+  ArrowLeft,
+  Check,
+  Pencil,
+  Plus,
+  RotateCcw,
+  Save,
+  SlidersHorizontal,
+  Trash2,
+  X,
+} from "@lucide/vue";
 import BaseModal from "./BaseModal.vue";
 import CustomSelect from "./CustomSelect.vue";
 import ResponsiveTagList from "./ResponsiveTagList.vue";
@@ -26,12 +36,13 @@ const emit = defineEmits<{
 const viewMode = ref<"list" | "detail" | "create" | "edit">("list");
 const activeNoteId = ref("");
 const deletingNoteId = ref("");
+const filterModalOpen = ref(false);
 const deleteModalOpen = ref(false);
 const discardModalOpen = ref(false);
 const restoreDraftModalOpen = ref(false);
 const discardMessage = ref("");
 const restoreDraftMessage = ref("");
-const searchDraft = ref("");
+const toolbarSearch = ref("");
 const pendingEditorAction = shallowRef<(() => void | Promise<void>) | null>(null);
 const restoreDraftKind = ref<"create" | "edit" | null>(null);
 const pendingCreateDraft = ref<NoteCreateDraftPayload | null>(null);
@@ -53,6 +64,16 @@ const ACTIVE_CREATE_DRAFT_ID = "active";
 const createDraft = reactive({
   content: "",
   tagInput: "",
+});
+
+const appliedFilters = reactive<NoteFilters>({
+  search: "",
+  tagName: "",
+});
+
+const filterDraft = reactive<NoteFilters>({
+  search: "",
+  tagName: "",
 });
 
 const editDraft = reactive<UpdateNoteInput & { tagInput: string }>({
@@ -95,10 +116,28 @@ const tagFilterOptions = computed(() => [
   ...props.tags.map((tag) => ({ value: tag.name, label: `#${tag.name}` })),
 ]);
 
+const activeFilterCount = computed(() => {
+  return [appliedFilters.search, appliedFilters.tagName].filter(Boolean).length;
+});
+
+const activeFilterLabels = computed(() => {
+  const labels: string[] = [];
+
+  if (appliedFilters.search) {
+    labels.push(`搜索：${appliedFilters.search}`);
+  }
+
+  if (appliedFilters.tagName) {
+    labels.push(`标签：#${appliedFilters.tagName}`);
+  }
+
+  return labels;
+});
+
 watch(
   () => props.filters,
   (filters) => {
-    searchDraft.value = filters.search;
+    syncAppliedFilters(filters);
   },
   { immediate: true, deep: true },
 );
@@ -145,23 +184,61 @@ watch(
   },
 );
 
-function applySearch() {
-  emit("applyFilters", {
-    ...props.filters,
-    search: searchDraft.value.trim(),
-  });
+function applyToolbarSearch() {
+  const nextFilters = {
+    ...appliedFilters,
+    search: toolbarSearch.value.trim(),
+  };
+  copyFilters(nextFilters, appliedFilters);
+  emit("applyFilters", { ...nextFilters });
 }
 
-function clearSearch() {
-  searchDraft.value = "";
-  emit("applyFilters", { search: "", tagName: props.filters.tagName });
+function openFilterModal() {
+  copyFilters(appliedFilters, filterDraft);
+  filterModalOpen.value = true;
 }
 
-function applyTagFilter(tagName: string) {
-  emit("applyFilters", {
-    ...props.filters,
-    tagName,
-  });
+function applyFilters() {
+  const nextFilters = {
+    search: filterDraft.search.trim(),
+    tagName: filterDraft.tagName,
+  };
+  toolbarSearch.value = nextFilters.search;
+  copyFilters(nextFilters, appliedFilters);
+  emit("applyFilters", { ...nextFilters });
+  filterModalOpen.value = false;
+}
+
+function resetFilterDraft() {
+  copyFilters(createDefaultFilters(), filterDraft);
+}
+
+function resetAppliedFilters() {
+  const nextFilters = createDefaultFilters();
+  toolbarSearch.value = "";
+  copyFilters(nextFilters, appliedFilters);
+  copyFilters(nextFilters, filterDraft);
+  emit("applyFilters", { ...nextFilters });
+}
+
+function syncAppliedFilters(filters: NoteFilters) {
+  copyFilters(filters, appliedFilters);
+  toolbarSearch.value = filters.search;
+  if (!filterModalOpen.value) {
+    copyFilters(filters, filterDraft);
+  }
+}
+
+function copyFilters(source: NoteFilters, target: NoteFilters) {
+  target.search = source.search;
+  target.tagName = source.tagName;
+}
+
+function createDefaultFilters(): NoteFilters {
+  return {
+    search: "",
+    tagName: "",
+  };
 }
 
 function openDetail(note: Note) {
@@ -485,38 +562,34 @@ function toTagBackground(color: string) {
         </h2>
       </div>
 
-      <div v-if="viewMode === 'list'" class="toolbar">
-        <CustomSelect
-          :model-value="filters.tagName"
-          :options="tagFilterOptions"
-          class="toolbar-select"
-          @update:model-value="applyTagFilter"
-        />
-        <form class="toolbar" @submit.prevent="applySearch">
+      <form
+        v-if="viewMode === 'list'"
+        class="toolbar list-toolbar"
+        @submit.prevent="applyToolbarSearch"
+      >
+        <div v-if="activeFilterLabels.length > 0" class="filter-chip-row toolbar-filter-chips">
+          <span v-for="label in activeFilterLabels" :key="label" class="filter-chip">
+            {{ label }}
+          </span>
+          <button class="text-action" type="button" @click="resetAppliedFilters">
+            <RotateCcw aria-hidden="true" />
+            清空筛选
+          </button>
+        </div>
           <input
-            v-model="searchDraft"
+            v-model="toolbarSearch"
             class="toolbar-search"
             placeholder="搜索笔记或标签"
           />
-          <button class="secondary-action" type="submit">
-            <Search aria-hidden="true" />
-            搜索
+          <button class="secondary-action" type="button" @click="openFilterModal">
+            <SlidersHorizontal aria-hidden="true" />
+            筛选{{ activeFilterCount ? ` (${activeFilterCount})` : "" }}
           </button>
-          <button
-            v-if="filters.search"
-            class="secondary-action"
-            type="button"
-            @click="clearSearch"
-          >
-            <X aria-hidden="true" />
-            清空
-          </button>
-        </form>
         <button class="primary-action" type="button" @click="startCreate">
           <Plus aria-hidden="true" />
           新增笔记
         </button>
-      </div>
+      </form>
 
       <div v-else class="toolbar">
         <button class="secondary-action" type="button" @click="goToList">
@@ -670,6 +743,29 @@ function toTagBackground(color: string) {
           </button>
         </div>
       </div>
+    </BaseModal>
+
+    <BaseModal :open="filterModalOpen" title="筛选笔记" @close="filterModalOpen = false">
+      <form class="modal-form" @submit.prevent="applyFilters">
+        <label>
+          搜索
+          <input v-model="filterDraft.search" placeholder="搜索笔记或标签" />
+        </label>
+        <label>
+          标签
+          <CustomSelect v-model="filterDraft.tagName" :options="tagFilterOptions" />
+        </label>
+        <div class="modal-actions">
+          <button class="secondary-action" type="button" @click="resetFilterDraft">
+            <RotateCcw aria-hidden="true" />
+            清空
+          </button>
+          <button class="primary-action" type="submit">
+            <Check aria-hidden="true" />
+            应用
+          </button>
+        </div>
+      </form>
     </BaseModal>
 
     <BaseModal :open="discardModalOpen" title="放弃更改" @close="discardModalOpen = false">
