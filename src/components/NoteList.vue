@@ -811,7 +811,7 @@ function toTagBackground(color: string) {
 
     <BaseModal :open="discardModalOpen" title="放弃更改" @close="discardModalOpen = false">
       <div class="modal-form">
-        <p>{{ discardMessage }}</p>
+        <p class="reflection">{{ discardMessage }}</p>
         <div class="modal-actions">
           <button class="secondary-action" type="button" @click="discardModalOpen = false">
             <X aria-hidden="true" />
@@ -827,7 +827,7 @@ function toTagBackground(color: string) {
 
     <BaseModal :open="restoreDraftModalOpen" title="发现草稿" @close="discardPendingDraft">
       <div class="modal-form">
-        <p>{{ restoreDraftMessage }}</p>
+        <p class="reflection">{{ restoreDraftMessage }}</p>
         <div class="modal-actions">
           <button class="secondary-action" type="button" @click="discardPendingDraft">
             <X aria-hidden="true" />
