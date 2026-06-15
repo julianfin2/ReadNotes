@@ -543,16 +543,7 @@ function parseTagInput(value: string) {
 
 function noteSummary(note: Note) {
   const normalized = note.content.replace(/\s+/g, " ").trim();
-  return normalized.slice(0, 36) || "未命名笔记";
-}
-
-function notePreview(note: Note) {
-  const normalized = note.content.replace(/\s+/g, " ").trim();
-  if (normalized.length <= 36) {
-    return "";
-  }
-
-  return normalized.slice(36, 110);
+  return normalized || "未命名笔记";
 }
 
 function tagStyle(tag: Tag) {
@@ -662,7 +653,6 @@ function toTagBackground(color: string) {
         >
           <span class="note-table-primary">
             <strong>{{ noteSummary(note) }}</strong>
-            <small v-if="notePreview(note)">{{ notePreview(note) }}</small>
           </span>
           <span class="table-tags">
             <ResponsiveTagList :tags="note.tags" />
