@@ -37,6 +37,8 @@ pub struct UpdateNoteRequest {
 pub struct ListNotesRequest {
     pub search: Option<String>,
     pub tag_name: Option<String>,
+    pub sort_by: Option<String>,
+    pub sort_direction: Option<String>,
 }
 
 #[tauri::command]
@@ -123,12 +125,13 @@ pub fn list_notes(
     } else {
         format!("WHERE {}", clauses.join(" AND "))
     };
+    let order_clause = build_order_clause(input.sort_by.as_deref(), input.sort_direction.as_deref())?;
     let query = format!(
         "
         SELECT id, content, created_at, updated_at
         FROM notes
         {where_clause}
-        ORDER BY updated_at DESC, created_at DESC
+        {order_clause}
         "
     );
     let parameters: Vec<&dyn ToSql> = parameter_values
@@ -160,6 +163,8 @@ impl Default for ListNotesRequest {
         Self {
             search: None,
             tag_name: None,
+            sort_by: Some("updatedAt".to_string()),
+            sort_direction: Some("desc".to_string()),
         }
     }
 }
@@ -270,6 +275,24 @@ fn empty_to_none(value: Option<String>) -> Option<String> {
 
 fn normalize_optional_text(value: Option<String>) -> Option<String> {
     empty_to_none(value)
+}
+
+fn build_order_clause(
+    sort_by: Option<&str>,
+    sort_direction: Option<&str>,
+) -> Result<String, String> {
+    let column = match sort_by.unwrap_or("updatedAt") {
+        "createdAt" => "notes.created_at",
+        "updatedAt" => "notes.updated_at",
+        _ => return Err("sortBy must be createdAt or updatedAt".to_string()),
+    };
+    let direction = match sort_direction.unwrap_or("desc") {
+        "asc" => "ASC",
+        "desc" => "DESC",
+        _ => return Err("sortDirection must be asc or desc".to_string()),
+    };
+
+    Ok(format!("ORDER BY {column} {direction}, notes.created_at DESC"))
 }
 
 fn now_rfc3339() -> Result<String, String> {

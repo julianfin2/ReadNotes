@@ -11,6 +11,8 @@ export type Note = {
 export type NoteFilters = {
   search: string;
   tagName: string;
+  sortBy: "createdAt" | "updatedAt";
+  sortDirection: "asc" | "desc";
 };
 
 export type UpdateNoteInput = {

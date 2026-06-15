@@ -238,6 +238,8 @@ function toNoteQuery(filters: NoteFilters) {
   return {
     search: filters.search || null,
     tagName: filters.tagName || null,
+    sortBy: filters.sortBy,
+    sortDirection: filters.sortDirection,
   };
 }
 
@@ -254,6 +256,8 @@ function createDefaultNoteFilters(): NoteFilters {
   return {
     search: "",
     tagName: "",
+    sortBy: "updatedAt",
+    sortDirection: "desc",
   };
 }
 </script>

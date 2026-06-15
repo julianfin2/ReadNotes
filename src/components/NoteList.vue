@@ -69,11 +69,15 @@ const createDraft = reactive({
 const appliedFilters = reactive<NoteFilters>({
   search: "",
   tagName: "",
+  sortBy: "updatedAt",
+  sortDirection: "desc",
 });
 
 const filterDraft = reactive<NoteFilters>({
   search: "",
   tagName: "",
+  sortBy: "updatedAt",
+  sortDirection: "desc",
 });
 
 const editDraft = reactive<UpdateNoteInput & { tagInput: string }>({
@@ -117,7 +121,12 @@ const tagFilterOptions = computed(() => [
 ]);
 
 const activeFilterCount = computed(() => {
-  return [appliedFilters.search, appliedFilters.tagName].filter(Boolean).length;
+  return [
+    appliedFilters.search,
+    appliedFilters.tagName,
+    appliedFilters.sortBy !== "updatedAt" ? appliedFilters.sortBy : "",
+    appliedFilters.sortDirection !== "desc" ? appliedFilters.sortDirection : "",
+  ].filter(Boolean).length;
 });
 
 const activeFilterLabels = computed(() => {
@@ -130,9 +139,25 @@ const activeFilterLabels = computed(() => {
   if (appliedFilters.tagName) {
     labels.push(`标签：#${appliedFilters.tagName}`);
   }
+  if (appliedFilters.sortBy !== "updatedAt") {
+    labels.push(`排序：${appliedFilters.sortBy === "createdAt" ? "创建时间" : "更新时间"}`);
+  }
+  if (appliedFilters.sortDirection !== "desc") {
+    labels.push("升序");
+  }
 
   return labels;
 });
+
+const sortByOptions = [
+  { value: "updatedAt", label: "更新时间" },
+  { value: "createdAt", label: "创建时间" },
+];
+
+const sortDirectionOptions = [
+  { value: "desc", label: "降序" },
+  { value: "asc", label: "升序" },
+];
 
 watch(
   () => props.filters,
@@ -202,6 +227,8 @@ function applyFilters() {
   const nextFilters = {
     search: filterDraft.search.trim(),
     tagName: filterDraft.tagName,
+    sortBy: filterDraft.sortBy,
+    sortDirection: filterDraft.sortDirection,
   };
   toolbarSearch.value = nextFilters.search;
   copyFilters(nextFilters, appliedFilters);
@@ -232,12 +259,16 @@ function syncAppliedFilters(filters: NoteFilters) {
 function copyFilters(source: NoteFilters, target: NoteFilters) {
   target.search = source.search;
   target.tagName = source.tagName;
+  target.sortBy = source.sortBy;
+  target.sortDirection = source.sortDirection;
 }
 
 function createDefaultFilters(): NoteFilters {
   return {
     search: "",
     tagName: "",
+    sortBy: "updatedAt",
+    sortDirection: "desc",
   };
 }
 
@@ -755,6 +786,16 @@ function toTagBackground(color: string) {
           标签
           <CustomSelect v-model="filterDraft.tagName" :options="tagFilterOptions" />
         </label>
+        <div class="source-grid">
+          <label>
+            排序
+            <CustomSelect v-model="filterDraft.sortBy" :options="sortByOptions" />
+          </label>
+          <label>
+            方向
+            <CustomSelect v-model="filterDraft.sortDirection" :options="sortDirectionOptions" />
+          </label>
+        </div>
         <div class="modal-actions">
           <button class="secondary-action" type="button" @click="resetFilterDraft">
             <RotateCcw aria-hidden="true" />
