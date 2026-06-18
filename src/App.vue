@@ -1046,10 +1046,45 @@ form,
 }
 
 .material-item-meta {
-  display: inline-flex;
+  display: grid;
+  grid-template-columns: minmax(4em, 1fr) minmax(0, max-content);
   align-items: center;
   gap: 6px;
   min-width: 0;
+}
+
+.material-item-meta > .item-meta {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.material-node-path {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  color: #657572;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.material-node-path svg {
+  flex: 0 0 auto;
+  width: 13px;
+  height: 13px;
+}
+
+.material-node-path span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .material-date-row {

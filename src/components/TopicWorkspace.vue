@@ -3,6 +3,7 @@ import { computed, onBeforeUnmount, onMounted, reactive, ref, shallowRef, watch 
 import { invoke } from "@tauri-apps/api/core";
 import {
   ArrowLeft,
+  FolderTree,
   Link,
   Pencil,
   Plus,
@@ -1579,6 +1580,29 @@ function nodeLabel(node: TopicNode) {
   return parent ? `${parent.title} / ${node.title}` : node.title;
 }
 
+function materialNodePath(nodeId?: string | null) {
+  if (!nodeId) {
+    return "";
+  }
+
+  const path: string[] = [];
+  const visited = new Set<string>();
+  let currentId: string | null | undefined = nodeId;
+
+  while (currentId && !visited.has(currentId)) {
+    visited.add(currentId);
+    const node = topicNodes.value.find((candidate) => candidate.id === currentId);
+    if (!node) {
+      break;
+    }
+
+    path.unshift(node.title);
+    currentId = node.parentId;
+  }
+
+  return path.join(" › ");
+}
+
 function selectableParents(nodeId?: string) {
   return topicNodes.value.filter((node) => node.id !== nodeId);
 }
@@ -1922,6 +1946,14 @@ async function runSaving(task: () => Promise<void>) {
                 <span class="item-title">{{ materialTitle(topicMaterial) }}</span>
                 <span class="material-item-meta">
                   <span class="item-meta">{{ materialSourceLabel(topicMaterial) }}</span>
+                  <span
+                    v-if="selectedNodeId === '' && topicMaterial.nodeId"
+                    class="material-node-path"
+                    :title="materialNodePath(topicMaterial.nodeId)"
+                  >
+                    <FolderTree aria-hidden="true" />
+                    <span>{{ materialNodePath(topicMaterial.nodeId) }}</span>
+                  </span>
                 </span>
                 <span class="material-date-row">
                   <span class="item-meta">{{ formatDateOnly(topicMaterial.addedAt) }}</span>
