@@ -717,14 +717,14 @@ function toTagBackground(color: string) {
           笔记
           <textarea v-model="createDraft.content" rows="14" placeholder="记录一个想法、判断、问题或提纲" />
         </label>
-        <label>
-          标签
+        <div class="form-field">
+          <span class="field-label">标签</span>
           <TagTokenInput
             v-model="createDraft.tagInput"
             :tags="tags"
             placeholder="输入标签后按空格或回车"
           />
-        </label>
+        </div>
       </section>
       <div class="editor-actions">
         <button class="secondary-action" type="button" @click="goToList">
@@ -744,10 +744,10 @@ function toTagBackground(color: string) {
           笔记
           <textarea v-model="editDraft.content" rows="14" />
         </label>
-        <label>
-          标签
+        <div class="form-field">
+          <span class="field-label">标签</span>
           <TagTokenInput v-model="editDraft.tagInput" :tags="tags" />
-        </label>
+        </div>
       </section>
       <div class="editor-actions">
         <button class="secondary-action" type="button" @click="goToList">

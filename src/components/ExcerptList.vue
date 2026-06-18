@@ -1050,14 +1050,14 @@ function cancelDiscardEditor() {
             />
           </label>
         </div>
-        <label>
-          标签
+        <div class="form-field">
+          <span class="field-label">标签</span>
           <TagTokenInput
             v-model="createDraft.tagInput"
             :tags="tags"
             placeholder="输入标签后按空格或回车"
           />
-        </label>
+        </div>
       </section>
       <div class="editor-actions">
         <button class="secondary-action" type="button" @click="cancelEditor">
@@ -1095,10 +1095,10 @@ function cancelDiscardEditor() {
             <EditableCombobox v-model="editDraft.chapterTitle" :options="editChapterOptions" />
           </label>
         </div>
-        <label>
-          标签
+        <div class="form-field">
+          <span class="field-label">标签</span>
           <TagTokenInput v-model="editDraft.tagInput" :tags="tags" />
-        </label>
+        </div>
       </section>
       <div class="editor-actions">
         <button class="secondary-action" type="button" @click="cancelEditor">
