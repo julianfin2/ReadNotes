@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, reactive, ref, shallowRef, watch } from "vue";
+import { invoke } from "@tauri-apps/api/core";
 import {
   ArrowLeft,
   Check,
+  FolderTree,
   Pencil,
   Plus,
   RotateCcw,
@@ -19,6 +21,7 @@ import TagTokenInput from "./TagTokenInput.vue";
 import type { Book } from "../types/book";
 import type { Excerpt, ExcerptFilters, UpdateExcerptInput } from "../types/excerpt";
 import type { Tag } from "../types/tag";
+import type { MaterialTopicReference } from "../types/topic";
 import { deleteDraftPayload, getDraftPayload, saveDraftPayload } from "../utils/drafts";
 import { formatDateOnly, formatDateTime } from "../utils/date";
 
@@ -46,6 +49,7 @@ const emit = defineEmits<{
   ];
   deleteExcerpt: [id: string];
   updateExcerpt: [input: UpdateExcerptInput, onSaved?: () => void];
+  openTopicReference: [reference: MaterialTopicReference];
 }>();
 
 type PendingEditorAction = () => void;
@@ -83,6 +87,7 @@ const restoreDraftKind = ref<"create" | "edit" | null>(null);
 const pendingCreateExcerptDraft = ref<ExcerptCreateDraftPayload | null>(null);
 const pendingExcerptDraft = ref<ExcerptEditDraftPayload | null>(null);
 const pendingEditorAction = shallowRef<PendingEditorAction | null>(null);
+const topicReferences = ref<MaterialTopicReference[]>([]);
 let searchDebounceTimer: number | undefined;
 let createDraftSaveTimer: number | undefined;
 let editDraftSaveTimer: number | undefined;
@@ -372,7 +377,22 @@ function openDetail(excerpt: Excerpt) {
     activeExcerptId.value = excerpt.id;
     resetEditDraft();
     viewMode.value = "detail";
+    void loadTopicReferences(excerpt.id);
   });
+}
+
+async function loadTopicReferences(excerptId: string) {
+  try {
+    const references = await invoke<MaterialTopicReference[]>("list_material_topic_references", {
+      materialType: "excerpt",
+      materialId: excerptId,
+    });
+    if (viewMode.value === "detail" && activeExcerptId.value === excerptId) {
+      topicReferences.value = references;
+    }
+  } catch {
+    topicReferences.value = [];
+  }
 }
 
 function requestDeleteExcerpt(id: string) {
@@ -422,6 +442,7 @@ function submitEdit() {
     activeExcerptId.value = excerptId;
     resetEditDraft();
     viewMode.value = "detail";
+    void loadTopicReferences(excerptId);
   });
 }
 
@@ -437,6 +458,7 @@ function goToList() {
   resetCreateDraft();
   resetEditDraft();
   activeExcerptId.value = "";
+  topicReferences.value = [];
   viewMode.value = "list";
 }
 
@@ -1018,6 +1040,23 @@ function cancelDiscardEditor() {
             #{{ tag.name }}
           </span>
         </div>
+
+        <section v-if="topicReferences.length > 0" class="topic-reference-section">
+          <h3>收录于</h3>
+          <div class="topic-reference-list">
+            <button
+              v-for="reference in topicReferences"
+              :key="reference.topicMaterialId"
+              class="topic-reference-path"
+              type="button"
+              :title="[reference.topicTitle, ...reference.nodePath].join(' › ')"
+              @click="emit('openTopicReference', reference)"
+            >
+              <FolderTree aria-hidden="true" />
+              <span>{{ [reference.topicTitle, ...reference.nodePath].join(" › ") }}</span>
+            </button>
+          </div>
+        </section>
       </section>
     </article>
 

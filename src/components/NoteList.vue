@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, reactive, ref, shallowRef, watch } from "vue";
+import { invoke } from "@tauri-apps/api/core";
 import {
   ArrowLeft,
   Check,
+  FolderTree,
   Pencil,
   Plus,
   RotateCcw,
@@ -17,6 +19,7 @@ import ResponsiveTagList from "./ResponsiveTagList.vue";
 import TagTokenInput from "./TagTokenInput.vue";
 import type { Note, NoteFilters, UpdateNoteInput } from "../types/note";
 import type { Tag } from "../types/tag";
+import type { MaterialTopicReference } from "../types/topic";
 import { deleteDraftPayload, getDraftPayload, saveDraftPayload } from "../utils/drafts";
 import { formatDateOnly, formatDateTime } from "../utils/date";
 
@@ -32,6 +35,7 @@ const emit = defineEmits<{
   createNote: [input: { content: string; tagNames: string[] }, onSaved?: () => void];
   updateNote: [input: UpdateNoteInput, onSaved?: () => void];
   deleteNote: [id: string];
+  openTopicReference: [reference: MaterialTopicReference];
 }>();
 
 const viewMode = ref<"list" | "detail" | "create" | "edit">("list");
@@ -45,6 +49,7 @@ const discardMessage = ref("");
 const restoreDraftMessage = ref("");
 const toolbarSearch = ref("");
 const pendingEditorAction = shallowRef<(() => void | Promise<void>) | null>(null);
+const topicReferences = ref<MaterialTopicReference[]>([]);
 const restoreDraftKind = ref<"create" | "edit" | null>(null);
 const pendingCreateDraft = ref<NoteCreateDraftPayload | null>(null);
 const pendingEditDraft = ref<NoteEditDraftPayload | null>(null);
@@ -276,6 +281,21 @@ function createDefaultFilters(): NoteFilters {
 function openDetail(note: Note) {
   activeNoteId.value = note.id;
   viewMode.value = "detail";
+  void loadTopicReferences(note.id);
+}
+
+async function loadTopicReferences(noteId: string) {
+  try {
+    const references = await invoke<MaterialTopicReference[]>("list_material_topic_references", {
+      materialType: "note",
+      materialId: noteId,
+    });
+    if (viewMode.value === "detail" && activeNoteId.value === noteId) {
+      topicReferences.value = references;
+    }
+  } catch {
+    topicReferences.value = [];
+  }
 }
 
 function startCreate() {
@@ -330,6 +350,7 @@ function saveEdit() {
       activeNoteId.value = editDraft.id;
       void deleteDraftPayload(NOTE_EDIT_DRAFT_TYPE, editDraft.id);
       viewMode.value = "detail";
+      void loadTopicReferences(editDraft.id);
     },
   );
 }
@@ -357,6 +378,7 @@ function goToList() {
 function forceGoToList() {
   viewMode.value = "list";
   activeNoteId.value = "";
+  topicReferences.value = [];
   editDraft.id = "";
 }
 
@@ -704,6 +726,23 @@ function toTagBackground(color: string) {
             #{{ tag.name }}
           </span>
         </div>
+
+        <section v-if="topicReferences.length > 0" class="topic-reference-section">
+          <h3>收录于</h3>
+          <div class="topic-reference-list">
+            <button
+              v-for="reference in topicReferences"
+              :key="reference.topicMaterialId"
+              class="topic-reference-path"
+              type="button"
+              :title="[reference.topicTitle, ...reference.nodePath].join(' › ')"
+              @click="emit('openTopicReference', reference)"
+            >
+              <FolderTree aria-hidden="true" />
+              <span>{{ [reference.topicTitle, ...reference.nodePath].join(" › ") }}</span>
+            </button>
+          </div>
+        </section>
       </section>
     </article>
 

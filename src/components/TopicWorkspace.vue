@@ -17,13 +17,20 @@ import CustomSelect from "./CustomSelect.vue";
 import type { Excerpt } from "../types/excerpt";
 import type { Note } from "../types/note";
 import type { Tag } from "../types/tag";
-import type { Topic, TopicMaterial, TopicNode, TopicStatus } from "../types/topic";
+import type {
+  Topic,
+  TopicMaterial,
+  TopicNavigationTarget,
+  TopicNode,
+  TopicStatus,
+} from "../types/topic";
 import { deleteDraftPayload, getDraftPayload, saveDraftPayload } from "../utils/drafts";
 import { formatDateOnly, formatDateTime } from "../utils/date";
 
 const props = defineProps<{
   excerpts: Excerpt[];
   notes: Note[];
+  navigationTarget?: TopicNavigationTarget | null;
 }>();
 
 const topics = ref<Topic[]>([]);
@@ -55,6 +62,7 @@ const reason = ref("");
 const topicReflection = ref("");
 const errorMessage = ref("");
 const isSaving = ref(false);
+const pendingNavigationTarget = ref<TopicNavigationTarget | null>(null);
 
 type TopicDraft = {
   title: string;
@@ -339,6 +347,7 @@ const noteToAdd = computed(() => {
 
 onMounted(async () => {
   await loadTopics();
+  await applyNavigationTarget(props.navigationTarget);
 });
 
 onBeforeUnmount(() => {
@@ -377,8 +386,45 @@ watch(selectedTopicId, async (topicId) => {
 
   if (topicId) {
     await Promise.all([loadTopicNodes(topicId), loadTopicMaterials(topicId)]);
+    applyPendingNavigation(topicId);
   }
 });
+
+watch(
+  () => props.navigationTarget?.requestId,
+  () => {
+    void applyNavigationTarget(props.navigationTarget);
+  },
+);
+
+async function applyNavigationTarget(target?: TopicNavigationTarget | null) {
+  if (!target) {
+    return;
+  }
+
+  pendingNavigationTarget.value = target;
+  clearEditingState();
+  viewMode.value = "workspace";
+
+  if (selectedTopicId.value !== target.topicId) {
+    selectedTopicId.value = target.topicId;
+    return;
+  }
+
+  await Promise.all([loadTopicNodes(target.topicId), loadTopicMaterials(target.topicId)]);
+  applyPendingNavigation(target.topicId);
+}
+
+function applyPendingNavigation(topicId: string) {
+  const target = pendingNavigationTarget.value;
+  if (!target || target.topicId !== topicId) {
+    return;
+  }
+
+  selectedNodeId.value = target.nodeId || "";
+  selectedTopicMaterialId.value = target.topicMaterialId;
+  pendingNavigationTarget.value = null;
+}
 
 watch(
   () => ({

@@ -52,6 +52,16 @@ pub struct TopicMaterial {
     pub note: Option<Note>,
 }
 
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MaterialTopicReference {
+    pub topic_material_id: String,
+    pub topic_id: String,
+    pub topic_title: String,
+    pub node_id: Option<String>,
+    pub node_path: Vec<String>,
+}
+
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CreateTopicRequest {
@@ -443,6 +453,69 @@ pub fn list_topic_materials(
 }
 
 #[tauri::command]
+pub fn list_material_topic_references(
+    state: State<'_, AppState>,
+    material_type: String,
+    material_id: String,
+) -> Result<Vec<MaterialTopicReference>, String> {
+    if material_type != "excerpt" && material_type != "note" {
+        return Err("material type must be excerpt or note".to_string());
+    }
+
+    let connection = state
+        .db
+        .lock()
+        .map_err(|_| "database lock was poisoned".to_string())?;
+
+    let mut statement = connection
+        .prepare(
+            "
+            SELECT tm.id, tm.topic_id, t.title, tm.node_id
+            FROM topic_materials tm
+            JOIN topics t ON t.id = tm.topic_id
+            WHERE tm.material_type = ?1 AND tm.material_id = ?2
+            ORDER BY t.updated_at DESC, tm.added_at DESC
+            ",
+        )
+        .map_err(|error| format!("failed to prepare material topic references: {error}"))?;
+
+    let rows = statement
+        .query_map(params![material_type, material_id], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, String>(2)?,
+                row.get::<_, Option<String>>(3)?,
+            ))
+        })
+        .map_err(|error| format!("failed to list material topic references: {error}"))?;
+
+    let bases = rows
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|error| format!("failed to read material topic references: {error}"))?;
+
+    bases
+        .into_iter()
+        .map(
+            |(topic_material_id, topic_id, topic_title, node_id)| {
+                let node_path = match node_id.as_deref() {
+                    Some(id) => build_topic_node_path(&connection, id)?,
+                    None => Vec::new(),
+                };
+
+                Ok(MaterialTopicReference {
+                    topic_material_id,
+                    topic_id,
+                    topic_title,
+                    node_id,
+                    node_path,
+                })
+            },
+        )
+        .collect()
+}
+
+#[tauri::command]
 pub fn update_topic_material(
     state: State<'_, AppState>,
     input: UpdateTopicMaterialRequest,
@@ -543,6 +616,27 @@ fn get_topic_material_by_id(connection: &Connection, id: &str) -> Result<TopicMa
         .map_err(|error| format!("failed to find topic excerpt: {error}"))?;
 
     hydrate_topic_material(connection, base)
+}
+
+fn build_topic_node_path(connection: &Connection, node_id: &str) -> Result<Vec<String>, String> {
+    let mut path = Vec::new();
+    let mut current_id = Some(node_id.to_string());
+
+    while let Some(id) = current_id {
+        let (title, parent_id) = connection
+            .query_row(
+                "SELECT title, parent_id FROM topic_nodes WHERE id = ?1",
+                params![id],
+                |row| Ok((row.get::<_, String>(0)?, row.get::<_, Option<String>>(1)?)),
+            )
+            .map_err(|error| format!("failed to build topic node path: {error}"))?;
+
+        path.push(title);
+        current_id = parent_id;
+    }
+
+    path.reverse();
+    Ok(path)
 }
 
 struct TopicMaterialBase {

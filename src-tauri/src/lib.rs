@@ -54,6 +54,7 @@ pub fn run() {
             topic::create_topic_node,
             topic::delete_topic,
             topic::delete_topic_node,
+            topic::list_material_topic_references,
             topic::list_topic_materials,
             topic::list_topic_nodes,
             topic::list_topics,

@@ -46,3 +46,18 @@ export type TopicMaterial = {
   note?: Note | null;
 };
 
+export type MaterialTopicReference = {
+  topicMaterialId: string;
+  topicId: string;
+  topicTitle: string;
+  nodeId?: string | null;
+  nodePath: string[];
+};
+
+export type TopicNavigationTarget = {
+  requestId: number;
+  topicMaterialId: string;
+  topicId: string;
+  nodeId?: string | null;
+};
+

@@ -14,6 +14,10 @@ import type { DatabaseInfo } from "./types/database";
 import type { Excerpt, ExcerptFilters, UpdateExcerptInput } from "./types/excerpt";
 import type { Note, NoteFilters, UpdateNoteInput } from "./types/note";
 import type { Tag } from "./types/tag";
+import type {
+  MaterialTopicReference,
+  TopicNavigationTarget,
+} from "./types/topic";
 
 type ViewKey = "excerpts" | "notes" | "topics" | "tags" | "books" | "settings";
 
@@ -32,6 +36,7 @@ const errorMessage = ref("");
 const isSaving = ref(false);
 const excerptFilters = ref<ExcerptFilters>(createDefaultExcerptFilters());
 const noteFilters = ref<NoteFilters>(createDefaultNoteFilters());
+const topicNavigationTarget = ref<TopicNavigationTarget | null>(null);
 let errorDismissTimer: number | undefined;
 
 onMounted(async () => {
@@ -260,6 +265,16 @@ function createDefaultNoteFilters(): NoteFilters {
     sortDirection: "desc",
   };
 }
+
+function openTopicReference(reference: MaterialTopicReference) {
+  topicNavigationTarget.value = {
+    requestId: Date.now(),
+    topicMaterialId: reference.topicMaterialId,
+    topicId: reference.topicId,
+    nodeId: reference.nodeId || null,
+  };
+  activeView.value = "topics";
+}
 </script>
 
 <template>
@@ -284,6 +299,7 @@ function createDefaultNoteFilters(): NoteFilters {
         @apply-filters="loadExcerpts"
         @create-excerpt="createExcerpt"
         @delete-excerpt="deleteExcerpt"
+        @open-topic-reference="openTopicReference"
         @update-excerpt="updateExcerpt"
       />
       </template>
@@ -298,9 +314,15 @@ function createDefaultNoteFilters(): NoteFilters {
         @create-note="createNote"
         @update-note="updateNote"
         @delete-note="deleteNote"
+        @open-topic-reference="openTopicReference"
       />
 
-      <TopicWorkspace v-else-if="activeView === 'topics'" :excerpts="excerpts" :notes="notes" />
+      <TopicWorkspace
+        v-else-if="activeView === 'topics'"
+        :excerpts="excerpts"
+        :notes="notes"
+        :navigation-target="topicNavigationTarget"
+      />
 
       <TagManager v-else-if="activeView === 'tags'" @tags-changed="handleTagsChanged" />
 
@@ -1444,6 +1466,61 @@ form,
   flex: 1 1 auto;
   height: 1px;
   background: #eee7da;
+}
+
+.topic-reference-section {
+  display: grid;
+  gap: 8px;
+  padding-top: 14px;
+  border-top: 1px solid #e5ded2;
+}
+
+.topic-reference-section h3 {
+  margin: 0;
+  color: #405055;
+  font-size: 0.86rem;
+  font-weight: 800;
+}
+
+.topic-reference-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.topic-reference-path {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  min-height: 30px;
+  padding: 4px 9px;
+  border: 1px solid #d9e3dc;
+  border-radius: 5px;
+  background: #f7faf6;
+  color: #365e56;
+  cursor: pointer;
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-align: left;
+}
+
+.topic-reference-path:hover {
+  border-color: #9fbdb2;
+  background: #edf4ef;
+}
+
+.topic-reference-path svg {
+  flex: 0 0 auto;
+  width: 15px;
+  height: 15px;
+}
+
+.topic-reference-path span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .topic-note-section {
