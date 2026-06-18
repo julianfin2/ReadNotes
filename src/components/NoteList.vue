@@ -14,6 +14,7 @@ import {
 import BaseModal from "./BaseModal.vue";
 import CustomSelect from "./CustomSelect.vue";
 import ResponsiveTagList from "./ResponsiveTagList.vue";
+import TagTokenInput from "./TagTokenInput.vue";
 import type { Note, NoteFilters, UpdateNoteInput } from "../types/note";
 import type { Tag } from "../types/tag";
 import { deleteDraftPayload, getDraftPayload, saveDraftPayload } from "../utils/drafts";
@@ -718,7 +719,11 @@ function toTagBackground(color: string) {
         </label>
         <label>
           标签
-          <input v-model="createDraft.tagInput" placeholder="#主题 #概念 #写作素材" />
+          <TagTokenInput
+            v-model="createDraft.tagInput"
+            :tags="tags"
+            placeholder="输入标签后按空格或回车"
+          />
         </label>
       </section>
       <div class="editor-actions">
@@ -741,7 +746,7 @@ function toTagBackground(color: string) {
         </label>
         <label>
           标签
-          <input v-model="editDraft.tagInput" placeholder="#主题 #概念 #写作素材" />
+          <TagTokenInput v-model="editDraft.tagInput" :tags="tags" />
         </label>
       </section>
       <div class="editor-actions">

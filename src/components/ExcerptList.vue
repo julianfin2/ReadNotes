@@ -15,6 +15,7 @@ import BaseModal from "./BaseModal.vue";
 import CustomSelect from "./CustomSelect.vue";
 import EditableCombobox from "./EditableCombobox.vue";
 import ResponsiveTagList from "./ResponsiveTagList.vue";
+import TagTokenInput from "./TagTokenInput.vue";
 import type { Book } from "../types/book";
 import type { Excerpt, ExcerptFilters, UpdateExcerptInput } from "../types/excerpt";
 import type { Tag } from "../types/tag";
@@ -1051,7 +1052,11 @@ function cancelDiscardEditor() {
         </div>
         <label>
           标签
-          <input v-model="createDraft.tagInput" placeholder="例如：人性 写作素材 #焦虑" />
+          <TagTokenInput
+            v-model="createDraft.tagInput"
+            :tags="tags"
+            placeholder="输入标签后按空格或回车"
+          />
         </label>
       </section>
       <div class="editor-actions">
@@ -1092,7 +1097,7 @@ function cancelDiscardEditor() {
         </div>
         <label>
           标签
-          <input v-model="editDraft.tagInput" />
+          <TagTokenInput v-model="editDraft.tagInput" :tags="tags" />
         </label>
       </section>
       <div class="editor-actions">
