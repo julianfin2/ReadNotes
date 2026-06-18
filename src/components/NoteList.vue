@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, reactive, ref, shallowRef, watch } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, shallowRef, watch } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import {
   ArrowLeft,
@@ -22,6 +22,7 @@ import type { Tag } from "../types/tag";
 import type { MaterialTopicReference } from "../types/topic";
 import { deleteDraftPayload, getDraftPayload, saveDraftPayload } from "../utils/drafts";
 import { formatDateOnly, formatDateTime } from "../utils/date";
+import { restoreScrollPosition, saveScrollPosition } from "../utils/scrollMemory";
 
 const props = defineProps<{
   notes: Note[];
@@ -50,11 +51,13 @@ const restoreDraftMessage = ref("");
 const toolbarSearch = ref("");
 const pendingEditorAction = shallowRef<(() => void | Promise<void>) | null>(null);
 const topicReferences = ref<MaterialTopicReference[]>([]);
+const listScrollEl = ref<HTMLElement | null>(null);
 const restoreDraftKind = ref<"create" | "edit" | null>(null);
 const pendingCreateDraft = ref<NoteCreateDraftPayload | null>(null);
 const pendingEditDraft = ref<NoteEditDraftPayload | null>(null);
 let createDraftSaveTimer: number | undefined;
 let editDraftSaveTimer: number | undefined;
+const LIST_SCROLL_KEY = "notes";
 
 type NoteCreateDraftPayload = {
   content: string;
@@ -193,6 +196,7 @@ watch(
 );
 
 onBeforeUnmount(() => {
+  rememberListScroll();
   saveCreateDraftNow();
   saveEditDraftNow();
   if (createDraftSaveTimer) {
@@ -202,6 +206,26 @@ onBeforeUnmount(() => {
     window.clearTimeout(editDraftSaveTimer);
   }
 });
+
+onMounted(() => {
+  void nextTick(restoreListScroll);
+});
+
+watch(viewMode, (mode) => {
+  if (mode === "list") {
+    void nextTick(restoreListScroll);
+  }
+});
+
+function rememberListScroll() {
+  if (listScrollEl.value) {
+    saveScrollPosition(LIST_SCROLL_KEY, listScrollEl.value.scrollTop);
+  }
+}
+
+function restoreListScroll() {
+  restoreScrollPosition(LIST_SCROLL_KEY, listScrollEl.value);
+}
 
 watch(
   () => props.notes,
@@ -666,7 +690,11 @@ function toTagBackground(color: string) {
         <span>创建时间</span>
         <span>操作</span>
       </div>
-      <div class="note-table-body">
+      <div
+        ref="listScrollEl"
+        class="note-table-body"
+        @scroll="rememberListScroll"
+      >
         <button
           v-for="note in notes"
           :key="note.id"

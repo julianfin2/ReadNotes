@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import { Pencil, Plus, Save, Trash2, X } from "@lucide/vue";
 import BaseModal from "./BaseModal.vue";
@@ -7,6 +7,7 @@ import CustomSelect from "./CustomSelect.vue";
 import TagColorField from "./TagColorField.vue";
 import type { TagWithCount } from "../types/tag";
 import { formatDateOnly, formatDateTime } from "../utils/date";
+import { restoreScrollPosition, saveScrollPosition } from "../utils/scrollMemory";
 
 defineProps<{
   embedded?: boolean;
@@ -28,6 +29,8 @@ const newTagParentId = ref("");
 const newTagColor = ref("");
 const errorMessage = ref("");
 const isSaving = ref(false);
+const listScrollEl = ref<HTMLElement | null>(null);
+const LIST_SCROLL_KEY = "tags";
 
 const editingTags = reactive<
   Record<string, { name: string; parentId: string; color: string }>
@@ -54,7 +57,23 @@ const parentTagOptions = computed(() => [
 
 onMounted(async () => {
   await loadTags();
+  await nextTick();
+  restoreListScroll();
 });
+
+onBeforeUnmount(() => {
+  rememberListScroll();
+});
+
+function rememberListScroll() {
+  if (listScrollEl.value) {
+    saveScrollPosition(LIST_SCROLL_KEY, listScrollEl.value.scrollTop);
+  }
+}
+
+function restoreListScroll() {
+  restoreScrollPosition(LIST_SCROLL_KEY, listScrollEl.value);
+}
 
 async function loadTags() {
   tags.value = await invoke<TagWithCount[]>("list_tags_with_counts");
@@ -220,7 +239,11 @@ async function runSaving(task: () => Promise<void>) {
           <span>操作</span>
         </div>
 
-        <div class="tag-table-body">
+        <div
+          ref="listScrollEl"
+          class="tag-table-body"
+          @scroll="rememberListScroll"
+        >
           <div v-for="tag in filteredTags" :key="tag.id" class="tag-table-row">
             <span class="tag-name-cell">#{{ tag.name }}</span>
             <span>

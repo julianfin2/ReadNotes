@@ -1,5 +1,14 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, reactive, ref, shallowRef, watch } from "vue";
+import {
+  computed,
+  nextTick,
+  onBeforeUnmount,
+  onMounted,
+  reactive,
+  ref,
+  shallowRef,
+  watch,
+} from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import {
   ArrowLeft,
@@ -27,6 +36,7 @@ import type {
 } from "../types/topic";
 import { deleteDraftPayload, getDraftPayload, saveDraftPayload } from "../utils/drafts";
 import { formatDateOnly, formatDateTime } from "../utils/date";
+import { restoreScrollPosition, saveScrollPosition } from "../utils/scrollMemory";
 
 const props = defineProps<{
   excerpts: Excerpt[];
@@ -64,6 +74,8 @@ const topicReflection = ref("");
 const errorMessage = ref("");
 const isSaving = ref(false);
 const pendingNavigationTarget = ref<TopicNavigationTarget | null>(null);
+const listScrollEl = ref<HTMLElement | null>(null);
+const LIST_SCROLL_KEY = "topics";
 
 type TopicDraft = {
   title: string;
@@ -349,9 +361,14 @@ const noteToAdd = computed(() => {
 onMounted(async () => {
   await loadTopics();
   await applyNavigationTarget(props.navigationTarget);
+  if (viewMode.value === "list") {
+    await nextTick();
+    restoreListScroll();
+  }
 });
 
 onBeforeUnmount(() => {
+  rememberListScroll();
   saveTopicCreateDraftNow();
   saveTopicDraftNow();
   saveTopicCollectDraftNow();
@@ -377,6 +394,22 @@ onBeforeUnmount(() => {
     window.clearTimeout(topicMaterialDraftSaveTimer);
   }
 });
+
+watch(viewMode, (mode) => {
+  if (mode === "list") {
+    void nextTick(restoreListScroll);
+  }
+});
+
+function rememberListScroll() {
+  if (listScrollEl.value) {
+    saveScrollPosition(LIST_SCROLL_KEY, listScrollEl.value.scrollTop);
+  }
+}
+
+function restoreListScroll() {
+  restoreScrollPosition(LIST_SCROLL_KEY, listScrollEl.value);
+}
 
 watch(selectedTopicId, async (topicId) => {
   selectedNodeId.value = "";
@@ -1769,7 +1802,11 @@ async function runSaving(task: () => Promise<void>) {
           <span>操作</span>
         </div>
 
-        <div class="topic-table-body">
+        <div
+          ref="listScrollEl"
+          class="topic-table-body"
+          @scroll="rememberListScroll"
+        >
           <div
             v-for="topic in topics"
             :key="topic.id"
