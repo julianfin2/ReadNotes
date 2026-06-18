@@ -1,3 +1,19 @@
-# ReadNotes / 摘抄库
+# 摘抄库
 
-ReadNotes is being designed as a personal excerpt and topic research manager. See [docs/product-design.md](docs/product-design.md) for the current product concepts, data model, and first-version scope.
+摘抄库（ReadNotes）是一款本地阅读笔记管理工具，用于整理书籍摘抄、个人笔记及研究主题。
+
+## 主要功能
+
+- 记录摘抄原文、阅读笔记、书籍、章节和标签
+- 单独记录没有原文的个人笔记
+- 使用标签分类、搜索和筛选材料
+- 建立主题和子主题，将摘抄或笔记收录为研究材料
+- 管理书籍、章节以及标签名称和颜色
+- 自动保存新增和编辑过程中的未完成草稿
+- 创建、切换或恢复使用默认的 SQLite 数据库
+
+所有数据均保存在本地 SQLite 数据库中。数据库路径可以在应用的“设置”页面查看和切换。
+
+## 设计文档
+
+产品概念、数据结构及功能范围参见 [docs/product-design.md](docs/product-design.md)。
