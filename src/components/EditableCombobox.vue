@@ -20,12 +20,10 @@ const visibleOptions = computed(() => {
   const query = props.modelValue.trim().toLowerCase();
   const unique = Array.from(new Set(props.options.filter(Boolean)));
   if (!query) {
-    return unique.slice(0, 8);
+    return unique;
   }
 
-  return unique
-    .filter((option) => option.toLowerCase().includes(query))
-    .slice(0, 8);
+  return unique.filter((option) => option.toLowerCase().includes(query));
 });
 
 function updateValue(value: string) {
